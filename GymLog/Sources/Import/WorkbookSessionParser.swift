@@ -83,7 +83,7 @@ public struct ParsedWorkbook {
 public enum WorkbookSessionParserError: Error, Equatable {
     case noLogSheets
     case headerMismatch(sheet: String, row: Int, found: [String])
-    case noDateAnchor
+    case invalidDate(sheet: String, row: Int, raw: String)
     case dateOrderingBroken(detail: String)
 }
 
@@ -94,9 +94,13 @@ public enum WorkbookSessionParserError: Error, Equatable {
 /// I/O -- so it can be fuzzed and parity-tested without a persistence layer
 /// in the loop.
 public enum WorkbookSessionParser {
-    public static func parse(_ workbook: XLSXWorkbook) throws -> ParsedWorkbook {
-        let logSheetNames = workbook.sheetOrder.filter {
-            RegexSearch.contains(#"^full body(\s+\d+)?$"#, in: $0.trimmingCharacters(in: .whitespaces), caseInsensitive: true)
+    /// `now` only matters when no date in the workbook carries a year.
+    public static func parse(_ workbook: XLSXWorkbook, now: Date = Date()) throws -> ParsedWorkbook {
+        // A training-log sheet is any sheet with at least one "Week N" row in column A.
+        let logSheetNames = workbook.sheetOrder.filter { name in
+            (workbook.sheets[name] ?? [:]).values.contains { cells in
+                wholeMatch(#"^Week (\d+)$"#, cellText(cells, 1), caseInsensitive: false) != nil
+            }
         }
         guard !logSheetNames.isEmpty else { throw WorkbookSessionParserError.noLogSheets }
 
@@ -107,7 +111,7 @@ public enum WorkbookSessionParser {
             rawSessions.append(contentsOf: gatherRawSessions(sheetName: sheetName, rows: rows))
         }
 
-        let dateResults = try reconstructDates(rawSessions)
+        let dateResults = try reconstructDates(rawSessions, now: now)
 
         let stats = ExerciseStatsAggregator()
         var sessionsBuilt: [ParsedSession] = []
@@ -419,129 +423,143 @@ public enum WorkbookSessionParser {
         let reviewReason: String?
     }
 
-    /// The one known, allowed date reversal (CONTRACT.md §8.1 amendment):
-    /// both sides are unconverted text dates -- a coach data-entry slip, not
-    /// a conversion artifact. Reconstruct-and-flag, never invent a "fixed"
-    /// date.
-    private static let knownReversalCurRaw = "21/7"
-    private static let knownReversalPrevRaw = "24/7"
-
-    private static func reconstructDates(_ rawSessions: [RawSession]) throws -> [DateResult] {
-        struct Interim {
-            let month: Int
-            let day: Int
-            let origin: DateOrigin
-            let serialYear: Int?
-            let raw: String
-        }
-
-        var interims: [Interim] = []
-        for session in rawSessions {
-            let raw = session.dateRaw.trimmingCharacters(in: .whitespaces)
-            if raw.contains("/") {
-                let components = raw.split(separator: "/")
-                guard components.count >= 2, let d = Int(components[0]), let mo = Int(components[1]) else {
-                    interims.append(Interim(month: 1, day: 1, origin: .asRecorded, serialYear: nil, raw: raw))
-                    continue
-                }
-                interims.append(Interim(month: mo, day: d, origin: .asRecorded, serialYear: nil, raw: raw))
-            } else {
-                let serial = Int(Double(raw) ?? 0)
-                let parts = ExcelEpoch.date(fromSerial: serial)
-                // Swap: Excel's month becomes day, Excel's day becomes month.
-                interims.append(Interim(month: parts.day, day: parts.month, origin: .reconstructed, serialYear: parts.year, raw: raw))
-            }
-        }
-
-        guard interims.contains(where: { $0.origin == .reconstructed }) else {
-            throw WorkbookSessionParserError.noDateAnchor
-        }
-
-        var years = [Int?](repeating: nil, count: interims.count)
-        for (index, interim) in interims.enumerated() where interim.origin == .reconstructed {
-            years[index] = interim.serialYear
-        }
-
-        // Forward pass: fill `asRecorded` runs from the nearest preceding
-        // anchor using month-rollback detection (>=6 months back => new year).
-        var lastKnownYear: Int?
-        var lastKnownMonth: Int?
-        for index in interims.indices {
-            if let y = years[index] {
-                lastKnownYear = y
-                lastKnownMonth = interims[index].month
-                continue
-            }
-            guard let y = lastKnownYear, let prevMonth = lastKnownMonth else { continue }
-            let month = interims[index].month
-            let newYear = (month < prevMonth && (prevMonth - month) >= 6) ? y + 1 : y
-            years[index] = newYear
-            lastKnownYear = newYear
-            lastKnownMonth = month
-        }
-        // Backward pass: a leading `asRecorded` run before the first anchor.
-        var nextKnownYear: Int?
-        var nextKnownMonth: Int?
-        for index in interims.indices.reversed() {
-            if let y = years[index] {
-                nextKnownYear = y
-                nextKnownMonth = interims[index].month
-                continue
-            }
-            guard years[index] == nil else { continue }
-            guard let y = nextKnownYear, let nextMonth = nextKnownMonth else { continue }
-            let month = interims[index].month
-            let inferredYear = (month > nextMonth && (month - nextMonth) >= 6) ? y - 1 : y
-            years[index] = inferredYear
-            nextKnownYear = inferredYear
-            nextKnownMonth = month
-        }
-
+    /// How each session's column-B date cell is read:
+    /// - Text `d/m` or `d/m/yyyy` (day first). Without a year, the year comes from the
+    ///   nearest session that has one, rolling over when the month jumps by 6 or more.
+    /// - A real Excel date cell (a serial number) is taken as written. Short `m/d`-formatted
+    ///   cells are ambiguous: day-first entries typed into a month-first Excel get their day
+    ///   and month swapped on entry. Both readings are tried and the one that keeps sessions
+    ///   in chronological order wins (as-written on a tie, swapped is impossible past day 12).
+    /// - With no year anywhere, the latest session is placed in the current year, or the
+    ///   previous one if that would be in the future.
+    /// Out-of-order dates are kept and flagged for review, never silently corrected; more than
+    /// 3 reversals, or one of more than 30 days, aborts the import.
+    private static func reconstructDates(_ rawSessions: [RawSession], now: Date) throws -> [DateResult] {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
 
-        var results: [DateResult] = []
-        var previousDate: Date?
-        var previousRaw: String?
-        var reversalCount = 0
-
-        for (index, interim) in interims.enumerated() {
-            guard let year = years[index] else {
-                throw WorkbookSessionParserError.noDateAnchor
-            }
-            var components = DateComponents()
-            components.year = year
-            components.month = interim.month
-            components.day = interim.day
-            guard let thisDate = calendar.date(from: components) else {
-                throw WorkbookSessionParserError.dateOrderingBroken(detail: "invalid calendar date for \(interim.raw)")
-            }
-
-            var needsReview = false
-            var reviewReason: String?
-            if let prev = previousDate, thisDate < prev {
-                if interim.raw == knownReversalCurRaw, previousRaw == knownReversalPrevRaw {
-                    needsReview = true
-                    reviewReason = "源数据日期逆序（raw='24/7'→'21/7'），两侧均为 Excel 未转换的文本日期，疑似教练录入笔误（按周节奏本应落在 7 月 27-31 日）。按契约 §8.1 保留原值，不做修正，由教练本人判定是否修正。"
-                    reversalCount += 1
-                    let daysBack = calendar.dateComponents([.day], from: thisDate, to: prev).day ?? 0
-                    if reversalCount > 3 || daysBack > 30 {
-                        throw WorkbookSessionParserError.dateOrderingBroken(detail: "reversal exceeds §3.7 tolerance (count=\(reversalCount), daysBack=\(daysBack))")
+        enum Source {
+            case text(day: Int, month: Int, year: Int?)
+            case serial(month: Int, day: Int, year: Int)
+        }
+        var sources: [Source] = []
+        for session in rawSessions {
+            let raw = session.dateRaw.trimmingCharacters(in: .whitespaces)
+            if raw.contains("/") {
+                let parts = raw.split(separator: "/").map { $0.trimmingCharacters(in: .whitespaces) }
+                guard parts.count == 2 || parts.count == 3, let day = Int(parts[0]), let month = Int(parts[1]) else {
+                    throw WorkbookSessionParserError.invalidDate(sheet: session.sheet, row: session.row, raw: raw)
+                }
+                var year: Int?
+                if parts.count == 3 {
+                    guard let y = Int(parts[2]) else {
+                        throw WorkbookSessionParserError.invalidDate(sheet: session.sheet, row: session.row, raw: raw)
                     }
-                } else {
-                    let daysBack = calendar.dateComponents([.day], from: thisDate, to: prev).day ?? 0
-                    reversalCount += 1
-                    if reversalCount > 3 || daysBack > 30 {
-                        throw WorkbookSessionParserError.dateOrderingBroken(detail: "unexpected date reversal at raw=\(interim.raw), \(daysBack) days back from \(String(describing: previousRaw))")
+                    year = y < 100 ? 2000 + y : y
+                }
+                sources.append(.text(day: day, month: month, year: year))
+            } else if let serial = Double(raw), serial >= 1 {
+                let parts = ExcelEpoch.date(fromSerial: Int(serial))
+                sources.append(.serial(month: parts.month, day: parts.day, year: parts.year))
+            } else {
+                throw WorkbookSessionParserError.invalidDate(sheet: session.sheet, row: session.row, raw: raw)
+            }
+        }
+
+        struct Candidate {
+            var dates: [Date]
+            var origins: [DateOrigin]
+            var reversals: Int
+        }
+
+        func build(swapSerials: Bool) throws -> Candidate? {
+            var months: [Int] = [], days: [Int] = [], years: [Int?] = [], origins: [DateOrigin] = []
+            for source in sources {
+                switch source {
+                case let .text(day, month, year):
+                    months.append(month); days.append(day); years.append(year); origins.append(.asRecorded)
+                case let .serial(month, day, year):
+                    if swapSerials {
+                        guard day <= 12 else { return nil }
+                        months.append(day); days.append(month); origins.append(.reconstructed)
+                    } else {
+                        months.append(month); days.append(day); origins.append(.asRecorded)
                     }
-                    needsReview = true
-                    reviewReason = "年份由推断得出且与后续錨點衝突"
+                    years.append(year)
                 }
             }
 
-            results.append(DateResult(date: thisDate, dateOrigin: interim.origin, needsReview: needsReview, reviewReason: reviewReason))
-            previousDate = thisDate
-            previousRaw = interim.raw
+            if !years.contains(where: { $0 != nil }), let last = months.indices.last {
+                // No year anywhere: anchor the latest session to today, then the passes below
+                // carry it backwards.
+                let current = calendar.component(.year, from: now)
+                var anchor = current
+                if let candidate = calendar.date(from: DateComponents(year: current, month: months[last], day: days[last])),
+                   candidate > now {
+                    anchor = current - 1
+                }
+                years[last] = anchor
+                for index in months.indices { origins[index] = .reconstructed }
+            }
+
+            // Forward pass: fill year-less runs from the nearest preceding anchor.
+            var lastYear: Int?, lastMonth: Int?
+            for index in months.indices {
+                if let y = years[index] { lastYear = y; lastMonth = months[index]; continue }
+                guard let y = lastYear, let previous = lastMonth else { continue }
+                let year = (months[index] < previous && previous - months[index] >= 6) ? y + 1 : y
+                years[index] = year; lastYear = year; lastMonth = months[index]
+            }
+            // Backward pass: a leading year-less run before the first anchor.
+            var nextYear: Int?, nextMonth: Int?
+            for index in months.indices.reversed() {
+                if let y = years[index] { nextYear = y; nextMonth = months[index]; continue }
+                guard let y = nextYear, let following = nextMonth else { continue }
+                let year = (months[index] > following && months[index] - following >= 6) ? y - 1 : y
+                years[index] = year; nextYear = year; nextMonth = months[index]
+            }
+
+            var dates: [Date] = []
+            var reversals = 0
+            for index in months.indices {
+                let components = DateComponents(year: years[index], month: months[index], day: days[index])
+                let check = calendar.date(from: components).map { calendar.dateComponents([.year, .month, .day], from: $0) }
+                guard let date = calendar.date(from: components),
+                      check?.year == years[index], check?.month == months[index], check?.day == days[index] else {
+                    if swapSerials { return nil }
+                    let session = rawSessions[index]
+                    throw WorkbookSessionParserError.invalidDate(sheet: session.sheet, row: session.row, raw: session.dateRaw)
+                }
+                if let previous = dates.last, date < previous { reversals += 1 }
+                dates.append(date)
+            }
+            return Candidate(dates: dates, origins: origins, reversals: reversals)
+        }
+
+        guard var chosen = try build(swapSerials: false) else { return [] }
+        let hasSerials = sources.contains { if case .serial = $0 { return true } else { return false } }
+        if hasSerials, let swapped = try build(swapSerials: true), swapped.reversals < chosen.reversals {
+            chosen = swapped
+        }
+
+        var results: [DateResult] = []
+        var reversalCount = 0
+        for index in chosen.dates.indices {
+            let date = chosen.dates[index]
+            var needsReview = false
+            var reviewReason: String?
+            if index > 0, date < chosen.dates[index - 1] {
+                let daysBack = calendar.dateComponents([.day], from: date, to: chosen.dates[index - 1]).day ?? 0
+                reversalCount += 1
+                if reversalCount > 3 || daysBack > 30 {
+                    throw WorkbookSessionParserError.dateOrderingBroken(
+                        detail: "date reversal at raw=\(rawSessions[index].dateRaw), \(daysBack) days before raw=\(rawSessions[index - 1].dateRaw)"
+                    )
+                }
+                needsReview = true
+                reviewReason = "日期早於上一課次（原始值 '\(rawSessions[index - 1].dateRaw)' → '\(rawSessions[index].dateRaw)'），已按原值保留，請核對。"
+            }
+            results.append(DateResult(date: date, dateOrigin: chosen.origins[index], needsReview: needsReview, reviewReason: reviewReason))
         }
         return results
     }

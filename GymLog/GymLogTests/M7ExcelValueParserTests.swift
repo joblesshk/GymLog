@@ -190,12 +190,20 @@ final class M7ExcelValueParserTests: XCTestCase {
 
     func testCorruptedSerialsAreRejectedByConstraintTwo() {
         // §8.2 constraint 2: 56789 passes constraint 1 (reconstructs to a
-        // legal-looking 6-24 range) but fails constraint 2 (outside
-        // [45000,46600] -- it decodes to the year 2055). Constraint 1 alone
+        // legal-looking 6-24 range) but fails constraint 2 (more than a year
+        // after today -- it decodes to the year 2055). Constraint 1 alone
         // is not enough to catch it.
         let result = ExcelValueParsers.parseRepTargetFromSerial(56789, raw: "56789")
         XCTAssertEqual(result.value, .unknown(raw: "56789"))
         XCTAssertTrue(result.needsReview)
+    }
+
+    func testRepRangesTypedInAnyRecentYearAreReconstructed() {
+        // "8-12" typed in 2019 and in August 2027 -- both outside the original 2023-2027 window.
+        for serial in [43689, 46611] {
+            let result = ExcelValueParsers.parseRepTargetFromSerial(serial, raw: "\(serial)")
+            XCTAssertEqual(result.value, .range(low: 8, high: 12, raw: "\(serial)"), "serial \(serial)")
+        }
     }
 
     // MARK: - §8.3: cardio times Excel read as h:mm instead of m:ss

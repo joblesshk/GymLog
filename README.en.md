@@ -29,7 +29,7 @@ Device builds require your own Apple team and unique bundle identifiers. Cloud v
    - Results produce a short summary (e.g. "AMRAP 12:00 · 5 rounds + 12 reps · Scaled") that is easy to share with a coach or teammates.
 3. **Custom exercises**: Create your own exercises and choose how each is recorded (reps, time, distance or rounds) and how load is expressed (absolute weight, per side, resistance band, machine setting, assisted, and more).
 4. **Coach and athlete, together**: Both sides keep their own logs and exchange training plans and past results through share files, with no manual re-entry.
-5. **Import and export**: Import past training from Excel files. Export saved sessions as standard CSV, and back up or restore all data with a backup file. Select a photo of an InBody report and it is recognized and recorded on the device.
+5. **Import and export**: Import past training from Excel files ([format guide](docs/EXCEL_FORMAT.md), in Chinese). Export saved sessions as standard CSV, and back up or restore all data with a backup file. Select a photo of an InBody report and it is recognized and recorded on the device.
 6. **Exercise library and templates**: 240 built-in bilingual exercises. Save frequently used combinations as templates to set up sessions quickly.
 7. **Energy estimates**: Estimates calories burned from activity categories and the recorded training.
 8. **AI feedback**: Get AI-generated reviews of your training with suggestions for improvement.

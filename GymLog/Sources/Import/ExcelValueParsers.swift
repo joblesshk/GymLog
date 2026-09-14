@@ -135,8 +135,14 @@ public enum ExcelValueParsers {
 
     // MARK: - §7.7 / §8.2 / §8.3 RepTarget
 
-    private static let serialMin = 45000
-    private static let serialMax = 46600
+    /// A rep range like "8-12" typed into Excel becomes a date in the year it was typed, so a
+    /// plausible serial lies between 2000-01-01 and one year from today. Anything later (e.g.
+    /// 56789, year 2055) is a corrupted value rather than a converted range.
+    private static let serialMin = 36526
+    private static var serialMax: Int {
+        let epoch = Date(timeIntervalSince1970: -2_209_161_600) // 1899-12-30T00:00:00Z
+        return Int(Date().timeIntervalSince(epoch) / 86_400) + 366
+    }
     private static let suspectNumericThreshold = 1000.0
 
     private static func rangeBoundsOK(_ low: Int, _ high: Int) -> Bool {
