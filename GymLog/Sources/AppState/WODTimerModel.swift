@@ -264,11 +264,15 @@ public final class WODTimerModel {
         // sync() still has to walk through. A single sync() can legitimately
         // need to advance through more than one finished phase (e.g. the
         // app was backgrounded through an entire short EMOM interval).
-        var remaining = Int(deadline.timeIntervalSince(now()).rounded(.up))
+        // The deadline is only ever moved by whole phase lengths, never
+        // re-anchored to `now + ceil(remaining)`: with the 200ms ticker that
+        // re-anchor added the rounded-up fraction back every tick and froze
+        // the countdown (see `testSubSecondTicksStillCountDown`).
+        var phaseDeadline = deadline
+        var remaining = Int(phaseDeadline.timeIntervalSince(now()).rounded(.up))
         while remaining <= 0, currentPhaseIndex < phases.count {
             let finishedIndex = currentPhaseIndex
             elapsedBeforeCurrentPhase += phases[finishedIndex].durationSeconds
-            let overshoot = -remaining
             currentPhaseIndex += 1
             guard currentPhaseIndex < phases.count else {
                 remainingSecondsInPhase = 0
@@ -280,11 +284,13 @@ public final class WODTimerModel {
                 onAllPhasesFinished?()
                 return
             }
-            remaining = phases[currentPhaseIndex].durationSeconds - overshoot
+            phaseDeadline = phaseDeadline.addingTimeInterval(TimeInterval(phases[currentPhaseIndex].durationSeconds))
+            remaining = Int(phaseDeadline.timeIntervalSince(now()).rounded(.up))
+            self.deadline = phaseDeadline // `onPhaseFinish` persists `makeAnchor()`
             onPhaseFinish?(finishedIndex)
         }
         remainingSecondsInPhase = max(0, remaining)
-        self.deadline = now().addingTimeInterval(TimeInterval(remainingSecondsInPhase))
+        self.deadline = phaseDeadline
         elapsedSeconds = elapsedBeforeCurrentPhase + (phases[currentPhaseIndex].durationSeconds - remainingSecondsInPhase)
     }
 

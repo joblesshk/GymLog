@@ -39,6 +39,36 @@ final class WODTimerModelTests: XCTestCase {
         XCTAssertEqual(timer.state, .running)
     }
 
+    /// Regression (2026-09-15): the live ticker calls `sync()` every 200ms.
+    /// Re-anchoring the deadline to `now + ceil(remaining)` on each call
+    /// pushed it forward by the rounded-up fraction every tick, so an AMRAP
+    /// sat at 12:00 forever. Whole-second clock steps never exposed it.
+    func testSubSecondTicksStillCountDown() {
+        let clock = Clock()
+        let timer = WODTimerModel(phases: [WODTimerPhase(label: "AMRAP", durationSeconds: 720)], now: clock.now)
+        timer.start()
+        for _ in 0..<25 {
+            clock.advance(0.2)
+            timer.sync()
+        }
+        XCTAssertEqual(timer.remainingSecondsInPhase, 715)
+        XCTAssertEqual(timer.elapsedSeconds, 5)
+    }
+
+    func testSubSecondTicksAcrossPhaseBoundaryKeepAccurateDeadline() {
+        let clock = Clock()
+        let phases = [WODTimerPhase(label: "1", durationSeconds: 60), WODTimerPhase(label: "2", durationSeconds: 60)]
+        let timer = WODTimerModel(phases: phases, now: clock.now)
+        timer.start()
+        for _ in 0..<(65 * 5) {
+            clock.advance(0.2)
+            timer.sync()
+        }
+        XCTAssertEqual(timer.currentPhaseIndex, 1)
+        XCTAssertEqual(timer.remainingSecondsInPhase, 55)
+        XCTAssertEqual(timer.elapsedSeconds, 65)
+    }
+
     /// The exact acceptance case from the review: a 12-minute cap, stopped
     /// early -- `end()` must report the elapsed-so-far, never the full cap
     /// duration as if it were a finish.
