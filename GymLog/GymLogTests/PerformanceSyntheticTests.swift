@@ -17,6 +17,12 @@ final class PerformanceSyntheticTests: XCTestCase {
     private var client: Client!
 
     override func setUpWithError() throws {
+        // Shared CI runners are several times slower than a developer Mac, so wall-clock
+        // budgets there report runner speed, not regressions. CI sets
+        // TEST_RUNNER_GYMLOG_SKIP_PERF_TESTS=1; run locally to enforce the budgets.
+        if ProcessInfo.processInfo.environment["GYMLOG_SKIP_PERF_TESTS"] == "1" {
+            throw XCTSkip("Timing budgets are skipped on CI runners.")
+        }
         container = try TestSupport.makeInMemoryContainer()
         context = ModelContext(container)
         client = Client(id: "perf-client", name: "Perf Client")

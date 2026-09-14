@@ -30,10 +30,12 @@ xcodebuild -project GymLog/GymLog.xcodeproj -scheme GymLog \
   GYMLOG_RELAY_BASE_URL="https://YOUR_WORKER_HOST" build
 ```
 
+在 Xcode 中运行或安装到真机时，把 `GymLog/project.yml` 里的 `GYMLOG_RELAY_BASE_URL` 改为自己的地址（例如 `https://gymlog-cloud-relay.<你的子域>.workers.dev`），再运行 `cd GymLog && xcodegen generate` 重新生成工程；直接在生成的工程里修改会在下次生成时被覆盖。
+
 服务根地址通过应用 Info.plist 的 `GymLogRelayBaseURL` 读取。ASR 与文字理解路由由客户端添加。默认 `.invalid` 地址下不会宣称云端已配置，也不附带作者的服务或调用额度。
 
 模型默认 `deepseek-flash`；若更换模型，需要同时检查 Worker allowlist、客户端请求字段、JSON 输出能力及测试。Provider Key 只放在 Worker secrets。语音和训练评价共用安装身份配额，服务限制及供应商计费由部署者承担。
 
 ## 权限
 
-麦克风用于主动发起的云端语音；蓝牙用于心率广播设备；相机/照片用于选择体测资料；通知用于计时提示。OCR、Excel 解析在本机执行。云端数据路径见 PRIVACY.md。
+麦克风用于主动发起的云端语音；蓝牙用于心率广播设备；系统照片选择器用于选择体测报告图片（无需相册权限）；通知用于计时提示。OCR、Excel 解析在本机执行。云端数据路径见 PRIVACY.md。

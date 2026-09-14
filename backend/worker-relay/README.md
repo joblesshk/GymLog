@@ -13,19 +13,21 @@ Tests use synthetic identities and mocked upstreams. TypeScript checks and proto
 
 ## Deploy your own service
 
-1. Install the dependencies and authenticate your own Cloudflare account with `npx wrangler login`.
-2. Review `wrangler.jsonc`: Worker name, upstream endpoints, model allowlist, request limits and Durable Object bindings. Do not place secrets in `vars`. The public `*.workers.dev` URL is disabled by default; attach a Custom Domain or route you control, or deliberately set `workers_dev` to `true`.
-3. Create the secrets through Wrangler's interactive input. Supply your own random signing secret and provider credentials:
+Prerequisites: a Cloudflare account (the free plan supports the SQLite-backed Durable Object used for quotas), a DeepSeek API key with available balance, and a Volcengine speech app with Doubao streaming ASR 2.0 enabled (its App ID and Access Token). `wrangler.jsonc` is preset for `deepseek-flash` and resource ID `volc.seedasr.sauc.duration`; change them only if your account uses different products.
+
+1. Install the dependencies with `npm ci --ignore-scripts` and authenticate your own Cloudflare account with `npx wrangler login`.
+2. Review `wrangler.jsonc`: Worker name, upstream endpoints, model allowlist, request limits and Durable Object bindings. Do not place secrets in `vars`. The Worker is served on your `*.workers.dev` subdomain; to use only a Custom Domain, set `workers_dev` to `false` and add the domain.
+3. Deploy, then add the secrets. Secrets take effect without redeploying; until they exist every protected route returns 401. Generate the signing secret randomly and enter provider credentials at the interactive prompts:
 
 ```sh
-npx wrangler secret put RELAY_TOKEN_SIGNING_SECRET
+npm run deploy
+openssl rand -hex 32 | npx wrangler secret put RELAY_TOKEN_SIGNING_SECRET
 npx wrangler secret put UPSTREAM_ASR_APP_ID
 npx wrangler secret put UPSTREAM_ASR_ACCESS_TOKEN
 npx wrangler secret put UPSTREAM_LLM_API_KEY
-npm run deploy
 ```
 
-4. Configure the app's `GYMLOG_RELAY_BASE_URL` build setting with that HTTPS root URL. Provider endpoints, models and resource IDs must correspond to the account/product you actually use.
+4. Check the deployment with `curl https://<your-worker-host>/healthz`, which should return `{"ok":true,...}`. Then set the app's `GYMLOG_RELAY_BASE_URL` to that HTTPS root URL (see [SETUP](../../docs/SETUP.md)).
 5. Test with synthetic utterances and workouts; verify errors, limits and cost controls before use with personal data.
 
 No secrets are included in an example file. If you use `.dev.vars` for local development, it remains ignored and must not be committed. A `.env` file is not the production secret store.

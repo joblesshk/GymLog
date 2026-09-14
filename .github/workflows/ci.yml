@@ -42,3 +42,5 @@ jobs:
           persist-credentials: false
       - run: brew install xcodegen
       - run: bash scripts/test-ios.sh
+        env:
+          TEST_RUNNER_GYMLOG_SKIP_PERF_TESTS: "1"

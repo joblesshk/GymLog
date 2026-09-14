@@ -24,6 +24,18 @@ final class SupersetUITests: XCTestCase {
         return app
     }
 
+    /// 今天頁是可滾動列表，底部浮動標籤欄會蓋住靠下的按鈕；直接 `tap()` 會點到
+    /// 標籤欄（SwiftUI 下 `isHittable` 仍回報 true）。先小幅上滑，直到元素
+    /// 離開螢幕底部區域，再點擊。
+    private func tapWhenHittable(_ element: XCUIElement, in app: XCUIApplication) {
+        let safeMaxY = app.frame.height * 0.8
+        for _ in 0..<8 where element.frame.maxY > safeMaxY {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+            start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)))
+        }
+        element.tap()
+    }
+
     /// 添加 Superset → 選第一個成員（走 `add-superset-button`，一次只選 1
     /// 個，卡片自己的「加入動作」補第二個——見 `TodayView.ExercisePickerTarget
     /// .newSuperset` 的註解：避免連續彈兩次選擇器的狀態機風險）。
@@ -31,7 +43,7 @@ final class SupersetUITests: XCTestCase {
     private func addSupersetWithTwoMembers(_ app: XCUIApplication) -> Bool {
         let addSupersetButton = app.buttons["add-superset-button"]
         guard addSupersetButton.waitForExistence(timeout: 10) else { return false }
-        addSupersetButton.tap()
+        tapWhenHittable(addSupersetButton, in: app)
 
         let firstRow = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'exercise-row-'")).element(boundBy: 0)
         guard firstRow.waitForExistence(timeout: 10) else { return false }
@@ -41,7 +53,7 @@ final class SupersetUITests: XCTestCase {
 
         let addMemberButton = app.buttons["superset-add-member-button"]
         guard addMemberButton.waitForExistence(timeout: 5) else { return false }
-        addMemberButton.tap()
+        tapWhenHittable(addMemberButton, in: app)
 
         let secondRow = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'exercise-row-'")).element(boundBy: 1)
         guard secondRow.waitForExistence(timeout: 10) else { return false }
@@ -71,7 +83,7 @@ final class SupersetUITests: XCTestCase {
 
         let addRoundButton = app.buttons["superset-add-round-button"]
         XCTAssertTrue(addRoundButton.waitForExistence(timeout: 5))
-        addRoundButton.tap()
+        tapWhenHittable(addRoundButton, in: app)
 
         XCTAssertTrue(app.staticTexts["R4"].waitForExistence(timeout: 5), "加一輪後每個成員都應該多出第 4 輪")
     }
@@ -84,7 +96,7 @@ final class SupersetUITests: XCTestCase {
 
         let removeSecondMember = app.buttons["superset-remove-member-1"]
         XCTAssertTrue(removeSecondMember.waitForExistence(timeout: 5))
-        removeSecondMember.tap()
+        tapWhenHittable(removeSecondMember, in: app)
 
         // 转普通动作后这一行改由 EntryRowView 渲染（P0 的
         // `entry-exercise-name` identifier），Superset 卡片自己的成员标识
@@ -102,7 +114,7 @@ final class SupersetUITests: XCTestCase {
         for rowIndex in [0, 1] {
             let addButton = app.buttons["add-exercise-button"]
             XCTAssertTrue(addButton.waitForExistence(timeout: 10))
-            addButton.tap()
+            tapWhenHittable(addButton, in: app)
             let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'exercise-row-'")).element(boundBy: rowIndex)
             XCTAssertTrue(row.waitForExistence(timeout: 10))
             row.tap()
@@ -110,7 +122,7 @@ final class SupersetUITests: XCTestCase {
 
         let composeButton = app.buttons["compose-superset-button"]
         XCTAssertTrue(composeButton.waitForExistence(timeout: 10), "有 2 個以上可組合的獨立動作時，「組成 Superset」應該可見")
-        composeButton.tap()
+        tapWhenHittable(composeButton, in: app)
 
         let composeRows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'compose-row-'"))
         XCTAssertTrue(composeRows.element(boundBy: 0).waitForExistence(timeout: 10))
@@ -135,7 +147,7 @@ final class SupersetUITests: XCTestCase {
         // Target the menu's stable accessibility identifier, not its decorative SF Symbol.
         let menu = app.buttons["superset-menu-button"]
         XCTAssertTrue(menu.waitForExistence(timeout: 5), "應該能找到 Superset 卡片的「⋯」選單")
-        menu.tap()
+        tapWhenHittable(menu, in: app)
 
         let dissolveItem = app.buttons["解散為獨立動作"]
         XCTAssertTrue(dissolveItem.waitForExistence(timeout: 5))
