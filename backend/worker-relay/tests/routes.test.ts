@@ -4,11 +4,12 @@ import { randomUUID } from "node:crypto";
 import worker, { type Env } from "../src/index";
 import { transition, type State } from "../src/quota";
 
-function setup() {
+function setup(overrides: Partial<Env> = {}) {
   const states = new Map<string, State>();
   const env = {
     RELAY_TOKEN_SIGNING_SECRET: "local-test-secret-only", MOCK_UPSTREAM: "1",
     ALLOWED_CLEANUP_MODELS: "deepseek-flash", MAX_OUTPUT_TOKENS: "4096",
+    ...overrides,
     QUOTA: {
       idFromName: (name: string) => name,
       get: (id: string) => ({
@@ -52,6 +53,24 @@ test("ungranted identity cannot access upstream; file API unavailable", async ()
   const { call } = setup();
   assert.equal((await call("/v1/cleanup/chat/completions", undefined, "POST", {})).status, 401);
   assert.equal((await call("/v1/asr/file", undefined, "POST", {})).status, 404);
+});
+test("omitted max_tokens is capped before reaching the provider", async () => {
+  const { call } = setup({ MOCK_UPSTREAM: "0", UPSTREAM_LLM_URL: "https://llm.unit.test/v1/chat/completions", UPSTREAM_LLM_API_KEY: "unit-key" });
+  const { token } = await (await call("/v1/trial/session", undefined, "POST")).json() as any;
+  const originalFetch = globalThis.fetch;
+  let forwarded: any;
+  globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+    forwarded = JSON.parse(init!.body as string);
+    return new Response("data: [DONE]\n\n", { status: 200, headers: { "content-type": "text/event-stream" } });
+  }) as typeof fetch;
+  try {
+    const body = { model: "deepseek-flash", stream: true, messages: [{ role: "user", content: "Plan" }] };
+    const response = await call("/v1/cleanup/chat/completions", token, "POST", body);
+    assert.equal(response.status, 200); await response.text();
+    assert.equal(forwarded.max_tokens, 4096);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 test("model and token budget validation happen before charging", async () => {
   const { call } = setup();

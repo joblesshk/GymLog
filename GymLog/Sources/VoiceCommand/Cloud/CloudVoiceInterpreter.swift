@@ -4,7 +4,7 @@ public protocol CloudVoiceInterpreting {
     func interpret(transcript: String, context: String, configuration: CloudVoiceConfiguration) async throws -> CloudVoicePlan
 }
 
-/// Reuses Shall We Talk's Chat Completions transport convention; intentionally no cleanup pass.
+/// Streams a Chat Completions request through the relay; intentionally no cleanup pass.
 public struct CloudVoiceInterpreter: CloudVoiceInterpreting {
     private let session: URLSession
     public init(session: URLSession = .shared) { self.session = session }

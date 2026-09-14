@@ -14,7 +14,7 @@ Tests use synthetic identities and mocked upstreams. TypeScript checks and proto
 ## Deploy your own service
 
 1. Install the dependencies and authenticate your own Cloudflare account with `npx wrangler login`.
-2. Review `wrangler.jsonc`: Worker name, upstream endpoints, model allowlist, request limits and Durable Object bindings. Do not place secrets in `vars`.
+2. Review `wrangler.jsonc`: Worker name, upstream endpoints, model allowlist, request limits and Durable Object bindings. Do not place secrets in `vars`. The public `*.workers.dev` URL is disabled by default; attach a Custom Domain or route you control, or deliberately set `workers_dev` to `true`.
 3. Create the secrets through Wrangler's interactive input. Supply your own random signing secret and provider credentials:
 
 ```sh
@@ -25,7 +25,7 @@ npx wrangler secret put UPSTREAM_LLM_API_KEY
 npm run deploy
 ```
 
-4. Configure the app's `GYMLOG_RELAY_BASE_URL` build setting with the resulting HTTPS root URL. Provider endpoints, models and resource IDs must correspond to the account/product you actually use.
+4. Configure the app's `GYMLOG_RELAY_BASE_URL` build setting with that HTTPS root URL. Provider endpoints, models and resource IDs must correspond to the account/product you actually use.
 5. Test with synthetic utterances and workouts; verify errors, limits and cost controls before use with personal data.
 
 No secrets are included in an example file. If you use `.dev.vars` for local development, it remains ignored and must not be committed. A `.env` file is not the production secret store.
@@ -42,6 +42,6 @@ The client generates its own installation identity and persists it in Keychain. 
 
 ## Deployment boundaries
 
-Random installation identities can be regenerated; they are not accounts or hardware attestation. Operator-enrolled grant support is optional and separate. Before making a service broadly accessible, add appropriate enrollment/access controls, platform rate limits, spending controls and monitoring. No deployment or supplier billing is performed by GitHub CI.
+Random installation identities can be regenerated; they are not accounts or hardware attestation. Before making a service broadly accessible, add appropriate enrollment/access controls, platform rate limits, spending controls and monitoring. No deployment or supplier billing is performed by GitHub CI.
 
 The relay handles audio, text and workout context. Review platform/provider logging and retention settings. Do not log request bodies, bearer tokens or health records. See the repository PRIVACY.md and SECURITY.md.

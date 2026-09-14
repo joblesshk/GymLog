@@ -5,23 +5,16 @@ export { QuotaDO };
 
 export interface Env extends QuotaEnvironment {
   RELAY_TOKEN_SIGNING_SECRET?: string;
-  // Operator-enrolled device credentials: only SHA-256 digests are stored here.
-  RELAY_DEVICE_GRANTS?: string;
-  // Separate allowlist so enrolling this Mac never replaces the iPhone grant secret.
-  RELAY_MAC_DEVICE_GRANTS?: string;
   MOCK_UPSTREAM?: string;
   UPSTREAM_ASR_WS_URL?: string;
-  UPSTREAM_ASR_FILE_URL?: string;
   UPSTREAM_LLM_URL?: string;
   UPSTREAM_LLM_WARMUP_URL?: string;
   UPSTREAM_ASR_APP_ID?: string;
   UPSTREAM_ASR_ACCESS_TOKEN?: string;
   UPSTREAM_ASR_RESOURCE_ID?: string;
-  UPSTREAM_ASR_FILE_RESOURCE_ID?: string;
   UPSTREAM_LLM_API_KEY?: string;
   MAX_ASR_MESSAGE_BYTES?: string;
   MAX_ASR_AUDIO_BYTES?: string;
-  MAX_FILE_BODY_BYTES?: string;
   MAX_INPUT_CHARS?: string;
   MAX_OUTPUT_TOKENS?: string;
   ALLOWED_CLEANUP_MODELS?: string;
@@ -85,7 +78,7 @@ async function cleanup(request: Request, env: Env, ctx: ExecutionContext): Promi
     return json({ error: { message: "messages is required", type: "invalid_request_error" } }, 400);
   }
   const requestedMaxTokens = payload.value.max_tokens ?? payload.value.max_completion_tokens;
-  if (claims.sub.startsWith("trial:") && requestedMaxTokens === undefined) payload.value.max_tokens = integerEnv(env.MAX_OUTPUT_TOKENS, 4096);
+  if (requestedMaxTokens === undefined) payload.value.max_tokens = integerEnv(env.MAX_OUTPUT_TOKENS, 4096);
   if (requestedMaxTokens !== undefined) {
     const maxOutputTokens = integerEnv(env.MAX_OUTPUT_TOKENS, 4096);
     if (!Number.isInteger(requestedMaxTokens) || requestedMaxTokens <= 0) {
@@ -382,12 +375,6 @@ function mockCleanupResponse(payload: Record<string, any>): Response {
   return new Response(events, { status: 200, headers: { "content-type": "text/event-stream" } });
 }
 
-function mockFileResponse(payload: Record<string, unknown>): Response {
-  const audio = payload.audio as Record<string, unknown>;
-  const bytes = typeof audio.data === "string" ? Math.floor(audio.data.length * 0.75) : 0;
-  return json({ code: 0, result: { text: `mock file transcript (${bytes} bytes)`, utterances: [] } });
-}
-
 function required(value: string | undefined, name: string): string {
   if (!value) throw new Error(`${name}_not_configured`);
   return value;
@@ -403,7 +390,7 @@ function unauthorized(): Response {
 }
 
 function quotaExceeded(): Response {
-  return json({ error: { message: "Test user quota or concurrency limit exceeded", type: "rate_limit_error" } }, 429);
+  return json({ error: { message: "Installation quota or concurrency limit exceeded", type: "rate_limit_error" } }, 429);
 }
 
 function upstreamFailure(): Response {
@@ -419,10 +406,4 @@ function json(value: unknown, status = 200, extraHeaders: Record<string, string>
     status,
     headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...extraHeaders },
   });
-}
-
-// Local helper for an operator to mint a short-lived test credential without placing it in source.
-// The CLI wrapper reads the secret from the environment and prints only the generated token.
-export async function mintTestToken(secret: string, subject = "worker-lab-test-user", ttlSeconds = 900): Promise<string> {
-  return signRelayToken({ sub: subject, exp: Math.floor(Date.now() / 1000) + ttlSeconds, scopes: ["asr", "cleanup", "file"], jti: crypto.randomUUID() }, secret);
 }

@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-/// Uses Shall We Talk's existing overseas Worker trial protocol.
+/// Client for the installation-scoped grant protocol in backend/worker-relay.
 /// Only installation identity is persisted. Provider keys never reach this client.
 public actor CloudRelaySession {
     public static let shared = CloudRelaySession()

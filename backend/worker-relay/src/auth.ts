@@ -1,4 +1,4 @@
-export type RelayScope = "asr" | "cleanup" | "file";
+export type RelayScope = "asr" | "cleanup";
 
 export interface RelayClaims {
   sub: string;
