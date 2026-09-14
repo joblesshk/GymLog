@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "source": "Synthetic demonstration templates; not athlete history",
+  "templates": [
+    {
+      "id": "demo-basic",
+      "name": "示範訓練 / Demo session",
+      "templateNote": "Synthetic example only; adapt to your goals and ability.",
+      "order": 0,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Back Squat",
+              "defaultSets": 2,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 6,
+                "raw": "6"
+              }
+            }
+          ]
+        },
+        {
+          "order": 1,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Bench press",
+              "defaultSets": 2,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 6,
+                "raw": "6"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

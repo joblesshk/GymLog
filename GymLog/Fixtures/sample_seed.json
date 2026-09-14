@@ -1,0 +1,1239 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-19T22:00:00Z",
+  "source": "GymLog M1 hand-written fixture (not real client data)",
+  "stats": {
+    "clientCount": 2,
+    "sessionCount": 4,
+    "exerciseCount": 15,
+    "entryCount": 22,
+    "setLogCount": 26,
+    "needsReviewCount": 7,
+    "exercisesNeedingReviewCount": 2,
+    "sessionsNeedingReviewCount": 1
+  },
+  "exercises": [
+    {
+      "id": "ex-0001",
+      "canonicalName": "Bench press",
+      "aliases": [
+        "bench press",
+        "Bench Press"
+      ],
+      "movementPattern": "push",
+      "equipment": "barbell",
+      "loadDirection": "higherIsStronger",
+      "isUnilateral": false,
+      "occurrenceCount": 3,
+      "needsReview": false,
+      "reviewReason": null,
+      "recordingMetric": "reps"
+    },
+    {
+      "id": "ex-0002",
+      "canonicalName": "Chin up w/assist",
+      "aliases": [
+        "Chin up w/assist"
+      ],
+      "movementPattern": "pull",
+      "equipment": "bodyweight",
+      "loadDirection": "lowerIsStronger",
+      "isUnilateral": false,
+      "occurrenceCount": 2,
+      "needsReview": false,
+      "reviewReason": null,
+      "recordingMetric": "reps"
+    },
+    {
+      "id": "ex-0003",
+      "canonicalName": "Machine row",
+      "aliases": [
+        "Machine row"
+      ],
+      "movementPattern": "pull",
+      "equipment": "machine",
+      "loadDirection": "higherIsStronger",
+      "isUnilateral": false,
+      "occurrenceCount": 1,
+      "needsReview": false,
+      "reviewReason": null,
+      "recordingMetric": "reps"
+    },
+    {
+      "id": "ex-0004",
+      "canonicalName": "SA plank",
+      "aliases": [
+        "SA plank"
+      ],
+      "movementPattern": "core",
+      "equipment": "bodyweight",
+      "loadDirection": "higherIsStronger",
+      "isUnilateral": true,
+      "occurrenceCount": 1,
+      "needsReview": false,
+      "reviewReason": null,
+      "recordingMetric": "time"
+    },
+    {
+      "id": "ex-0005",
+      "canonicalName": "DB curl",
+      "aliases": [
+        "DB curl"
+      ],
+      "movementPattern": "pull",
+      "equipment": "dumbbell",
+      "loadDirection": "higherIsStronger",
+      "isUnilateral": false,
+      "occurrenceCount": 2,
+      "needsReview": false,
+      "reviewReason": null,
+      "recordingMetric": "reps"
+    },
+    {
+      "id": "ex-0006",
+      "canonicalName": "Bodyweight squat",
+      "aliases": [
+        "Bodyweight squat",
+        "BW squat"
+      ],
+      "movementPattern": "squat",
+      "equipment": "bodyweight",
+      "loadDirection": "higherIsStronger",
+      "isUnilateral": false,
+      "occurrenceCount": 1,
+      "needsReview": false,
+      "reviewReason": null,
+      "recordingMetric": "reps"
+    },
+    {
+      "id": "ex-0007",
+      "canonicalName": "Band pull apart",
+      "aliases": [
+        "Band pull apart"
+      ],
+      "movementPattern": "pull",
+      "equipment": "band",
+      "loadDirection": "higherIsStronger",
+      "isUnilateral": false,
+      "occurrenceCount": 1,
+      "needsReview": true,
+      "reviewReason": "band color/count dosage not confirmed by coach",
+      "recordingMetric": "reps"
+    },
+    {
+      "id": "ex-0008",
+      "canonicalName": "Leg press",
+      "aliases": [
+        "Leg press"
+      ],
+      "movementPattern": "squat",
+      "equipment": "machine",
+      "loadDirection": "higherIsStronger",
+      "isUnilateral": false,
+      "occurrenceCount": 2,
+      "needsReview": false,
+      "reviewReason": null,
+      "recordingMetric": "reps"
+    },
+    {
+      "id": "ex-0009",
+      "canonicalName": "Cable fly",
+      "aliases": [
+        "Cable fly"
+      ],
+      "movementPattern": "push",
+      "equipment": "cable",
+      "loadDirection": "higherIsStronger",
+      "isUnilateral": false,
+      "occurrenceCount": 1,
+      "needsReview": false,
+      "reviewReason": null,
+      "recordingMetric": "reps"
+    },
+    {
+      "id": "ex-0010",
+      "canonicalName": "Sled push",
+      "aliases": [
+        "Sled push"
+      ],
+      "movementPattern": "carry",
+      "equipment": "sled",
+      "loadDirection": "higherIsStronger",
+      "isUnilateral": false,
+      "occurrenceCount": 1,
+      "needsReview": false,
+      "reviewReason": null,
+      "recordingMetric": "rounds"
+    },
+    {
+      "id": "ex-0011",
+      "canonicalName": "Mystery move",
+      "aliases": [
+        "Mystery move"
+      ],
+      "movementPattern": "explode",
+      "equipment": "jetpack",
+      "loadDirection": "higherIsStronger",
+      "isUnilateral": false,
+      "occurrenceCount": 2,
+      "needsReview": true,
+      "reviewReason": "unrecognized movementPattern/equipment strings from source, needs manual classification (also exercises unknown-enum fallback path)",
+      "recordingMetric": "reps"
+    },
+    {
+      "id": "ex-0012",
+      "canonicalName": "Rowing 500m",
+      "aliases": [
+        "Rowing 500m",
+        "Row 500m"
+      ],
+      "movementPattern": "conditioning",
+      "equipment": "ergometer",
+      "loadDirection": "higherIsStronger",
+      "isUnilateral": false,
+      "occurrenceCount": 1,
+      "needsReview": false,
+      "reviewReason": null,
+      "recordingMetric": "distance"
+    },
+    {
+      "id": "ex-0013",
+      "canonicalName": "Ski erg",
+      "aliases": [
+        "Ski erg",
+        "Ski"
+      ],
+      "movementPattern": "conditioning",
+      "equipment": "ergometer",
+      "loadDirection": "higherIsStronger",
+      "isUnilateral": false,
+      "occurrenceCount": 1,
+      "needsReview": false,
+      "reviewReason": null,
+      "recordingMetric": "distance"
+    },
+    {
+      "id": "ex-0014",
+      "canonicalName": "Battle rope",
+      "aliases": [
+        "Battle rope"
+      ],
+      "movementPattern": "conditioning",
+      "equipment": "other",
+      "loadDirection": "higherIsStronger",
+      "isUnilateral": false,
+      "occurrenceCount": 1,
+      "needsReview": false,
+      "reviewReason": null,
+      "recordingMetric": "time"
+    },
+    {
+      "id": "ex-0015",
+      "canonicalName": "Bulgarian split squat",
+      "aliases": [
+        "Bulgarian split squat",
+        "BSS"
+      ],
+      "movementPattern": "squat",
+      "equipment": "dumbbell",
+      "loadDirection": "higherIsStronger",
+      "isUnilateral": true,
+      "occurrenceCount": 1,
+      "needsReview": false,
+      "reviewReason": null,
+      "recordingMetric": "reps"
+    }
+  ],
+  "clients": [
+    {
+      "id": "example-athlete-id",
+      "name": "Example Athlete A",
+      "phone": null,
+      "gender": null,
+      "age": null,
+      "heightCm": null,
+      "startWeightKg": null,
+      "goal": null,
+      "frequency": null,
+      "bmr": null,
+      "tdee": null,
+      "habits": null,
+      "medicalHistory": null,
+      "assessments": [],
+      "bodyMetrics": [],
+      "sessions": [
+        {
+          "id": "se-0001",
+          "date": "2024-12-09",
+          "dateOrigin": "reconstructed",
+          "dateRaw": "45547",
+          "weekNumber": 1,
+          "sourceSheet": "Full body",
+          "sourceRow": 1,
+          "warmup": "Dynamic stretching w/ resistance band, Body weight rehearsal",
+          "warmupNote": "3 mins",
+          "cooldown": "Cardio: Incline walking, Static streching",
+          "cooldownNote": "20-30 mins after class",
+          "blocks": [
+            {
+              "order": 0,
+              "blockType": "single",
+              "restSeconds": 90,
+              "restRaw": "90s",
+              "note": null,
+              "sourceRow": 2,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0001",
+                  "exerciseRaw": "Bench press",
+                  "plannedSets": 3,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "absolute",
+                        "kg": 35,
+                        "raw": "35"
+                      },
+                      "target": {
+                        "kind": "range",
+                        "low": 8,
+                        "high": 12,
+                        "raw": "8-12"
+                      },
+                      "actual": {
+                        "kind": "range",
+                        "low": 8,
+                        "high": 10,
+                        "raw": "8-10"
+                      },
+                      "isInferred": true
+                    },
+                    {
+                      "setIndex": 1,
+                      "load": {
+                        "kind": "absolute",
+                        "kg": 35,
+                        "raw": "35"
+                      },
+                      "target": {
+                        "kind": "range",
+                        "low": 8,
+                        "high": 12,
+                        "raw": "8-12"
+                      },
+                      "actual": {
+                        "kind": "fixed",
+                        "value": 10,
+                        "raw": "10"
+                      },
+                      "isInferred": true
+                    },
+                    {
+                      "setIndex": 2,
+                      "load": {
+                        "kind": "absolute",
+                        "kg": 37.5,
+                        "raw": "37.5"
+                      },
+                      "target": {
+                        "kind": "range",
+                        "low": 8,
+                        "high": 12,
+                        "raw": "8-12"
+                      },
+                      "actual": {
+                        "kind": "range",
+                        "low": 8,
+                        "high": 9,
+                        "raw": "8-9"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "order": 1,
+              "blockType": "single",
+              "restSeconds": 90,
+              "restRaw": "90s",
+              "note": null,
+              "sourceRow": 3,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0002",
+                  "exerciseRaw": "Chin up w/assist",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "assisted",
+                        "kg": 30,
+                        "raw": "30"
+                      },
+                      "target": {
+                        "kind": "fixed",
+                        "value": 8,
+                        "raw": "8"
+                      },
+                      "actual": {
+                        "kind": "fixed",
+                        "value": 8,
+                        "raw": "8"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "order": 2,
+              "blockType": "superset",
+              "restSeconds": 60,
+              "restRaw": "1min",
+              "note": "Lower back pain",
+              "sourceRow": 7,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0003",
+                  "exerciseRaw": "Machine row",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "absolute",
+                        "kg": 12.5,
+                        "raw": "12.5"
+                      },
+                      "target": {
+                        "kind": "range",
+                        "low": 10,
+                        "high": 15,
+                        "raw": "10-15"
+                      },
+                      "actual": {
+                        "kind": "range",
+                        "low": 10,
+                        "high": 12,
+                        "raw": "10-12"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                },
+                {
+                  "order": 1,
+                  "exerciseId": "ex-0004",
+                  "exerciseRaw": "SA plank",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "bodyweight",
+                        "raw": "bw"
+                      },
+                      "target": {
+                        "kind": "time",
+                        "seconds": 30,
+                        "raw": "30s"
+                      },
+                      "actual": {
+                        "kind": "time",
+                        "seconds": 28,
+                        "raw": "28s"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "order": 3,
+              "blockType": "single",
+              "restSeconds": 60,
+              "restRaw": "1min",
+              "note": null,
+              "sourceRow": 8,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0005",
+                  "exerciseRaw": "DB curl",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "perSide",
+                        "kg": 6,
+                        "raw": "6each"
+                      },
+                      "target": {
+                        "kind": "range",
+                        "low": 10,
+                        "high": 15,
+                        "raw": "10-15"
+                      },
+                      "actual": {
+                        "kind": "fixed",
+                        "value": 12,
+                        "raw": "12"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "needsReview": false,
+          "reviewReason": null
+        },
+        {
+          "id": "se-0002",
+          "date": "2024-12-12",
+          "dateOrigin": "guessedFromContext",
+          "dateRaw": "45638",
+          "weekNumber": 1,
+          "sourceSheet": "Full body",
+          "sourceRow": 9,
+          "warmup": null,
+          "warmupNote": null,
+          "cooldown": null,
+          "cooldownNote": null,
+          "blocks": [
+            {
+              "order": 0,
+              "blockType": "single",
+              "restSeconds": null,
+              "restRaw": null,
+              "note": null,
+              "sourceRow": 10,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0006",
+                  "exerciseRaw": "Bodyweight squat",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "bodyweight",
+                        "raw": "bw"
+                      },
+                      "target": {
+                        "kind": "fixed",
+                        "value": 15,
+                        "raw": "15"
+                      },
+                      "actual": {
+                        "kind": "fixed",
+                        "value": 15,
+                        "raw": "15"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "order": 1,
+              "blockType": "single",
+              "restSeconds": 45,
+              "restRaw": "45s",
+              "note": null,
+              "sourceRow": 11,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0007",
+                  "exerciseRaw": "Band pull apart",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "band",
+                        "color": "Purple",
+                        "count": 1,
+                        "raw": "Purple"
+                      },
+                      "target": {
+                        "kind": "range",
+                        "low": 15,
+                        "high": 20,
+                        "raw": "15-20"
+                      },
+                      "actual": {
+                        "kind": "range",
+                        "low": 15,
+                        "high": 18,
+                        "raw": "15-18"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "order": 2,
+              "blockType": "single",
+              "restSeconds": 90,
+              "restRaw": "90s",
+              "note": null,
+              "sourceRow": 12,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0008",
+                  "exerciseRaw": "Leg press",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "machineStack",
+                        "level": "Rack 12",
+                        "raw": "Rack 12"
+                      },
+                      "target": {
+                        "kind": "range",
+                        "low": 8,
+                        "high": 12,
+                        "raw": "8-12"
+                      },
+                      "actual": {
+                        "kind": "range",
+                        "low": 8,
+                        "high": 10,
+                        "raw": "8-10"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "order": 3,
+              "blockType": "single",
+              "restSeconds": 60,
+              "restRaw": "1min",
+              "note": null,
+              "sourceRow": 13,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0009",
+                  "exerciseRaw": "Cable fly",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "pinLoad",
+                        "desc": "1red1green",
+                        "raw": "1red1green"
+                      },
+                      "target": {
+                        "kind": "range",
+                        "low": 10,
+                        "high": 15,
+                        "raw": "10-15"
+                      },
+                      "actual": {
+                        "kind": "range",
+                        "low": 10,
+                        "high": 12,
+                        "raw": "10-12"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "order": 4,
+              "blockType": "single",
+              "restSeconds": 90,
+              "restRaw": "90s",
+              "note": null,
+              "sourceRow": 14,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0010",
+                  "exerciseRaw": "Sled push",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "sled",
+                        "kg": 40,
+                        "raw": "40"
+                      },
+                      "target": {
+                        "kind": "distance",
+                        "meters": 20,
+                        "raw": "20m"
+                      },
+                      "actual": {
+                        "kind": "distance",
+                        "meters": 20,
+                        "raw": "20m"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "order": 5,
+              "blockType": "mystery",
+              "restSeconds": null,
+              "restRaw": null,
+              "note": "unrecognized blockType string from source, exercises BlockType fallback",
+              "sourceRow": 15,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0011",
+                  "exerciseRaw": "Mystery move",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "unknown",
+                        "raw": "/"
+                      },
+                      "target": {
+                        "kind": "unknown",
+                        "raw": "/"
+                      },
+                      "actual": {
+                        "kind": "unknown",
+                        "raw": "/"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "needsReview": true,
+          "reviewReason": "date-anomaly session, exercises Session.needsReview fixture coverage"
+        }
+      ]
+    },
+    {
+      "id": "cl-0002",
+      "name": "Example Athlete B",
+      "phone": null,
+      "gender": null,
+      "age": null,
+      "heightCm": null,
+      "startWeightKg": null,
+      "goal": null,
+      "frequency": null,
+      "bmr": null,
+      "tdee": null,
+      "habits": null,
+      "medicalHistory": null,
+      "assessments": [],
+      "bodyMetrics": [],
+      "sessions": [
+        {
+          "id": "se-0003",
+          "date": "2024-12-18",
+          "dateOrigin": "asRecorded",
+          "dateRaw": "18/12",
+          "weekNumber": 2,
+          "sourceSheet": "Full body",
+          "sourceRow": 20,
+          "warmup": "Row easy 5 mins",
+          "warmupNote": null,
+          "cooldown": null,
+          "cooldownNote": null,
+          "blocks": [
+            {
+              "order": 0,
+              "blockType": "single",
+              "restSeconds": 120,
+              "restRaw": "2min",
+              "note": null,
+              "sourceRow": 21,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0012",
+                  "exerciseRaw": "Rowing 500m",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "absolute",
+                        "kg": 10,
+                        "raw": "10"
+                      },
+                      "target": {
+                        "kind": "distance",
+                        "meters": 500,
+                        "raw": "500m"
+                      },
+                      "actual": {
+                        "kind": "distance",
+                        "meters": 500,
+                        "raw": "500m"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "order": 1,
+              "blockType": "single",
+              "restSeconds": 120,
+              "restRaw": "2min",
+              "note": null,
+              "sourceRow": 22,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0013",
+                  "exerciseRaw": "Ski erg",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "absolute",
+                        "kg": 8,
+                        "raw": "8"
+                      },
+                      "target": {
+                        "kind": "time",
+                        "seconds": 143,
+                        "raw": "2:23"
+                      },
+                      "actual": {
+                        "kind": "time",
+                        "seconds": 140,
+                        "raw": "2:20"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "order": 2,
+              "blockType": "single",
+              "restSeconds": 60,
+              "restRaw": "1min",
+              "note": null,
+              "sourceRow": 23,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0014",
+                  "exerciseRaw": "Battle rope",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "band",
+                        "color": "blue",
+                        "count": 2,
+                        "raw": "2blue"
+                      },
+                      "target": {
+                        "kind": "rounds",
+                        "count": 3,
+                        "raw": "3round"
+                      },
+                      "actual": {
+                        "kind": "rounds",
+                        "count": 3,
+                        "raw": "3round"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "order": 3,
+              "blockType": "single",
+              "restSeconds": 90,
+              "restRaw": "90s",
+              "note": null,
+              "sourceRow": 24,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0001",
+                  "exerciseRaw": "Bench press",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "absolute",
+                        "kg": 40,
+                        "raw": "40"
+                      },
+                      "target": {
+                        "kind": "range",
+                        "low": 3,
+                        "high": 5,
+                        "raw": "3-5"
+                      },
+                      "actual": {
+                        "kind": "range",
+                        "low": 3,
+                        "high": 5,
+                        "raw": "3-5"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "order": 4,
+              "blockType": "single",
+              "restSeconds": 90,
+              "restRaw": "90s",
+              "note": null,
+              "sourceRow": 25,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0015",
+                  "exerciseRaw": "Bulgarian split squat",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "perSide",
+                        "kg": 12,
+                        "raw": "12each"
+                      },
+                      "target": {
+                        "kind": "perSide",
+                        "left": 10,
+                        "right": 10,
+                        "raw": "10,10"
+                      },
+                      "actual": {
+                        "kind": "perSide",
+                        "left": 9,
+                        "right": 10,
+                        "raw": "9,10"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "needsReview": false,
+          "reviewReason": null
+        },
+        {
+          "id": "se-0004",
+          "date": "2025-01-03",
+          "dateOrigin": "reconstructed",
+          "dateRaw": "45717",
+          "weekNumber": 3,
+          "sourceSheet": "Full body",
+          "sourceRow": 30,
+          "warmup": null,
+          "warmupNote": null,
+          "cooldown": null,
+          "cooldownNote": null,
+          "blocks": [
+            {
+              "order": 0,
+              "blockType": "single",
+              "restSeconds": null,
+              "restRaw": null,
+              "note": null,
+              "sourceRow": 31,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0011",
+                  "exerciseRaw": "Mystery move",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "unknown",
+                        "raw": ""
+                      },
+                      "target": {
+                        "kind": "unknown",
+                        "raw": ""
+                      },
+                      "actual": {
+                        "kind": "unknown",
+                        "raw": ""
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "order": 1,
+              "blockType": "superset",
+              "restSeconds": 60,
+              "restRaw": "1min",
+              "note": null,
+              "sourceRow": 32,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0001",
+                  "exerciseRaw": "Bench press",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "absolute",
+                        "kg": 45,
+                        "raw": "45"
+                      },
+                      "target": {
+                        "kind": "fixed",
+                        "value": 6,
+                        "raw": "6"
+                      },
+                      "actual": {
+                        "kind": "fixed",
+                        "value": 6,
+                        "raw": "6"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                },
+                {
+                  "order": 1,
+                  "exerciseId": "ex-0005",
+                  "exerciseRaw": "DB curl",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "perSide",
+                        "kg": 12,
+                        "raw": "Single 12"
+                      },
+                      "target": {
+                        "kind": "range",
+                        "low": 8,
+                        "high": 12,
+                        "raw": "8-12"
+                      },
+                      "actual": {
+                        "kind": "range",
+                        "low": 8,
+                        "high": 10,
+                        "raw": "8-10"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "order": 2,
+              "blockType": "single",
+              "restSeconds": 90,
+              "restRaw": "90s",
+              "note": null,
+              "sourceRow": 33,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0002",
+                  "exerciseRaw": "Chin up w/assist",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "assisted",
+                        "kg": 25,
+                        "raw": "25"
+                      },
+                      "target": {
+                        "kind": "fixed",
+                        "value": 6,
+                        "raw": "6"
+                      },
+                      "actual": {
+                        "kind": "fixed",
+                        "value": 5,
+                        "raw": "5"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "order": 3,
+              "blockType": "dropset",
+              "restSeconds": 0,
+              "restRaw": "0",
+              "note": "drop,drop",
+              "sourceRow": 34,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0008",
+                  "exerciseRaw": "Leg press drop",
+                  "plannedSets": 3,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "absolute",
+                        "kg": 60,
+                        "raw": "60"
+                      },
+                      "target": {
+                        "kind": "fixed",
+                        "value": 8,
+                        "raw": "8"
+                      },
+                      "actual": {
+                        "kind": "fixed",
+                        "value": 8,
+                        "raw": "8"
+                      },
+                      "isInferred": true
+                    },
+                    {
+                      "setIndex": 1,
+                      "load": {
+                        "kind": "absolute",
+                        "kg": 50,
+                        "raw": "50"
+                      },
+                      "target": {
+                        "kind": "fixed",
+                        "value": 8,
+                        "raw": "8"
+                      },
+                      "actual": {
+                        "kind": "fixed",
+                        "value": 8,
+                        "raw": "8"
+                      },
+                      "isInferred": true
+                    },
+                    {
+                      "setIndex": 2,
+                      "load": {
+                        "kind": "absolute",
+                        "kg": 40,
+                        "raw": "40"
+                      },
+                      "target": {
+                        "kind": "fixed",
+                        "value": 8,
+                        "raw": "8"
+                      },
+                      "actual": {
+                        "kind": "fixed",
+                        "value": 6,
+                        "raw": "6"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "order": 4,
+              "blockType": "circuit",
+              "restSeconds": 30,
+              "restRaw": "30s",
+              "note": "App-reserved blockType, not produced by migration but must decode",
+              "sourceRow": 35,
+              "entries": [
+                {
+                  "order": 0,
+                  "exerciseId": "ex-0010",
+                  "exerciseRaw": "Sled push",
+                  "plannedSets": 1,
+                  "sets": [
+                    {
+                      "setIndex": 0,
+                      "load": {
+                        "kind": "sled",
+                        "kg": 45,
+                        "raw": "45"
+                      },
+                      "target": {
+                        "kind": "distance",
+                        "meters": 20,
+                        "raw": "20m"
+                      },
+                      "actual": {
+                        "kind": "distance",
+                        "meters": 20,
+                        "raw": "20m"
+                      },
+                      "isInferred": true
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "needsReview": false,
+          "reviewReason": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "gymlog-cloud-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-11",
+  "workers_dev": true,
+  "preview_urls": false,
+  "vars": {
+    "MAX_ASR_MESSAGE_BYTES": "4194304",
+    "MAX_ASR_AUDIO_BYTES": "4194304",
+    "MAX_INPUT_CHARS": "200000",
+    "MAX_OUTPUT_TOKENS": "4096",
+    "ALLOWED_CLEANUP_MODELS": "deepseek-flash",
+    "UPSTREAM_ASR_WS_URL": "https://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream",
+    "UPSTREAM_ASR_RESOURCE_ID": "volc.seedasr.sauc.duration",
+    "UPSTREAM_LLM_URL": "https://api.deepseek.com/v1/chat/completions"
+  },
+  "durable_objects": {"bindings": [{"name": "QUOTA", "class_name": "QuotaDO"}]},
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["QuotaDO"]}]
+}
