@@ -293,12 +293,21 @@ struct BodyMetricDetailView: View {
         .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
+    /// R07 (2026-09-16): `dismiss()` used to fire before the save even
+    /// started, so a failure's `deleteErrorMessage` was set on a view that
+    /// had already been torn down -- nobody was left to show the `.alert`
+    /// for it. `isDeleting = true` still comes first (unchanged) so `body`
+    /// stops rendering `content`/`metric` for the duration of the delete,
+    /// same as before; `dismiss()` itself now only happens once `save()`
+    /// has actually succeeded. On failure the rollback restores `metric`
+    /// and `isDeleting` flips back to `false`, so this still-alive view
+    /// re-shows the (now-intact) record underneath the error alert.
     private func performDelete() {
         isDeleting = true
-        dismiss()
         modelContext.delete(metric)
         do {
             try modelContext.save()
+            dismiss()
         } catch {
             modelContext.rollback()
             isDeleting = false
