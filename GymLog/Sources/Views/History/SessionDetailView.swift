@@ -24,8 +24,33 @@ struct SessionDetailView: View {
     @Query private var allSessions: [WorkoutSession]
     @State private var summaryText: String?
 
+    /// 首屏 = 課次摘要（GymLog 改版設計 §6）：總量／最大／時長 + PR 個數 +
+    /// 練了什麼的模式色標，全部沿用既有的 `SessionSummaryMetrics`／
+    /// `prPointIDs()`，不重新定義任何一條規則。
+    private var summaryMetrics: SessionSummaryMetrics { SessionSummaryMetrics.compute(for: session) }
+
+    private var nonWODEntries: [ExerciseEntry] {
+        session.orderedBlocks.filter { $0.sectionKind != .wod }.flatMap(\.orderedEntries)
+    }
+
+    private var summaryMovementPatterns: [MovementPattern] {
+        var seen: [MovementPattern] = []
+        for entry in nonWODEntries {
+            guard let pattern = entry.exercise?.movementPattern, !seen.contains(pattern) else { continue }
+            seen.append(pattern)
+            if seen.count >= 4 { break }
+        }
+        return seen
+    }
+
     var body: some View {
+        let prIDs = prPointIDs()
         List {
+            Section {
+                sessionSummaryCard(prCount: prIDs.count)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
             Section {
                 TrainingInsightView(session: session)
                     .listRowInsets(EdgeInsets())
@@ -46,7 +71,7 @@ struct SessionDetailView: View {
                         WODBlockCard(block: block, recordStatus: wodRecordStatuses["\(session.id)#\(block.order)"] ?? .none)
                             .listRowBackground(DS.C.surface)
                     } else {
-                        BlockCard(block: block)
+                        BlockCard(block: block, sessionID: session.id, prPointIDs: prIDs)
                             .listRowBackground(DS.C.surface)
                     }
                     if let note = block.note, !note.isEmpty {
@@ -59,6 +84,15 @@ struct SessionDetailView: View {
                             .sectionLabelStyle()
                             .lineLimit(1)
                         Spacer()
+                        if block.orderedEntries.contains(where: { $0.orderedSets.contains { $0.isInferred } }) {
+                            // 「推斷」整塊只標一次，不再逐行出現。
+                            HStack(spacing: 4) {
+                                Circle().fill(DS.C.inferred).frame(width: 6, height: 6)
+                                Text(L("推斷", "Inferred"))
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(DS.C.inferred)
+                            }
+                        }
                         if let rest = block.restSeconds {
                             Text(L("休息 \(rest)s", "Rest \(rest)s"))
                                 .font(.system(size: 11, weight: .regular))
@@ -68,19 +102,22 @@ struct SessionDetailView: View {
                 }
             }
 
-            if session.cooldown != nil || session.cooldownNote != nil {
-                Section {
-                    NoteRow(text: session.cooldown, note: session.cooldownNote)
-                        .listRowBackground(DS.C.surface)
-                } header: {
-                    Text(L("放鬆", "Cooldown")).sectionLabelStyle()
-                }
-            }
-
             Section {
-                LabeledContent(L("原始日期文本", "Original Date Text"), value: session.dateRaw)
-                LabeledContent(L("日期來源", "Date Source"), value: session.dateOrigin == .reconstructed ? L("還原", "Restored") : (session.dateOrigin == .asRecorded ? L("原樣採信", "As Recorded") : L("未知", "Unknown")))
-                LabeledContent(L("來源表", "Source Sheet"), value: L("\(session.sourceSheet) 第 \(session.sourceRow) 行", "\(session.sourceSheet) row \(session.sourceRow)"))
+                DisclosureGroup {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if session.cooldown != nil || session.cooldownNote != nil {
+                            NoteRow(text: session.cooldown, note: session.cooldownNote)
+                        }
+                        LabeledContent(L("原始日期文本", "Original Date Text"), value: session.dateRaw)
+                        LabeledContent(L("日期來源", "Date Source"), value: session.dateOrigin == .reconstructed ? L("還原", "Restored") : (session.dateOrigin == .asRecorded ? L("原樣採信", "As Recorded") : L("未知", "Unknown")))
+                        LabeledContent(L("來源表", "Source Sheet"), value: L("\(session.sourceSheet) 第 \(session.sourceRow) 行", "\(session.sourceSheet) row \(session.sourceRow)"))
+                    }
+                    .padding(.top, 6)
+                } label: {
+                    Text(L("放鬆與資料來源", "Cooldown & Data Source"))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(DS.C.textMid)
+                }
             }
             .listRowBackground(DS.C.surface)
             .font(.system(size: 14, weight: .medium))
@@ -194,6 +231,90 @@ struct SessionDetailView: View {
         let names = block.orderedEntries.map(\.displayName).joined(separator: " + ")
         return "\(block.blockType.displayName) · \(names.uppercased())"
     }
+
+    /// 課次摘要卡（GymLog 改版設計 §6）：總量／最大／時長 + 動作模式色標，
+    /// 首屏先回答「這堂課練了什麼、表現如何」，其餘說明性卡片（
+    /// `TrainingInsightView`）退到它後面。
+    private func sessionSummaryCard(prCount: Int) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("課次摘要", "Session Summary")).sectionLabelStyle()
+                    if let name = session.client?.displayName {
+                        Text(L("第 \(session.weekNumber) 週 · \(name)", "Week \(session.weekNumber) · \(name)"))
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.C.textLow)
+                    }
+                }
+                Spacer()
+                if prCount > 0 {
+                    Text(L("PR ×\(prCount)", "PR ×\(prCount)"))
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(DS.C.pr)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(DS.C.prBg, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+            }
+            HStack(spacing: 8) {
+                summaryStat(L("總訓練量", "Total Volume"), summaryMetrics.totalVolumeKg, unit: "kg")
+                summaryStat(L("主項最大", "Top Load"), summaryMetrics.maxLoadKg, unit: "kg")
+                summaryStat(L("時長", "Duration"), session.plannedDurationMinutes.map { Double($0) / 60 }, unit: "h", isDuration: true)
+            }
+            if !summaryMovementPatterns.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(summaryMovementPatterns, id: \.self) { pattern in
+                        MovementPatternBadge(pattern: pattern, size: 22)
+                    }
+                    Text(L("\(session.orderedBlocks.count) 個訓練塊", "\(session.orderedBlocks.count) blocks"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(DS.C.textMid)
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .gymCard()
+        .padding(.horizontal, DS.Space.pageMargin)
+    }
+
+    private func summaryStat(_ title: String, _ value: Double?, unit: String, isDuration: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 9, weight: .semibold))
+                .tracking(0.6)
+                .foregroundStyle(DS.C.textLow)
+                .textCase(.uppercase)
+            HStack(alignment: .lastTextBaseline, spacing: 3) {
+                if let value {
+                    Text(isDuration ? Self.formatHours(value) : Self.formatNumber(value))
+                        .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(DS.C.textHi)
+                } else {
+                    Text("—")
+                        .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(DS.C.textLow)
+                }
+                if value != nil, !isDuration {
+                    Text(unit).font(.system(size: 11)).foregroundStyle(DS.C.textLow)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(11)
+        .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .opacity(value == nil ? 0.6 : 1)
+    }
+
+    private static func formatNumber(_ value: Double) -> String {
+        let rounded = value.rounded()
+        return abs(value - rounded) < 0.05 ? Int(rounded).formatted(.number.grouping(.automatic)) : String(format: "%.1f", value)
+    }
+
+    private static func formatHours(_ hours: Double) -> String {
+        let totalMinutes = Int((hours * 60).rounded())
+        return String(format: "%d:%02d", totalMinutes / 60, totalMinutes % 60)
+    }
 }
 
 private struct NoteRow: View {
@@ -243,11 +364,18 @@ private struct NoteCard: View {
 /// sub-section within the same card so the grouping is visually obvious.
 private struct BlockCard: View {
     let block: SessionBlock
+    let sessionID: String
+    let prPointIDs: Set<String>
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(Array(block.orderedEntries.enumerated()), id: \.element.persistentModelID) { index, entry in
-                EntryView(entry: entry, showsLetter: block.isMultiEntry, letterIndex: index)
+                EntryView(
+                    entry: entry,
+                    showsLetter: block.isMultiEntry,
+                    letterIndex: index,
+                    isPR: prPointIDs.contains("\(sessionID)#\(block.order)#\(entry.order)")
+                )
                 if index < block.orderedEntries.count - 1 {
                     Divider().overlay(DS.C.hairlineSoft)
                 }
@@ -336,10 +464,35 @@ private struct EntryView: View {
     let entry: ExerciseEntry
     let showsLetter: Bool
     let letterIndex: Int
+    var isPR: Bool = false
 
     private var letter: String {
         let letters = ["A", "B", "C", "D", "E", "F"]
         return letterIndex < letters.count ? letters[letterIndex] : "\(letterIndex + 1)"
+    }
+
+    /// 這個 entry 真正達成最大可比較重量的那一組——`isPR` 只代表「這個 entry
+    /// 這堂課有 PR」，不代表哪一組；沒有這個就只能瞎猜（例如猜最後一組），
+    /// 猜錯了會誤導教練覺得破紀錄的是另一組。
+    private var prSetIndex: Int? {
+        guard isPR else { return nil }
+        let direction = entry.exercise?.loadDirection ?? .higherIsStronger
+        var bestIndex: Int?
+        var bestValue: Double?
+        for (index, set) in entry.orderedSets.enumerated() {
+            guard AnalyticsMath.isEffectiveCompletion(actual: set.actual),
+                  let kg = AnalyticsMath.comparableKg(set.load) else { continue }
+            if let currentBest = bestValue {
+                if AnalyticsMath.isImprovement(candidate: kg, overBest: currentBest, direction: direction) {
+                    bestValue = kg
+                    bestIndex = index
+                }
+            } else {
+                bestValue = kg
+                bestIndex = index
+            }
+        }
+        return bestIndex
     }
 
     var body: some View {
@@ -349,7 +502,7 @@ private struct EntryView: View {
                     Text(letter)
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(DS.C.onAccent)
-                        .frame(width: 18, height: 18)
+                        .frame(width: 20, height: 20)
                         .background(Circle().fill(DS.C.accent))
                 }
                 Text(entry.displayName)
@@ -360,21 +513,26 @@ private struct EntryView: View {
                         .foregroundStyle(DS.C.danger)
                         .help(L("動作庫中未找到該動作引用", "Exercise reference not found in library"))
                 }
+                if isPR {
+                    DataTagView(kind: .pr)
+                }
             }
             if entry.exerciseRaw != entry.displayName {
                 Text(L("原始文本：\(entry.exerciseRaw)", "Original text: \(entry.exerciseRaw)"))
                     .font(.system(size: 11))
                     .foregroundStyle(DS.C.textLow)
+                    .padding(.leading, showsLetter ? 28 : 0)
             }
 
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(entry.orderedSets.enumerated()), id: \.element.persistentModelID) { index, set in
-                    SetRow(set: set)
+                    SetRow(set: set, isPR: index == prSetIndex)
                     if index < entry.orderedSets.count - 1 {
                         Divider().overlay(DS.C.hairlineSoft)
                     }
                 }
             }
+            .padding(.leading, showsLetter ? 28 : 0)
         }
     }
 }
@@ -382,6 +540,7 @@ private struct EntryView: View {
 /// 课次详情行（HANDOFF.md §4.5）：网格 `46 | 62 | 1fr | auto`。
 private struct SetRow: View {
     let set: SetLog
+    var isPR: Bool = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -399,11 +558,13 @@ private struct SetRow: View {
                 .minimumScaleFactor(0.85)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            if set.isInferred {
-                DataTagView(kind: .inferred)
+            if isPR {
+                DataTagView(kind: .pr)
             }
         }
         .padding(.vertical, 9)
+        .padding(.horizontal, isPR ? 10 : 0)
+        .background(isPR ? DS.C.prBg : Color.clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     @ViewBuilder
