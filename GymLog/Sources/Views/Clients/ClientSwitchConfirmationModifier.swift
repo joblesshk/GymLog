@@ -21,8 +21,13 @@ private struct ClientSwitchConfirmationModifier: ViewModifier {
     let coordinator: ClientSwitchCoordinator
 
     func body(content: Content) -> some View {
+        // R05 (2026-09-16): wording is deliberately generic -- this alert
+        // now also fires for an unsaved 学员资料 edit buffer
+        // (`ClientProfileView`/`hasAdditionalUnsavedWork`), not only the
+        // training draft, and the modifier has no way to tell which one (or
+        // both) triggered it.
         content.alert(
-            L("切換學員將丟棄未保存的訓練記錄", "Switching clients will discard unsaved training data"),
+            L("切換學員將丟棄尚未保存的變更", "Switching clients will discard unsaved changes"),
             isPresented: Binding(
                 get: { coordinator.pendingClientID != nil },
                 set: { if !$0 { coordinator.cancelPendingSwitch() } }
@@ -31,7 +36,7 @@ private struct ClientSwitchConfirmationModifier: ViewModifier {
             Button(L("取消", "Cancel"), role: .cancel) { coordinator.cancelPendingSwitch() }
             Button(L("放棄並切換", "Discard & Switch"), role: .destructive) { coordinator.confirmPendingSwitch() }
         } message: {
-            Text(L("當前訓練記錄尚未保存，切換學員會丟棄這些內容。", "The current training record hasn't been saved yet — switching clients will discard it."))
+            Text(L("當前的訓練記錄或學員資料尚未保存，切換學員會丟棄這些內容。", "The current training record or client profile edits haven't been saved yet — switching clients will discard them."))
         }
     }
 }

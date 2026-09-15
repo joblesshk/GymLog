@@ -97,6 +97,13 @@ struct ClientProfileView: View {
                     .foregroundStyle(DS.C.textHi)
                     .onAppear { loadFormIfNeeded(client: client) }
                     .onChange(of: client.id) { loadForm(client: client) }
+                    // R05 (2026-09-16): every edit to the local buffer
+                    // re-syncs `coordinator.hasAdditionalUnsavedWork` so a
+                    // client switch started from anywhere (nav-bar switcher,
+                    // any tab) goes through the same unsaved-work
+                    // confirmation the training draft already gets, instead
+                    // of `loadForm` silently overwriting an in-progress edit.
+                    .onChange(of: form) { syncDirtyState(against: client) }
                 } else {
                     ContentUnavailableView {
                         Label(language.t("暫無學員", "No Clients"), systemImage: "person.crop.circle.badge.exclamationmark")
@@ -506,6 +513,18 @@ struct ClientProfileView: View {
     private func loadForm(client: Client) {
         form = ClientProfileFormState(client: client)
         loadedClientID = client.id
+        syncDirtyState(against: client)
+    }
+
+    /// R05 (2026-09-16): the buffer is dirty exactly when it differs from
+    /// what `client`'s own fields would produce right now -- comparing
+    /// against a freshly-built `ClientProfileFormState`, not a separately
+    /// cached "as-loaded" snapshot, so this can't drift out of sync with
+    /// `client` if something else mutates it. `loadedClientID != client.id`
+    /// guards the one render frame where `client` has already switched but
+    /// `loadForm` for it hasn't run yet.
+    private func syncDirtyState(against client: Client) {
+        coordinator.hasAdditionalUnsavedWork = loadedClientID == client.id && form != ClientProfileFormState(client: client)
     }
 
     private func save(client: Client) {
@@ -513,14 +532,21 @@ struct ClientProfileView: View {
         do {
             try modelContext.save()
             showSavedConfirmation = true
+            syncDirtyState(against: client) // now clean -- `client` matches `form`
         } catch {
             // CONTRACT-M4.md's own risk callout: a save bug here corrupts
             // the real coach's profile, so a failure must surface, never be
             // swallowed (same discipline as TodayView's session save path,
             // CONTRACT-UI.md §3.6).
+            //
+            // R05 (2026-09-16): does NOT re-run `loadForm` here anymore --
+            // that used to rebuild `form` from the just-rolled-back `client`,
+            // silently replacing whatever the coach had just typed with the
+            // pre-edit values. `form` already holds exactly what they typed
+            // (rollback only reverted `client`, never touched `form`), so
+            // leaving it alone is what keeps 保存資料 usable as a retry button.
             modelContext.rollback()
             saveErrorMessage = error.localizedDescription
-            loadForm(client: client) // re-sync the buffer with the rolled-back object
         }
     }
 }
