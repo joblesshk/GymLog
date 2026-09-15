@@ -26,14 +26,17 @@ struct WODBlockDraftCard: View {
     /// which round to append into when the picker returns.
     @State private var addMovementRoundIndex = 0
     @State private var notificationsDenied = false
+    /// GymLog 改版設計 §4：計時一開始，處方收合成一行動作速覽，把畫面讓給
+    /// 計時器；教練仍可點那一行「展開」看完整處方。只是顯示狀態，不影響
+    /// `wodDraft` 本身的任何欄位。
+    @State private var showPrescriptionDetail = true
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            formatParameters
-            movementsSection
+            prescriptionSection
             timerSection
             resultSection
         }
@@ -70,20 +73,90 @@ struct WODBlockDraftCard: View {
                 }
             }
             Spacer()
-            Menu {
-                ForEach(WODFormat.allCases.filter { $0 != .unknown }, id: \.self) { format in
-                    Button(format.displayName) { wodDraft.applyFormatDefaults(format) }
-                }
-            } label: {
-                Text(wodDraft.format.displayName)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(DS.C.accent)
-            }
             Button(role: .destructive, action: onDelete) {
                 Image(systemName: "trash")
                     .foregroundStyle(DS.C.danger)
             }
         }
+    }
+
+    /// 6 圓角小徽章——三段各自的段落標題（GymLog 改版設計 §4 元件規格：處方
+    /// 用 `accentSoft`，現場／成績用 `inset`）。
+    private func sectionBadge(_ text: String, tinted: Bool) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .bold))
+            .foregroundStyle(tinted ? DS.C.accent : DS.C.textMid)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(tinted ? DS.C.accentSoft : DS.C.inset, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+    }
+
+    // MARK: - Prescription (§4: 三段之一，計時開始後收合成一行速覽)
+
+    /// 計時器一存在就收合——不論當下是跑著還是暫停，教練此刻要看的是計時器
+    /// 而不是處方細節；點速覽那一行可以隨時展開回來核對。
+    private var prescriptionSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if timer == nil || showPrescriptionDetail {
+                HStack(spacing: 8) {
+                    sectionBadge(language.t("處方 · PRESCRIPTION", "PRESCRIPTION"), tinted: true)
+                    GymSegmentedControl(
+                        selection: Binding(
+                            get: { wodDraft.format },
+                            set: { wodDraft.applyFormatDefaults($0) }
+                        ),
+                        options: WODFormat.allCases.filter { $0 != .unknown },
+                        label: { $0.displayName }
+                    )
+                }
+                formatParameters
+                movementsSection
+            } else {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { showPrescriptionDetail = true }
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                sectionBadge(language.t("處方 · PRESCRIPTION", "PRESCRIPTION"), tinted: true)
+                                Text(language.t("處方速覽", "Prescription summary"))
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(DS.C.textHi)
+                            }
+                            Text(prescriptionSummaryText)
+                                .font(.system(size: 12))
+                                .foregroundStyle(DS.C.textMid)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                        Spacer(minLength: 8)
+                        Text(language.t("展開", "Expand") + " ⌄")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(DS.C.accent)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .onChange(of: timer == nil) { _, isNil in
+            if isNil { showPrescriptionDetail = true }
+        }
+    }
+
+    /// 「10 cal 風阻單車 · 12 次 引體向上（胸碰槓）」這種一行摘要——把所有輪
+    /// 次的動作攤平列出，逗號分隔到能塞進一行為止（其餘被系統的
+    /// `lineLimit(1)` 截掉，不必自己算寬度）。
+    private var prescriptionSummaryText: String {
+        let items = wodDraft.rounds.flatMap { round in
+            round.movements.map { movement -> String in
+                let name = movement.nameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let qty = "\(movement.quantityValue) \(movement.quantityKind.shortName)"
+                return name.isEmpty ? qty : "\(qty) \(name)"
+            }
+        }
+        return items.isEmpty
+            ? language.t("尚未加入動作", "No movements yet")
+            : items.joined(separator: " · ")
     }
 
     // MARK: - Format-specific prescription parameters
@@ -231,7 +304,7 @@ struct WODBlockDraftCard: View {
 
     private var resultSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(language.t("成績", "Result")).sectionLabelStyle()
+            sectionBadge(language.t("成績 · RESULT", "RESULT"), tinted: false)
 
             // 四段的标签都压到最短：分段控件把宽度平均分给四格，一格约 90pt，
             // 「未記錄／Not Recorded」和「超時 (Capped)」都会被截成「Not
@@ -330,7 +403,7 @@ struct WODBlockDraftCard: View {
     @ViewBuilder
     private var timerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(language.t("現場計時", "Live Timer")).sectionLabelStyle()
+            sectionBadge(language.t("現場計時 · LIVE TIMER", "LIVE TIMER"), tinted: false)
             if let timer {
                 liveTimerControls(timer)
             } else {
@@ -357,6 +430,49 @@ struct WODBlockDraftCard: View {
         }
     }
 
+    /// 計時圓環——與 §1 組間休息、視覺語彙完全一致（GymLog 改版設計 §4）：
+    /// AMRAP／EMOM 倒數遞減；計時完成（有上限）正著數，環反過來「填滿」代表
+    /// 已用掉的比例；無上限的計時完成沒有環可畫，只顯示純數字。Interval 用
+    /// `pr`（工作）／`textLow`（休息）換色，其餘一律 accent。
+    private func timerRing(_ timer: WODTimerModel) -> some View {
+        ZStack {
+            Circle().stroke(DS.C.hairline, lineWidth: 8)
+            if !timer.isCountUp {
+                Circle()
+                    .trim(from: 0, to: ringFraction(for: timer))
+                    .stroke(ringColor(for: timer), style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .animation(.linear(duration: 0.2), value: timer.remainingSecondsInPhase)
+            }
+            VStack(spacing: 6) {
+                Text(timer.displayText)
+                    .font(.system(size: 44, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(DS.C.textHi)
+                if let cap = timer.currentPhase?.durationSeconds, wodDraft.format == .amrap || wodDraft.format == .forTime {
+                    Text(language.t("時限 \(RepTarget.formatSeconds(cap))", "Cap \(RepTarget.formatSeconds(cap))"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.C.textLow)
+                }
+            }
+        }
+        .frame(width: 200, height: 200)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func ringFraction(for timer: WODTimerModel) -> Double {
+        guard let phase = timer.currentPhase, phase.durationSeconds > 0 else { return 0 }
+        let elapsedInPhase = phase.durationSeconds - timer.remainingSecondsInPhase
+        let fraction = wodDraft.format == .forTime
+            ? Double(elapsedInPhase) / Double(phase.durationSeconds)
+            : Double(timer.remainingSecondsInPhase) / Double(phase.durationSeconds)
+        return min(1, max(0, fraction))
+    }
+
+    private func ringColor(for timer: WODTimerModel) -> Color {
+        guard wodDraft.format == .interval, let phase = timer.currentPhase else { return DS.C.accent }
+        return phase.isWork ? DS.C.pr : DS.C.textLow
+    }
+
     @ViewBuilder
     private func liveTimerControls(_ timer: WODTimerModel) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -368,13 +484,10 @@ struct WODBlockDraftCard: View {
                 .font(.system(size: 11))
                 .foregroundStyle(DS.C.danger)
             }
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(timer.displayText)
-                    .font(.system(size: 44, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(DS.C.textHi)
+            VStack(spacing: 10) {
+                timerRing(timer)
                 if let current = timer.currentPhase, timer.phases.count > 1 {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(spacing: 2) {
                         Text(current.label).font(.system(size: 12, weight: .semibold)).foregroundStyle(DS.C.textHi)
                         if let next = timer.nextPhase {
                             Text(L("下一站：\(next.label)", "Next: \(next.label)"))
@@ -426,6 +539,7 @@ struct WODBlockDraftCard: View {
         model.start()
         wodDraft.timerAnchor = model.makeAnchor()
         scheduleNotificationsIfPossible(model)
+        withAnimation(.easeInOut(duration: 0.2)) { showPrescriptionDetail = false }
     }
 
     private func resumeTimer() {
@@ -495,6 +609,7 @@ struct WODBlockDraftCard: View {
         model.restore(from: anchor)
         timer = model
         activeWODTimerOwnerID = wodDraft.id
+        showPrescriptionDetail = false
         if model.state == .running {
             scheduleNotificationsIfPossible(model)
         } else {
