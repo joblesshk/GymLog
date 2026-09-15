@@ -244,7 +244,10 @@ private struct RestTimerCornerPill: View {
         }
         .menuOrder(.fixed)
         .buttonStyle(.plain)
-        .accessibilityIdentifier("rest-timer-ring")
+        // Kept as "rest-timer-pill" (not renamed to match this file) --
+        // GymLogUITests.TrainingInsightsUITests still looks up the rest
+        // timer control by this identifier.
+        .accessibilityIdentifier("rest-timer-pill")
         .accessibilityLabel(hintText)
         .accessibilityValue(timer.hasFinished ? language.t("休息結束", "Rest over") : timer.displayText)
         .accessibilityHint(language.t("長按選擇休息時長", "Long-press to choose the rest length"))
