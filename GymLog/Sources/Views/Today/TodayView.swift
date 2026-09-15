@@ -281,16 +281,14 @@ struct TodayView: View {
 
     @ViewBuilder
     private func activeSessionBody(client: Client) -> some View {
+        let energy = EnergyLookup(report: TrainingInsights.draft(draft, client: client))
         ScrollView {
             VStack(spacing: DS.Space.cardGap) {
                 SessionDateBar(date: $draft.sessionDate)
-                SessionDurationBar(minutes: $draft.plannedDurationMinutes)
-                EnergyReportView(report: TrainingInsights.draft(draft, client: client))
-                    .padding().background(DS.C.surface).clipShape(RoundedRectangle(cornerRadius: 12))
 
-                ForEach(draft.blocks) { block in
+                ForEach(Array(draft.blocks.enumerated()), id: \.element.id) { blockIndex, block in
                     if block.sectionKind == .wod, let wodDraft = block.wodDraft {
-                        WODBlockDraftCard(wodDraft: wodDraft, allExercises: allExercises, activeWODTimerOwnerID: $draft.activeWODTimerOwnerID) {
+                        WODBlockDraftCard(wodDraft: wodDraft, allExercises: allExercises, activeWODTimerOwnerID: $draft.activeWODTimerOwnerID, energyText: energy.block(blockIndex)) {
                             removeBlock(block)
                         }
                     } else if block.sectionKind == .strength, block.blockType == .superset {
@@ -306,6 +304,7 @@ struct TodayView: View {
                             onMove: { offset in moveBlock(block, by: offset) },
                             onDissolve: { dissolveSuperset(block) },
                             onDelete: { removeBlock(block) },
+                            energyText: energy.block(blockIndex),
                             onStartRest: { seconds in
                                 restTimer.setTotal(seconds)
                                 restTimer.start()
@@ -322,7 +321,8 @@ struct TodayView: View {
                             onDeleteEntry: { entryID in removeEntry(entryID, from: block) },
                             onAddEntry: { exercisePickerTarget = .existingBlock(block.id) },
                             onMove: { offset in moveBlock(block, by: offset) },
-                            onDelete: { removeBlock(block) }
+                            onDelete: { removeBlock(block) },
+                            energyText: { entryIndex in energy.entry(blockIndex, entryIndex) }
                         )
                     }
                 }
@@ -543,7 +543,9 @@ struct TodayView: View {
 
     private var sessionTopBar: some View {
         VStack(spacing: 4) {
-            RestTimerBar(timer: restTimer) {
+            HStack {
+                RestTimerPill(timer: restTimer)
+                Spacer(minLength: 8)
                 HeartRateChip(monitor: heartRate)
             }
             if restAlertsAuthorized == false {
@@ -1130,6 +1132,8 @@ private struct BlockDraftCard: View {
     var onAddEntry: () -> Void
     var onMove: (Int) -> Void
     var onDelete: () -> Void
+    /// 每个动作的热量估算文字（`≈N kcal`），数据不足时为 nil。
+    var energyText: (Int) -> String? = { _ in nil }
 
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
     @State private var showingDeleteConfirmation = false
@@ -1144,13 +1148,14 @@ private struct BlockDraftCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.cardGap) {
             header
-            ForEach(block.entries) { entry in
+            ForEach(Array(block.entries.enumerated()), id: \.element.id) { entryIndex, entry in
                 EntryRowView(
                     draft: entry,
                     clientID: clientID,
                     repTargetPresets: repTargetPresets,
                     bandColorIndex: bandColorIndex,
-                    restSeconds: defaultRestSeconds
+                    restSeconds: defaultRestSeconds,
+                    energyText: energyText(entryIndex)
                 ) {
                     onDeleteEntry(entry.id)
                 }
@@ -1259,5 +1264,36 @@ private struct BlockDraftCard: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(DS.C.inset, in: Capsule())
+    }
+}
+
+/// 今天页各卡片的热量估算文字。`TrainingInsights.draft` 的行 id 按块/动作在草稿中
+/// 的位置编号（力量动作 `b{块}e{动作}`，WOD 整块 `b{块}`）；超级组显示成员合计。
+/// 已全部记录时显示完成后估算，否则显示计划估算；缺体重等数据时不显示。
+private struct EnergyLookup {
+    private let lines: [String: EnergyLine]
+
+    init(report: EnergyReport) {
+        lines = Dictionary(report.lines.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    func entry(_ block: Int, _ entry: Int) -> String? {
+        Self.text(for: lines["b\(block)e\(entry)"].flatMap(Self.value))
+    }
+
+    func block(_ block: Int) -> String? {
+        if let wod = lines["b\(block)"] { return Self.text(for: Self.value(wod)) }
+        let members = lines.filter { $0.key.hasPrefix("b\(block)e") }.values.map(Self.value)
+        guard !members.isEmpty, members.allSatisfy({ $0 != nil }) else { return nil }
+        return Self.text(for: members.compactMap { $0 }.reduce(0, +))
+    }
+
+    private static func value(_ line: EnergyLine) -> Double? {
+        if let actual = line.actual, line.recordedSets >= line.totalSets { return actual }
+        return line.planned
+    }
+
+    private static func text(for value: Double?) -> String? {
+        value.map(EnergyReport.display)
     }
 }

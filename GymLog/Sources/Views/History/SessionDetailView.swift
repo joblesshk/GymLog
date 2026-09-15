@@ -26,7 +26,11 @@ struct SessionDetailView: View {
 
     var body: some View {
         List {
-            Section { TrainingInsightView(session: session) }
+            Section {
+                TrainingInsightView(session: session)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
             if session.warmup != nil || session.warmupNote != nil {
                 Section {
                     NoteRow(text: session.warmup, note: session.warmupNote)

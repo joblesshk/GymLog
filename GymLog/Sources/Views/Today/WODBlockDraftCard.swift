@@ -15,6 +15,8 @@ struct WODBlockDraftCard: View {
     /// the current session (`TodayDraftStore.activeWODTimerOwnerID`) so a
     /// second card can't start its own timer while this one's is running.
     @Binding var activeWODTimerOwnerID: UUID?
+    /// 整塊 WOD 的熱量估算（`≈N kcal`），資料不足時為 nil 不顯示。
+    var energyText: String? = nil
     var onDelete: () -> Void
 
     @State private var timer: WODTimerModel?
@@ -41,7 +43,7 @@ struct WODBlockDraftCard: View {
         .gymCard()
         // Same "recompute from the wall-clock deadline the instant we're
         // back in the foreground" discipline `TodayView`'s own
-        // `RestTimerBar` uses -- the ticker's next 200ms tick would
+        // `RestTimerPill` uses -- the ticker's next 200ms tick would
         // eventually self-correct on its own even without this, but a
         // coach glancing at the screen right after unlocking the phone
         // shouldn't have to wait for that.
@@ -61,6 +63,11 @@ struct WODBlockDraftCard: View {
                 TextField(language.t("名稱（選填）", "Name (optional)"), text: $wodDraft.name)
                     .font(DS.F.cardTitle)
                     .foregroundStyle(DS.C.textHi)
+                if let energyText {
+                    Text(energyText)
+                        .font(DS.F.subtitle)
+                        .foregroundStyle(DS.C.textLow)
+                }
             }
             Spacer()
             Menu {

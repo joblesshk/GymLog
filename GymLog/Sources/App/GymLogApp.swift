@@ -40,6 +40,9 @@ struct GymLogApp: App {
         let isUITesting = ProcessInfo.processInfo.arguments.contains("-uiTesting")
         if isUITesting {
             DraftPersistence().clear()
+            // UI tests look up Traditional Chinese labels; a language chosen in an earlier run
+            // must not leak into this one.
+            UserDefaults.standard.removeObject(forKey: "appLanguage")
         }
         let schema = Schema([
             Client.self,
@@ -66,7 +69,11 @@ struct GymLogApp: App {
             // means UI tests can jump straight to today's entry flow without
             // also having to automate 「新增學員」.
             let context = ModelContext(container)
-            context.insert(Client(id: "ui-test-client", name: "UI Test Client"))
+            let client = Client(id: "ui-test-client", name: "UI Test Client", startWeightKg: 70)
+            context.insert(client)
+            if ProcessInfo.processInfo.arguments.contains("-uiTestingReviewedSession") {
+                Self.seedReviewedSession(for: client, in: context)
+            }
             try? context.save()
         }
         // NOTE: HANDOFF.md §2 specifies page titles at 30/Heavy via a global
@@ -79,6 +86,38 @@ struct GymLogApp: App {
         // to render. Shipping a broken Settings screen is worse than a
         // slightly different title weight, so this app keeps the system
         // default large-title style instead.
+    }
+
+    /// UI tests only: one finished, synthetic session with a stored AI review, so the history
+    /// detail cards can be exercised without a cloud service.
+    private static func seedReviewedSession(for client: Client, in context: ModelContext) {
+        let session = WorkoutSession(id: "ui-test-reviewed", date: Date(), dateOrigin: .asRecorded, dateRaw: "ui-test", weekNumber: 1, sourceSheet: "App", sourceRow: 0)
+        session.client = client
+        context.insert(session)
+        for (order, (name, pattern)) in [("Back squat", MovementPattern.squat), ("Bench press", .push)].enumerated() {
+            let exercise = Exercise(id: "ui-ex-\(order)", canonicalName: name, aliases: [], movementPattern: pattern, equipment: .barbell, loadDirection: .higherIsStronger, isUnilateral: false, occurrenceCount: 0, needsReview: false, reviewReason: nil)
+            context.insert(exercise)
+            let block = SessionBlock(order: order, blockType: .single, restSeconds: 90, restRaw: "90s", sourceRow: order)
+            block.session = session
+            context.insert(block)
+            let entry = ExerciseEntry(order: 0, exerciseIdRef: exercise.id, exerciseRaw: name, plannedSets: 3, exercise: exercise)
+            entry.block = block
+            context.insert(entry)
+            for index in 0..<3 {
+                let set = SetLog(setIndex: index, load: .absolute(kg: order == 0 ? 60 : 40, raw: order == 0 ? "60" : "40"), target: .range(low: 8, high: 12, raw: "8-12"), actual: index < 2 || order == 0 ? .fixed(value: 10, raw: "10") : .unknown(raw: ""), isInferred: false)
+                set.entry = entry
+                context.insert(set)
+            }
+        }
+        let report = TrainingInsights.report(session)
+        let review = TrainingReview(
+            summary: "兩個主項都按計劃完成了大部分組數，深蹲三組全部記錄，臥推最後一組未填結果。",
+            findings: ["深蹲 60 kg 三組均達到目標範圍下緣，節奏穩定。", "臥推前兩組完成 10 次，第三組沒有記錄，無法判斷是否完成。"],
+            suggestions: ["下次先補齊臥推最後一組的實際次數。", "若深蹲三組都能輕鬆完成 12 次，再考慮小幅增加負重。"],
+            limitations: ["沒有 RPE 或動作影片，無法評估動作品質與疲勞程度。"],
+            evidenceIDs: report.lines.map(\.id)
+        )
+        session.insightJSON = TrainingInsights.encode(InsightArchive(fingerprint: TrainingInsights.fingerprint(report), energy: report, review: review, reviewFingerprint: TrainingInsights.reviewKey(session), generatedAt: Date().addingTimeInterval(-3600), model: "deepseek-flash"))
     }
 
     var body: some Scene {

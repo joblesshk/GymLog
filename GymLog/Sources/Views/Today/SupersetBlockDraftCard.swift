@@ -25,9 +25,11 @@ struct SupersetBlockDraftCard: View {
     /// `draft.blocks` 陣列本身的結構調整，必須交給持有那個陣列的 TodayView。
     var onDissolve: () -> Void
     var onDelete: () -> Void
+    /// 全部成員的熱量估算合計（`≈N kcal`），資料不足時為 nil 不顯示。
+    var energyText: String? = nil
     /// 「本輪結束・開始休息」：接到 TodayView 既有的共享 `RestTimerModel`
     /// （`{ seconds in restTimer.setTotal(seconds); restTimer.start() }`，
-    /// 與 `RestTimerBar` 自己開始計時的方式完全一致），本卡片不另外持有一
+    /// 與 `RestTimerPill` 自己開始計時的方式完全一致），本卡片不另外持有一
     /// 份計時器狀態。
     var onStartRest: (Int) -> Void
 
@@ -180,6 +182,11 @@ struct SupersetBlockDraftCard: View {
                     Text(language.t("輪間休息 \(block.restSeconds ?? 60)s", "Rest \(block.restSeconds ?? 60)s"))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(DS.C.accent)
+                }
+                if let energyText {
+                    Text(energyText)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(DS.C.textLow)
                 }
             }
         }

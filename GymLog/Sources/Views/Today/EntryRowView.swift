@@ -29,6 +29,8 @@ struct EntryRowView: View {
     /// 该动作所在训练块的默认休息秒数，并入副标题显示（HANDOFF.md §4.3）。纯信息
     /// 展示 -- 组间休息倒计时功能已按教练要求整体移除，这里不再是可点击按钮。
     var restSeconds: Int?
+    /// 该动作的热量估算（`≈N kcal`），并入副标题末尾；数据不足时为 nil 不显示。
+    var energyText: String? = nil
     var onDelete: () -> Void
 
     @Query(sort: \Exercise.canonicalName) private var allExercises: [Exercise]
@@ -138,11 +140,10 @@ struct EntryRowView: View {
 
     private var summaryLine: some View {
         Group {
-            if let restSeconds {
-                Text(language.t("\(roundWord) · 共 \(draft.plannedSets) 組 · 休息 \(restSeconds)s", "\(roundWord) · \(draft.plannedSets) sets · Rest \(restSeconds)s"))
-            } else {
-                Text(language.t("\(roundWord) · 共 \(draft.plannedSets) 組", "\(roundWord) · \(draft.plannedSets) sets"))
-            }
+            Text(([language.t("\(roundWord) · 共 \(draft.plannedSets) 組", "\(roundWord) · \(draft.plannedSets) sets")]
+                + [restSeconds.map { language.t("休息 \($0)s", "Rest \($0)s") }, energyText].compactMap { $0 })
+                .joined(separator: " · "))
+                .accessibilityIdentifier("entry-summary-line")
         }
         .font(DS.F.subtitle)
         .foregroundStyle(DS.C.textLow)
