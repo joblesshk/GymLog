@@ -33,6 +33,10 @@ enum DS {
         static let prBg = Color("prBg")
         static let danger = Color("danger")
         static let chevron = Color("chevron")
+        /// 心率專用紅——刻意與 `danger` 分開一組資產：淺色 #C93A2B、深色
+        /// #FF7A66，兩者都與 accent（橘 / 螢光黃綠）留出足夠對比，不會在心率
+        /// 面板裡撞色（GymLog 改版設計 §2）。
+        static let heartRate = Color("heartRate")
     }
 
     // MARK: Typography (§2)
