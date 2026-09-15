@@ -94,17 +94,31 @@ struct EntryRowView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 10) {
+            MovementPatternBadge(pattern: draft.exercise.movementPattern)
+                .padding(.top, 2)
+
             VStack(alignment: .leading, spacing: 2) {
                 Button {
                     exercisePickerPresentation = .wheel
                 } label: {
-                    Text(draft.exercise.displayName)
-                        .font(DS.F.cardTitle)
-                        .foregroundStyle(DS.C.textHi)
+                    // 中文為主行、英文降一級不再與中文擠同一行（GymLog 改版設計
+                    // §3）。`accessibilityLabel` 固定用原本合併字串，行為與改版
+                    // 前完全一致，不影響既有 UI 測試對這顆按鈕 `.label` 的判斷。
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(draft.exercise.nameZh.isEmpty ? draft.exercise.canonicalName : draft.exercise.nameZh)
+                            .font(DS.F.cardTitle)
+                            .foregroundStyle(DS.C.textHi)
+                        if !draft.exercise.nameZh.isEmpty {
+                            Text(draft.exercise.canonicalName)
+                                .font(.system(size: 11))
+                                .foregroundStyle(DS.C.textLow)
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("entry-exercise-name")
+                .accessibilityLabel(draft.exercise.displayName)
 
                 summaryLine
             }
@@ -240,13 +254,10 @@ private struct RoundTableView: View {
     }
 }
 
-/// CONTRACT-M9.md v2: the shared width math behind the single-row Round
-/// table. 重量 gets ~1.6x the width of 組數/目標/實際 (all three of which are
-/// short, numeric-only content) -- it's the one column that realistically
-/// needs to fit longer text. Values are tuned against real content, not
-/// arbitrary: the widest routinely-seen 重量 text is things like "輔助
-/// 30kg"/"紫帶 x2"; 組數/目標/實際 never exceed ~5 characters (e.g. "59:55",
-/// "100次").
+/// CONTRACT-M9.md v2, ratios updated by GymLog 改版設計 §3: 重量與實際是現場
+/// 最常改的兩個值，改版前四欄一樣寬（除了本來就寬的重量），現在實際也跟著
+/// 放大——0.85 / 1.5 / 0.9 / 1.15，四者相加仍是 4.4 整除，算法不變。重量仍是
+/// 最寬的一欄：最長的常見文字是「輔助 30kg」/「紫帶 x2」。
 private struct RoundColumnLayout {
     let roundWidth: CGFloat
     let setsWidth: CGFloat
@@ -261,11 +272,11 @@ private struct RoundColumnLayout {
         deleteWidth = canDelete ? 20 : 0
         let gapCount: CGFloat = canDelete ? 5 : 4
         let remaining = max(0, totalWidth - roundWidth - deleteWidth - spacing * gapCount)
-        let unit = remaining / 4.0
-        setsWidth = unit * 0.8
-        loadWidth = unit * 1.6
-        targetWidth = unit * 0.8
-        actualWidth = unit * 0.8
+        let unit = remaining / 4.4
+        setsWidth = unit * 0.85
+        loadWidth = unit * 1.5
+        targetWidth = unit * 0.9
+        actualWidth = unit * 1.15
     }
 }
 
@@ -342,10 +353,14 @@ private struct RoundRow: View, Identifiable {
                     .minimumScaleFactor(0.8)
                     .frame(width: layout.roundWidth, alignment: .leading)
 
-                dataCell(number: "\(round.setsCount)", unit: language.t("組", "x"), width: layout.setsWidth) { editingField = .sets }
+                dataCell(number: "\(round.setsCount)", unit: language.t("組", "x"), width: layout.setsWidth, kind: .sets) { editingField = .sets }
                 loadCell(width: layout.loadWidth) { editingField = .load }
-                dataCell(number: target.number, unit: target.unit, width: layout.targetWidth) { editingField = .target }
-                dataCell(number: actual.number, unit: actual.unit, width: layout.actualWidth) { editingField = .actual }
+                dataCell(number: target.number, unit: target.unit, width: layout.targetWidth, kind: .target) { editingField = .target }
+                if round.actualRecorded {
+                    dataCell(number: actual.number, unit: actual.unit, width: layout.actualWidth, kind: .actual) { editingField = .actual }
+                } else {
+                    unrecordedActualCell(width: layout.actualWidth) { editingField = .actual }
+                }
 
                 if canDelete {
                     Button(role: .destructive) {
@@ -361,7 +376,7 @@ private struct RoundRow: View, Identifiable {
                 }
             }
         }
-        .frame(height: 38)
+        .frame(height: 46)
         .sheet(item: $editingField) { field in
             switch field {
             case .sets:
@@ -402,27 +417,70 @@ private struct RoundRow: View, Identifiable {
         }
     }
 
+    /// GymLog 改版設計 §3：重量與實際是現場最常改的兩個值，要比組數/目標更
+    /// 突出；實際額外用 accent 描邊框住，跟「已記錄」的狀態綁在一起——描邊本
+    /// 身就是「這是教練剛剛按進去的數字」的視覺提示，不用再讀顏色以外的東西。
+    private enum RoundCellKind { case sets, target, actual }
+
+    private func numberFont(_ kind: RoundCellKind) -> Font {
+        switch kind {
+        case .sets: return .system(size: 16, weight: .semibold)
+        case .target: return .system(size: 14, weight: .medium)
+        case .actual: return .system(size: 20, weight: .bold)
+        }
+    }
+
+    private func numberColor(_ kind: RoundCellKind) -> Color {
+        switch kind {
+        case .sets: return DS.C.textHi
+        case .target: return DS.C.textMid
+        case .actual: return DS.C.accent
+        }
+    }
+
     @ViewBuilder
-    private func dataCell(number: String, unit: String, width: CGFloat, action: @escaping () -> Void) -> some View {
+    private func dataCell(number: String, unit: String, width: CGFloat, kind: RoundCellKind, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(alignment: .firstTextBaseline, spacing: 1) {
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(number)
-                    .font(DS.F.dataNumberCompact())
+                    .font(numberFont(kind))
                     .monospacedDigit()
-                    .foregroundStyle(DS.C.textHi)
+                    .foregroundStyle(numberColor(kind))
                 if !unit.isEmpty {
                     Text(unit)
                         .font(DS.F.dataUnitCompact)
-                        .foregroundStyle(DS.C.textLow)
+                        .foregroundStyle(kind == .actual ? DS.C.accent : DS.C.textLow)
                 }
             }
             .lineLimit(1)
             .minimumScaleFactor(0.6)
             .frame(width: width)
-            .frame(height: 38)
-            .background(DS.C.inset, in: Capsule())
+            .frame(height: 46)
+            .background(kind == .actual ? DS.C.accentSoft : DS.C.inset, in: Capsule())
+            .overlay {
+                if kind == .actual {
+                    Capsule().stroke(DS.C.accent, lineWidth: 1.5)
+                }
+            }
         }
         .buttonStyle(.plain)
+    }
+
+    /// 未記錄的「實際」：虛線 accent 描邊 + 「＋」，取代原本的純文字「—」——
+    /// 一眼就能看出這一格「還沒填」而不是「填了個破折號」。
+    private func unrecordedActualCell(width: CGFloat, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: "plus")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(DS.C.accent)
+                .frame(width: width, height: 46)
+                .background(DS.C.surface, in: Capsule())
+                .overlay {
+                    Capsule().strokeBorder(DS.C.accent.opacity(0.45), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(language.t("記錄實際成績", "Record actual result"))
     }
 
     @ViewBuilder
@@ -430,9 +488,9 @@ private struct RoundRow: View, Identifiable {
         Button(action: action) {
             Group {
                 if let numeric = round.load.numericDisplay {
-                    HStack(alignment: .firstTextBaseline, spacing: 1) {
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
                         Text(numeric.value)
-                            .font(DS.F.dataNumberCompact())
+                            .font(.system(size: 19, weight: .semibold))
                             .monospacedDigit()
                             .foregroundStyle(DS.C.textHi)
                         Text(numeric.unit)
@@ -441,14 +499,14 @@ private struct RoundRow: View, Identifiable {
                     }
                 } else {
                     Text(round.load.displayText)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(DS.C.textHi)
                 }
             }
             .lineLimit(1)
             .minimumScaleFactor(0.55)
             .frame(width: width)
-            .frame(height: 38)
+            .frame(height: 46)
             .background(DS.C.inset, in: Capsule())
         }
         .buttonStyle(.plain)
