@@ -543,9 +543,7 @@ struct TodayView: View {
 
     private var sessionTopBar: some View {
         VStack(spacing: 4) {
-            HStack {
-                RestTimerPill(timer: restTimer)
-                Spacer(minLength: 8)
+            RestTimerHeaderRow(timer: restTimer) {
                 HeartRateChip(monitor: heartRate)
             }
             if restAlertsAuthorized == false {
