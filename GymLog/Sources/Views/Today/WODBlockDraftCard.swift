@@ -43,7 +43,7 @@ struct WODBlockDraftCard: View {
         .gymCard()
         // Same "recompute from the wall-clock deadline the instant we're
         // back in the foreground" discipline `TodayView`'s own
-        // `RestTimerPill` uses -- the ticker's next 200ms tick would
+        // `RestTimerHeaderRow` uses -- the ticker's next 200ms tick would
         // eventually self-correct on its own even without this, but a
         // coach glancing at the screen right after unlocking the phone
         // shouldn't have to wait for that.

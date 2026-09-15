@@ -29,7 +29,7 @@ struct SupersetBlockDraftCard: View {
     var energyText: String? = nil
     /// 「本輪結束・開始休息」：接到 TodayView 既有的共享 `RestTimerModel`
     /// （`{ seconds in restTimer.setTotal(seconds); restTimer.start() }`，
-    /// 與 `RestTimerPill` 自己開始計時的方式完全一致），本卡片不另外持有一
+    /// 與 `RestTimerHeaderRow` 自己開始計時的方式完全一致），本卡片不另外持有一
     /// 份計時器狀態。
     var onStartRest: (Int) -> Void
 
