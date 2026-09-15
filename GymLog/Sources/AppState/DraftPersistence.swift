@@ -47,8 +47,19 @@ public struct DraftPersistence {
     /// actual training session -- the caller (`TodayView`) surfaces this as
     /// a small, non-blocking indicator, not silence (the old behavior: log
     /// and otherwise pretend nothing happened).
+    ///
+    /// R06 (2026-09-16): refuses to write when the file already on disk is
+    /// corrupted bytes `load()` couldn't quarantine (disk full/permissions
+    /// at load time) -- that file is the coach's last-remaining recovery
+    /// copy; a normal autosave must never silently overwrite it. Only
+    /// `clear()`, or a `load()` that finally manages to quarantine it, frees
+    /// this slot up again.
     @discardableResult
     public func save(_ snapshot: TodayDraftSnapshot) -> Bool {
+        guard !isBlockedByUnquarantinedCorruption() else {
+            Logger(subsystem: "org.example.gymlog", category: "draft").warning("DraftPersistence.save refused: an unquarantined corrupted draft is still on disk")
+            return false
+        }
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             let data = try Self.encoder.encode(snapshot)
@@ -58,6 +69,15 @@ public struct DraftPersistence {
             Logger(subsystem: "org.example.gymlog", category: "draft").warning("DraftPersistence.save failed: \(String(describing: error), privacy: .public)")
             return false
         }
+    }
+
+    /// A file at `fileURL` that exists but doesn't decode as a
+    /// `TodayDraftSnapshot` is, by construction, corrupted bytes `load()`
+    /// tried and failed to move aside -- `save()` must not treat that slot
+    /// as "just the previous draft" and overwrite it.
+    private func isBlockedByUnquarantinedCorruption() -> Bool {
+        guard let data = try? Data(contentsOf: fileURL) else { return false }
+        return (try? Self.decoder.decode(TodayDraftSnapshot.self, from: data)) == nil
     }
 
     public enum LoadResult: Equatable {
@@ -76,15 +96,39 @@ public struct DraftPersistence {
     /// `.none` if nothing was ever saved. A broken snapshot never blocks the
     /// coach from starting a fresh session -- but is reported as
     /// `.corrupted`, not silently treated the same as `.none`.
+    ///
+    /// R06 (2026-09-16): the original file is removed only as a side effect
+    /// of a successful `moveItem` (same-volume rename) into quarantine --
+    /// never as a separate step. `moveItem` either fully succeeds (source
+    /// gone, quarantine copy exists) or fully fails (source untouched, no
+    /// quarantine copy); there is no window where a failed quarantine write
+    /// still takes the original down with it, the way a copy-then-delete
+    /// sequence could (e.g. under disk-full, where the copy fails but a
+    /// following unconditional delete still runs).
     public func load() -> LoadResult {
-        guard let data = try? Data(contentsOf: fileURL) else { return .none }
+        guard let data = try? Data(contentsOf: fileURL) else {
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                Logger(subsystem: "org.example.gymlog", category: "draft").warning("DraftPersistence.load: file exists but could not be read (permissions?) -- treating as no draft, not deleting it")
+            }
+            return .none
+        }
         if let decoded = try? Self.decoder.decode(TodayDraftSnapshot.self, from: data) {
             return .snapshot(decoded)
         }
         let quarantineURL = directory.appendingPathComponent("today-draft-corrupted-\(UUID().uuidString).json")
-        let quarantined: URL? = (try? data.write(to: quarantineURL, options: .atomic)) != nil ? quarantineURL : nil
-        try? FileManager.default.removeItem(at: fileURL)
-        return .corrupted(quarantinedTo: quarantined)
+        do {
+            try FileManager.default.moveItem(at: fileURL, to: quarantineURL)
+            return .corrupted(quarantinedTo: quarantineURL)
+        } catch {
+            // Quarantine failed -- the corrupted bytes are the only
+            // remaining trace of whatever the coach had in progress, so they
+            // stay exactly where they are instead of being deleted. `save()`
+            // (`isBlockedByUnquarantinedCorruption`) now refuses to write
+            // over this file until it's cleared or a later `load()` finally
+            // manages to move it aside.
+            Logger(subsystem: "org.example.gymlog", category: "draft").warning("DraftPersistence.load: quarantine move failed, leaving corrupted file in place: \(String(describing: error), privacy: .public)")
+            return .corrupted(quarantinedTo: nil)
+        }
     }
 
     public func clear() {
