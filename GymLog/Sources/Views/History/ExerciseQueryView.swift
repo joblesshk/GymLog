@@ -63,7 +63,7 @@ struct ExerciseQueryView: View {
                     }
                 }
 
-                Section(L("動作", "Exercise")) {
+                Section {
                     Picker(L("分類", "Category"), selection: $patternFilter) {
                         Text(L("全部分類", "All Categories")).tag(MovementPattern?.none)
                         ForEach(MovementPattern.allCases.filter { $0 != .unknown }) { pattern in
@@ -71,30 +71,15 @@ struct ExerciseQueryView: View {
                         }
                     }
                     ForEach(filteredExercises, id: \.id) { exercise in
-                        Button {
-                            selectedExerciseID = exercise.id
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(exercise.displayName)
-                                        .font(DS.F.listRow)
-                                        .foregroundStyle(DS.C.textHi)
-                                    Text(L("\(exercise.movementPattern.displayName) · 出現 \(exercise.occurrenceCount) 次", "\(exercise.movementPattern.displayName) · \(exercise.occurrenceCount)×"))
-                                        .font(DS.F.subtitle)
-                                        .foregroundStyle(DS.C.textLow)
-                                }
-                                Spacer()
-                                if exercise.id == selectedExerciseID {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(DS.C.accent)
-                                }
-                                if exercise.loadDirection.isInverted {
-                                    Image(systemName: "arrow.down.circle")
-                                        .foregroundStyle(DS.C.textMid)
-                                        .help(L("越小越強", "Lower Is Stronger"))
-                                }
-                            }
-                        }
+                        exerciseRow(exercise)
+                    }
+                } header: {
+                    HStack {
+                        Text(L("動作", "Exercise")).sectionLabelStyle()
+                        Spacer()
+                        Text(L("依出現次數排序", "Sorted by frequency"))
+                            .font(.system(size: 11))
+                            .foregroundStyle(DS.C.textLow)
                     }
                 }
             }
@@ -115,17 +100,83 @@ struct ExerciseQueryView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
+                    // 「查看」由文字按鈕升為 accent 實心膠囊（44pt 命中區），
+                    // 未選滿學員 + 動作時 40% 透明的停用態（GymLog 改版設計
+                    // §7C，沿用 §3 語彙）。
+                    let isReady = selectedClientID != nil && selectedExerciseID != nil
                     NavigationLink {
                         destinationView
                     } label: {
                         Text(L("查看", "View"))
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(DS.C.onAccent)
+                            .padding(.horizontal, 18)
+                            .frame(height: 44)
+                            .background(DS.C.accent, in: Capsule())
                     }
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(DS.C.accent)
-                    .disabled(selectedClientID == nil || selectedExerciseID == nil)
+                    .disabled(!isReady)
+                    .opacity(isReady ? 1 : 0.4)
                 }
             }
         }
+    }
+
+    /// 動作列——套上 §3「選擇動作」面板的語彙：模式方塊、中文主行、出現次數
+    /// 抽成右對齊等寬數字欄、選中改 accent 實心勾 + 淡底、`loadDirection
+    /// .isInverted` 補文字說明（GymLog 改版設計 §7C）。
+    private func exerciseRow(_ exercise: Exercise) -> some View {
+        let isSelected = exercise.id == selectedExerciseID
+        let hasOccurred = exercise.occurrenceCount > 0
+        return Button {
+            selectedExerciseID = exercise.id
+        } label: {
+            HStack(spacing: 12) {
+                MovementPatternBadge(pattern: exercise.movementPattern)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(exercise.nameZh.isEmpty ? exercise.canonicalName : exercise.nameZh)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(DS.C.textHi)
+                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        if !exercise.nameZh.isEmpty {
+                            Text(exercise.canonicalName)
+                        }
+                        if exercise.loadDirection.isInverted {
+                            Text(L("越小越強", "Lower is stronger"))
+                        }
+                    }
+                    .font(.system(size: 11))
+                    .foregroundStyle(DS.C.textLow)
+                    .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                if hasOccurred {
+                    HStack(alignment: .lastTextBaseline, spacing: 2) {
+                        Text("\(exercise.occurrenceCount)")
+                            .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(DS.C.textHi)
+                        Text(L("次", "×"))
+                            .font(.system(size: 10))
+                            .foregroundStyle(DS.C.textLow)
+                    }
+                    .frame(minWidth: 34, alignment: .trailing)
+                } else {
+                    Text(L("未出現", "Not used"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(DS.C.textLow)
+                }
+                if exercise.loadDirection.isInverted {
+                    Image(systemName: "arrow.down.circle")
+                        .foregroundStyle(DS.C.textMid)
+                }
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isSelected ? DS.C.accent : Color.clear)
+                    .frame(width: 20)
+            }
+            .frame(minHeight: 56)
+        }
+        .listRowBackground(isSelected ? DS.C.accentSoft.opacity(0.5) : DS.C.surface)
+        .opacity(hasOccurred ? 1 : 0.5)
     }
 
     @ViewBuilder
