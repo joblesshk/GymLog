@@ -422,9 +422,26 @@ private struct SupersetMemberRoundRow: View {
         }
     }
 
+    // R01 (2026-09-16): same rationale as EntryRowView.RoundRow's identical
+    // pair -- `round.target`/`.actual` are the real `RepTarget` now, these
+    // wheels can only show/edit one `Int`.
+    private var targetQuantityBinding: Binding<Int> {
+        Binding(
+            get: { RepTargetToRoundQuantity.quantity(from: round.target, metric: metric) },
+            set: { round.target = RepTargetToRoundQuantity.repTarget(quantity: $0, metric: metric) }
+        )
+    }
+
+    private var actualQuantityBinding: Binding<Int> {
+        Binding(
+            get: { RepTargetToRoundQuantity.quantity(from: round.actual, metric: metric) },
+            set: { round.actual = RepTargetToRoundQuantity.repTarget(quantity: $0, metric: metric) }
+        )
+    }
+
     var body: some View {
-        let target = quantityCellText(round.targetQuantity)
-        let actual = round.actualRecorded ? quantityCellText(round.actualQuantity) : (number: "—", unit: "")
+        let target = quantityCellText(RepTargetToRoundQuantity.quantity(from: round.target, metric: metric))
+        let actual = round.actualRecorded ? quantityCellText(RepTargetToRoundQuantity.quantity(from: round.actual, metric: metric)) : (number: "—", unit: "")
 
         HStack(spacing: 6) {
             Text("R\(roundIndex + 1)")
@@ -445,12 +462,12 @@ private struct SupersetMemberRoundRow: View {
                 }
             case .target:
                 PickerSheet(title: quantityFieldTitle(isTarget: true)) {
-                    quantityWheel($round.targetQuantity)
+                    quantityWheel(targetQuantityBinding)
                 }
             case .actual:
                 PickerSheet(title: quantityFieldTitle(isTarget: false)) {
                     VStack {
-                        quantityWheel($round.actualQuantity)
+                        quantityWheel(actualQuantityBinding)
                         Button(language.t("記錄此數值", "Record this value")) { round.actualRecorded = true; editingField = nil }
                         Button(language.t("清除實際成績", "Clear result")) { round.actualRecorded = false; editingField = nil }
                     }

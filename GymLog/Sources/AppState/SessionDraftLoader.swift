@@ -62,7 +62,7 @@ public enum SessionDraftLoader {
                 if block.blockType == .superset {
                     loadedRounds = loadedRounds.flatMap { round in
                         (0..<max(round.setsCount, 1)).map { _ in
-                            RoundDraft(setsCount: 1, load: round.load, targetQuantity: round.targetQuantity, actualQuantity: round.actualQuantity, actualRecorded: round.actualRecorded)
+                            RoundDraft(setsCount: 1, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded)
                         }
                     }
                 }
@@ -95,12 +95,22 @@ public enum SessionDraftLoader {
     /// 个 Round，而 Excel 导入的历史课次一个动作出现 6 种不同重量是真实存在的。
     /// 强行折叠会丢数据，截断更糟；多出来的 Round 照样显示、照样能改，只是
     /// 「加一組」按钮在删到 4 个以下之前不可用。
+    /// R01 (2026-09-16): `set.target`/`set.actual` are carried straight into
+    /// the `RoundDraft` as-is -- no more `RepTargetToRoundQuantity.quantity(
+    /// from:metric:)` here. That call used to be the exact point where a
+    /// historical `.range(8,12)`/`.perSide(left,right)` actual got collapsed
+    /// to its midpoint `Int` the moment a saved course was merely opened for
+    /// editing, before the coach had touched anything -- "打开 → 不改 → 保存"
+    /// was silently lossy. `RoundDraft.target`/`.actual` now hold the real
+    /// `RepTarget`, so this function is a direct passthrough (still merging
+    /// consecutive identical-triple `SetLog`s into one multi-set Round,
+    /// unchanged).
     static func rounds(from sets: [SetLog], metric: RecordingMetric, equipment: Equipment) -> [RoundDraft] {
         guard !sets.isEmpty else {
-            let fallback = RepTargetToRoundQuantity.defaultQuantity(for: metric)
+            let fallback = RepTargetToRoundQuantity.repTarget(quantity: RepTargetToRoundQuantity.defaultQuantity(for: metric), metric: metric)
             return [RoundDraft(
                 setsCount: 1, load: PrefillResolver.defaultLoad(for: equipment),
-                targetQuantity: fallback, actualQuantity: fallback, actualRecorded: false
+                target: fallback, actual: fallback, actualRecorded: false
             )]
         }
         var result: [RoundDraft] = []
@@ -119,8 +129,8 @@ public enum SessionDraftLoader {
             result.append(RoundDraft(
                 setsCount: 1,
                 load: set.load,
-                targetQuantity: RepTargetToRoundQuantity.quantity(from: set.target, metric: metric),
-                actualQuantity: RepTargetToRoundQuantity.quantity(from: set.actual, metric: metric),
+                target: set.target,
+                actual: set.actual,
                 actualRecorded: { if case .unknown = set.actual { return false }; return true }()
             ))
         }

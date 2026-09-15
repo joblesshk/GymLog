@@ -12,20 +12,30 @@ import Foundation
 /// whose exercise was deleted/merged away in the meantime is simply dropped
 /// (mirrors `TodayView.startFromTemplate`'s existing "跳过未匹配的模板动作,
 /// 明确提示教练" precedent, not a silent shrink).
+/// R01 (2026-09-16): `target`/`actual` are the real `RepTarget` (`RepTarget`
+/// is itself `Codable`), not a re-quantized `Int` -- an in-progress
+/// `.range`/`.perSide` Round must survive an app-kill/restore cycle exactly
+/// as losslessly as it survives the normal save/load round trip
+/// (`RoundDraft`'s own doc comment). An old on-disk snapshot written before
+/// this field shape existed simply fails to decode as a whole -- see
+/// `DraftPersistence.load()`'s `.corrupted` handling, which quarantines a
+/// decode failure instead of losing it silently, so this is a safe schema
+/// change for a single-slot autosave file, not one that needs a migration
+/// path of its own.
 public struct RoundDraftSnapshot: Codable, Equatable {
     public var id: UUID
     public var setsCount: Int
     public var load: LoadValue
-    public var targetQuantity: Int
-    public var actualQuantity: Int
+    public var target: RepTarget
+    public var actual: RepTarget
     public var actualRecorded: Bool?
 
-    public init(id: UUID, setsCount: Int, load: LoadValue, targetQuantity: Int, actualQuantity: Int, actualRecorded: Bool? = nil) {
+    public init(id: UUID, setsCount: Int, load: LoadValue, target: RepTarget, actual: RepTarget, actualRecorded: Bool? = nil) {
         self.id = id
         self.setsCount = setsCount
         self.load = load
-        self.targetQuantity = targetQuantity
-        self.actualQuantity = actualQuantity
+        self.target = target
+        self.actual = actual
         self.actualRecorded = actualRecorded
     }
 }
@@ -225,7 +235,7 @@ public struct TodayDraftSnapshot: Codable, Equatable {
 
 extension RoundDraft {
     public func snapshot() -> RoundDraftSnapshot {
-        RoundDraftSnapshot(id: id, setsCount: setsCount, load: load, targetQuantity: targetQuantity, actualQuantity: actualQuantity, actualRecorded: actualRecorded)
+        RoundDraftSnapshot(id: id, setsCount: setsCount, load: load, target: target, actual: actual, actualRecorded: actualRecorded)
     }
 }
 
@@ -244,7 +254,7 @@ extension EntryDraft {
     public static func restore(from snapshot: EntryDraftSnapshot, exercises: [Exercise]) -> (entry: EntryDraft?, metricUncertain: Bool) {
         guard let exercise = exercises.first(where: { $0.id == snapshot.exerciseID }) else { return (nil, false) }
         let rounds = snapshot.rounds.map {
-            RoundDraft(id: $0.id, setsCount: $0.setsCount, load: $0.load, targetQuantity: $0.targetQuantity, actualQuantity: $0.actualQuantity, actualRecorded: $0.actualRecorded ?? true)
+            RoundDraft(id: $0.id, setsCount: $0.setsCount, load: $0.load, target: $0.target, actual: $0.actual, actualRecorded: $0.actualRecorded ?? true)
         }
         let entry = EntryDraft(id: snapshot.id, exercise: exercise, rounds: rounds, restSeconds: snapshot.restSeconds, recordingMetric: snapshot.recordingMetric)
         return (entry, snapshot.recordingMetric == nil)

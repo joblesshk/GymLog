@@ -40,7 +40,7 @@ final class VoiceCommandServiceTests: XCTestCase {
         let entry = draft.blocks[0].entries.first
         XCTAssertEqual(entry?.exercise.id, "ex-squat")
         XCTAssertEqual(entry?.rounds.first?.setsCount, 3)
-        XCTAssertEqual(entry?.rounds.first?.targetQuantity, 10)
+        XCTAssertEqual(entry?.rounds.first?.target, .fixed(value: 10, raw: "10"))
         guard case .absolute(let kg, _) = entry?.rounds.first?.load else { return XCTFail() }
         XCTAssertEqual(kg, 40)
     }
@@ -127,7 +127,7 @@ final class VoiceCommandServiceTests: XCTestCase {
         let service = VoiceCommandService()
 
         service.execute(rawText: "把臥推第一組實際次數改為六次", draft: draft, allExercises: [bench, squat], context: context, clientID: "cl-1")
-        XCTAssertEqual(benchEntry.rounds[0].actualQuantity, 6)
+        XCTAssertEqual(benchEntry.rounds[0].actual, .fixed(value: 6, raw: "6"))
 
         // 手動編輯：改深蹲的重量（跟語音命令完全無關的另一個動作）。
         squatEntry.rounds[0].load = .absolute(kg: 50, raw: "50")
@@ -135,7 +135,7 @@ final class VoiceCommandServiceTests: XCTestCase {
         let undoOutcome = service.execute(rawText: "撤銷", draft: draft, allExercises: [bench, squat], context: context, clientID: "cl-1")
 
         guard case .applied = undoOutcome else { return XCTFail("撤銷本身應該回報 applied") }
-        XCTAssertEqual(benchEntry.rounds[0].actualQuantity, 8, "臥推的實際次數必須還原")
+        XCTAssertEqual(benchEntry.rounds[0].actual, .fixed(value: 8, raw: "8"), "臥推的實際次數必須還原")
         guard case .absolute(let squatKg, _) = squatEntry.rounds[0].load else { return XCTFail() }
         XCTAssertEqual(squatKg, 50, "深蹲的手動重量編輯不能被撤銷動作抹掉")
     }
@@ -157,8 +157,8 @@ final class VoiceCommandServiceTests: XCTestCase {
         let outcome = service.execute(rawText: "把臥推第一組實際次數改為六次", draft: draft, allExercises: [bench1], context: context, clientID: "cl-1")
 
         guard case .needsClarification = outcome else { return XCTFail("2 個同名 entry 沒指定序數時必須澄清，實際 \(outcome)") }
-        XCTAssertEqual(entry1.rounds[0].actualQuantity, 8, "澄清狀態下，兩個 entry 都不應該被改動")
-        XCTAssertEqual(entry2.rounds[0].actualQuantity, 8)
+        XCTAssertEqual(entry1.rounds[0].actual, .fixed(value: 8, raw: "8"), "澄清狀態下，兩個 entry 都不應該被改動")
+        XCTAssertEqual(entry2.rounds[0].actual, .fixed(value: 8, raw: "8"))
     }
 
     func testNoMatchingExerciseIsClarificationNotSilentFailure() throws {
@@ -244,8 +244,8 @@ final class VoiceCommandServiceTests: XCTestCase {
         )
 
         guard case .applied = applyOutcome else { return XCTFail("點選候選後應該直接套用，實際 \(applyOutcome)") }
-        XCTAssertEqual(entry1.rounds[0].actualQuantity, 8, "沒被選中的 entry 不應該被動到")
-        XCTAssertEqual(entry2.rounds[0].actualQuantity, 6, "被選中的 entry 應該套用新值")
+        XCTAssertEqual(entry1.rounds[0].actual, .fixed(value: 8, raw: "8"), "沒被選中的 entry 不應該被動到")
+        XCTAssertEqual(entry2.rounds[0].actual, .fixed(value: 6, raw: "6"), "被選中的 entry 應該套用新值")
     }
 
     /// 點選候選的那一刻，草稿已經被別的地方改動過——跟一般命令的過時檢測
@@ -298,7 +298,7 @@ final class VoiceCommandServiceTests: XCTestCase {
         let outcome = service.apply(request, draft: draft, allExercises: [bench], context: context, clientID: "cl-1")
 
         XCTAssertEqual(outcome, .staleDraft)
-        XCTAssertEqual(entry.rounds[0].actualQuantity, 8, "過時的命令不能被執行")
+        XCTAssertEqual(entry.rounds[0].actual, .fixed(value: 8, raw: "8"), "過時的命令不能被執行")
     }
 
     // MARK: - 同一 requestID 重放冪等
@@ -317,11 +317,11 @@ final class VoiceCommandServiceTests: XCTestCase {
         }
 
         let first = service.apply(request, draft: draft, allExercises: [bench], context: context, clientID: "cl-1")
-        entry.rounds[0].actualQuantity = 999  // 模擬重放前又被別的東西改動
+        entry.rounds[0].actual = .fixed(value: 999, raw: "999")  // 模擬重放前又被別的東西改動
         let second = service.apply(request, draft: draft, allExercises: [bench], context: context, clientID: "cl-1")
 
         XCTAssertEqual(first, second, "同一個 requestID 第二次呼叫必須回傳跟第一次一樣的結果，不重新執行")
-        XCTAssertEqual(entry.rounds[0].actualQuantity, 999, "冪等重放不應該再次寫入")
+        XCTAssertEqual(entry.rounds[0].actual, .fixed(value: 999, raw: "999"), "冪等重放不應該再次寫入")
     }
 
     // MARK: - 單位/負重不兼容拒絕
@@ -341,7 +341,7 @@ final class VoiceCommandServiceTests: XCTestCase {
         let outcome = service.execute(rawText: "把平板支撐第一組實際次數改為八次", draft: draft, allExercises: [plank], context: context, clientID: "cl-1")
 
         guard case .rejected = outcome else { return XCTFail("單位不匹配必須拒絕，實際 \(outcome)") }
-        XCTAssertEqual(entry.rounds[0].actualQuantity, 30, "拒絕的命令不能改動任何數據")
+        XCTAssertEqual(entry.rounds[0].actual, .time(seconds: 30, raw: "30"), "拒絕的命令不能改動任何數據")
     }
 
     // MARK: - 2026-09-13 修正：新增動作單位不符必須拒絕，不能沿用默認值
@@ -528,8 +528,8 @@ final class VoiceCommandServiceTests: XCTestCase {
         let outcome = service.execute(rawText: "把臥推改成十二次", draft: draft, allExercises: [bench], context: context, clientID: "cl-1")
 
         guard case .applied = outcome else { return XCTFail("預期 applied，實際 \(outcome)") }
-        XCTAssertEqual(entry.rounds[0].targetQuantity, 12, "沒有「實際」關鍵詞，只能改目標")
-        XCTAssertEqual(entry.rounds[0].actualQuantity, 5, "既有的實際成績不能被計劃命令動到")
+        XCTAssertEqual(entry.rounds[0].target, .fixed(value: 12, raw: "12"), "沒有「實際」關鍵詞，只能改目標")
+        XCTAssertEqual(entry.rounds[0].actual, .fixed(value: 5, raw: "5"), "既有的實際成績不能被計劃命令動到")
     }
 
     // MARK: - replaceExercise 對已有實際成績的動作需要預覽確認
@@ -600,7 +600,7 @@ final class VoiceCommandServiceTests: XCTestCase {
         let outcome = service.apply(rawText: "把臥推第一組實際次數改為六次", contextToken: tokenAtRecordingStart, draft: draft, allExercises: [bench], context: context, clientID: "cl-1")
 
         XCTAssertEqual(outcome, .staleDraft)
-        XCTAssertEqual(entry.rounds[0].actualQuantity, 8, "過時的命令不能被執行")
+        XCTAssertEqual(entry.rounds[0].actual, .fixed(value: 8, raw: "8"), "過時的命令不能被執行")
     }
 
     func testApplyWithExternallyCapturedTokenHappyPath() throws {
@@ -617,7 +617,7 @@ final class VoiceCommandServiceTests: XCTestCase {
         let outcome = service.apply(rawText: "把臥推第一組實際次數改為六次", contextToken: tokenAtRecordingStart, draft: draft, allExercises: [bench], context: context, clientID: "cl-1")
 
         guard case .applied = outcome else { return XCTFail("預期 applied，實際 \(outcome)") }
-        XCTAssertEqual(entry.rounds[0].actualQuantity, 6)
+        XCTAssertEqual(entry.rounds[0].actual, .fixed(value: 6, raw: "6"))
     }
 
     func testApplyWithExternallyCapturedTokenSurfacesClarificationReason() throws {

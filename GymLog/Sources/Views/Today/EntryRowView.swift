@@ -182,7 +182,17 @@ private struct RoundTableView: View {
     let loadKind: LoadWheelKind
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
-    private var metric: RecordingMetric { draft.exercise.recordingMetric }
+    // R02 (2026-09-16): must read the frozen `draft.recordingMetric`, not
+    // `draft.exercise.recordingMetric` live -- `Exercise` is a SwiftData
+    // reference type the coach can reclassify (動作庫 -> 編輯 -> 記錄單位) at
+    // any time, independently of any draft/history entry already pointing
+    // at it. Reading it live here reintroduces exactly the bug
+    // `EntryDraft`'s own `recordingMetric` capture (see its doc comment,
+    // "2026-09-07 审阅 B02") exists to prevent: a saved 500m row entry, after
+    // the exercise gets reclassified to reps, showing/editing as "500 次"
+    // here even though `SessionDraftLoader`/`resolvedSets()` still correctly
+    // treat it as meters.
+    private var metric: RecordingMetric { draft.recordingMetric }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -339,11 +349,33 @@ private struct RoundRow: View, Identifiable {
         }
     }
 
+    /// R01 (2026-09-16): `round.target`/`.actual` are the real `RepTarget`
+    /// now (`.range`/`.perSide` included for an untouched historical Round)
+    /// -- these wheels can only show/edit one `Int`, so the binding reads
+    /// via `RepTargetToRoundQuantity.quantity(from:metric:)` (lossy for
+    /// `.range`/`.perSide`, same midpoint rule as always) and writes back
+    /// through `repTarget(quantity:metric:)`. Only actually opening this
+    /// sheet and changing the value narrows the stored `RepTarget` to
+    /// `metric`'s simple shape -- merely displaying it never does.
+    private var targetQuantityBinding: Binding<Int> {
+        Binding(
+            get: { RepTargetToRoundQuantity.quantity(from: round.target, metric: metric) },
+            set: { round.target = RepTargetToRoundQuantity.repTarget(quantity: $0, metric: metric) }
+        )
+    }
+
+    private var actualQuantityBinding: Binding<Int> {
+        Binding(
+            get: { RepTargetToRoundQuantity.quantity(from: round.actual, metric: metric) },
+            set: { round.actual = RepTargetToRoundQuantity.repTarget(quantity: $0, metric: metric) }
+        )
+    }
+
     var body: some View {
         GeometryReader { geo in
             let layout = RoundColumnLayout(totalWidth: geo.size.width, canDelete: canDelete)
-            let target = quantityCellText(round.targetQuantity)
-            let actual = round.actualRecorded ? quantityCellText(round.actualQuantity) : (number: "—", unit: "")
+            let target = quantityCellText(RepTargetToRoundQuantity.quantity(from: round.target, metric: metric))
+            let actual = round.actualRecorded ? quantityCellText(RepTargetToRoundQuantity.quantity(from: round.actual, metric: metric)) : (number: "—", unit: "")
 
             HStack(spacing: layout.spacing) {
                 Text("R\(index + 1)")
@@ -389,12 +421,12 @@ private struct RoundRow: View, Identifiable {
                 }
             case .target:
                 PickerSheet(title: quantityFieldTitle(isTarget: true)) {
-                    quantityWheel($round.targetQuantity)
+                    quantityWheel(targetQuantityBinding)
                 }
             case .actual:
                 PickerSheet(title: quantityFieldTitle(isTarget: false)) {
                     VStack {
-                        quantityWheel($round.actualQuantity)
+                        quantityWheel(actualQuantityBinding)
                         Button(language.t("記錄此數值", "Record this value")) { round.actualRecorded = true; editingField = nil }
                         Button(language.t("清除實際成績", "Clear result")) { round.actualRecorded = false; editingField = nil }
                     }

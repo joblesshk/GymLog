@@ -135,8 +135,8 @@ public final class CloudVoiceController {
         let entries: [[String: Any]] = draft.blocks.flatMap { block in block.entries.map { e in
             ["target": e.id.uuidString, "exerciseID": e.exercise.id, "blockID": block.id.uuidString,
              "blockType": block.blockType.rawValue, "metric": e.recordingMetric.rawValue,
-             "sets": e.rounds.map { ["count": $0.setsCount, "target": $0.targetQuantity,
-                "actual": $0.actualRecorded ? $0.actualQuantity as Any : NSNull(), "load": $0.load.displayText] }] as [String: Any]
+             "sets": e.rounds.map { ["count": $0.setsCount, "target": RepTargetToRoundQuantity.quantity(from: $0.target, metric: e.recordingMetric),
+                "actual": $0.actualRecorded ? RepTargetToRoundQuantity.quantity(from: $0.actual, metric: e.recordingMetric) as Any : NSNull(), "load": $0.load.displayText] }] as [String: Any]
         } }
         let object: [String: Any] = ["active": draft.isActive, "language": language,
             "lastTarget": lastTarget as Any? ?? NSNull(), "catalog": catalog, "entries": entries]

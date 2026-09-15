@@ -157,7 +157,7 @@ final class TodayDraftMutationServiceTests: XCTestCase {
     func testAddMemberSeedsRoundsMatchingExistingMemberCount() throws {
         let squat = makeExercise(id: "ex-squat", name: "Squat")
         let bench = makeExercise(id: "ex-bench", name: "Bench")
-        let a1 = EntryDraft(exercise: squat, rounds: (0..<3).map { _ in RoundDraft(setsCount: 1, load: .absolute(kg: 60, raw: "60"), targetQuantity: 8, actualQuantity: 8) })
+        let a1 = EntryDraft(exercise: squat, rounds: (0..<3).map { _ in RoundDraft(setsCount: 1, load: .absolute(kg: 60, raw: "60"), targetQuantity: 8, actualQuantity: 8, metric: .reps) })
         let block = BlockDraft(blockType: .superset, restSeconds: 60, entries: [a1], sectionKind: .strength)
 
         TodayDraftMutationService.addMember(bench, to: block)
@@ -208,8 +208,8 @@ final class TodayDraftMutationServiceTests: XCTestCase {
     func testAddRoundToAllMembersKeepsIndependentRoundCounts() throws {
         let squat = makeExercise(id: "ex-squat", name: "Squat")
         let plank = makeExercise(id: "ex-plank", name: "Plank", metric: .time)
-        let a1 = EntryDraft(exercise: squat, rounds: (0..<3).map { _ in RoundDraft(setsCount: 1, load: .absolute(kg: 60, raw: "60"), targetQuantity: 8, actualQuantity: 8) })
-        let a2 = EntryDraft(exercise: plank, rounds: (0..<2).map { _ in RoundDraft(setsCount: 1, load: .bodyweight(raw: "BW"), targetQuantity: 45, actualQuantity: 40) })
+        let a1 = EntryDraft(exercise: squat, rounds: (0..<3).map { _ in RoundDraft(setsCount: 1, load: .absolute(kg: 60, raw: "60"), targetQuantity: 8, actualQuantity: 8, metric: .reps) })
+        let a2 = EntryDraft(exercise: plank, rounds: (0..<2).map { _ in RoundDraft(setsCount: 1, load: .bodyweight(raw: "BW"), targetQuantity: 45, actualQuantity: 40, metric: .time) })
         let block = BlockDraft(blockType: .superset, entries: [a1, a2], sectionKind: .strength)
 
         TodayDraftMutationService.addRoundToAllMembers(block)
@@ -221,8 +221,8 @@ final class TodayDraftMutationServiceTests: XCTestCase {
     func testRemoveLastRoundFromAllMembersOnlyTouchesMembersAtMaxCount() throws {
         let squat = makeExercise(id: "ex-squat", name: "Squat")
         let plank = makeExercise(id: "ex-plank", name: "Plank", metric: .time)
-        let a1 = EntryDraft(exercise: squat, rounds: (0..<3).map { _ in RoundDraft(setsCount: 1, load: .absolute(kg: 60, raw: "60"), targetQuantity: 8, actualQuantity: 8) })
-        let a2 = EntryDraft(exercise: plank, rounds: (0..<2).map { _ in RoundDraft(setsCount: 1, load: .bodyweight(raw: "BW"), targetQuantity: 45, actualQuantity: 40) })
+        let a1 = EntryDraft(exercise: squat, rounds: (0..<3).map { _ in RoundDraft(setsCount: 1, load: .absolute(kg: 60, raw: "60"), targetQuantity: 8, actualQuantity: 8, metric: .reps) })
+        let a2 = EntryDraft(exercise: plank, rounds: (0..<2).map { _ in RoundDraft(setsCount: 1, load: .bodyweight(raw: "BW"), targetQuantity: 45, actualQuantity: 40, metric: .time) })
         let block = BlockDraft(blockType: .superset, entries: [a1, a2], sectionKind: .strength)
 
         TodayDraftMutationService.removeLastRoundFromAllMembers(block)

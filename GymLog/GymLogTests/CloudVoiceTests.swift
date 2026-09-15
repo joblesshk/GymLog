@@ -33,7 +33,7 @@ import SwiftData
             .init(kind: .addExercise, evidence: "安排", exerciseID: "plank")])
         XCTAssertEqual(draft.allEntries.count, 2)
         XCTAssertEqual(draft.allEntries[0].plannedSets, 4)
-        XCTAssertEqual(draft.allEntries[1].rounds[0].targetQuantity, 30)
+        XCTAssertEqual(draft.allEntries[1].rounds[0].target, .time(seconds: 30, raw: "30"))
         XCTAssertEqual(draft.allEntries[1].rounds[0].load, .bodyweight(raw: "BW"))
         for e in draft.allEntries { for set in e.resolvedSets() { XCTAssertEqual(set.actual, .unknown(raw: "")) } }
         try executor.undo(draft: draft, exercises: exercises)
@@ -75,19 +75,19 @@ import SwiftData
         XCTAssertThrowsError(try run([.init(kind: .updatePlan, evidence: "安排", target: draft.allEntries[0].id.uuidString, setIndex: 99, quantity: 8, unit: "reps")]))
     }
     func testWholePlanUpdatePreservesResultsAndOtherFields() throws {
-        try start(); let e = draft.allEntries[0]; e.rounds[0].actualQuantity = 7
+        try start(); let e = draft.allEntries[0]; e.rounds[0].actual = .fixed(value: 7, raw: "7")
         let target = e.id.uuidString
         _ = try run([.init(kind: .updatePlan, evidence: "安排", target: target, quantity: 12, unit: "reps")])
         XCTAssertEqual(draft.allEntries[0].resolvedSets()[0].actual, .fixed(value: 7, raw: "7"))
         XCTAssertEqual(draft.allEntries[0].plannedSets, 3)
     }
     func testResizeAddsUnrecordedSets() throws {
-        try start(); let e = draft.allEntries[0]; e.rounds[0].actualQuantity = 8
+        try start(); let e = draft.allEntries[0]; e.rounds[0].actual = .fixed(value: 8, raw: "8")
         _ = try run([.init(kind: .updatePlan, evidence: "安排", target: e.id.uuidString, sets: 4)])
         XCTAssertEqual(draft.allEntries[0].resolvedSets().last?.actual, .unknown(raw: ""))
     }
     func testDestructiveConfirmationThenUndoRestoresResults() throws {
-        try start(); let e = draft.allEntries[0]; e.rounds[0].actualQuantity = 8
+        try start(); let e = draft.allEntries[0]; e.rounds[0].actual = .fixed(value: 8, raw: "8")
         let before = CloudDraftState(draft)
         let ops = [CloudVoiceOperation(kind: .removeExercise, evidence: "安排", target: e.id.uuidString)]
         XCTAssertThrowsError(try run(ops)) { XCTAssertTrue($0 is CloudVoiceExecutionNeedsConfirmation) }
@@ -96,8 +96,8 @@ import SwiftData
         try executor.undo(draft: draft, exercises: exercises); XCTAssertEqual(before, CloudDraftState(draft))
     }
     func testManualEditBlocksUndo() throws {
-        try start(); draft.allEntries[0].rounds[0].targetQuantity = 99
-        XCTAssertThrowsError(try executor.undo(draft: draft, exercises: exercises)); XCTAssertEqual(draft.allEntries[0].rounds[0].targetQuantity, 99)
+        try start(); draft.allEntries[0].rounds[0].target = .fixed(value: 99, raw: "99")
+        XCTAssertThrowsError(try executor.undo(draft: draft, exercises: exercises)); XCTAssertEqual(draft.allEntries[0].rounds[0].target, .fixed(value: 99, raw: "99"))
     }
     func testEmptyDraftStateIncludesIdentityAndActiveFlag() {
         let before = CloudDraftState(draft); draft.startNew(clientID: "other")
@@ -117,7 +117,7 @@ import SwiftData
         XCTAssertEqual(restored.allEntries[0].resolvedSets()[0].actual, .unknown(raw: ""))
     }
     func testOldSnapshotDefaultsToRecorded() throws {
-        let r = RoundDraftSnapshot(id: UUID(), setsCount: 1, load: .bodyweight(raw: "BW"), targetQuantity: 10, actualQuantity: 8)
+        let r = RoundDraftSnapshot(id: UUID(), setsCount: 1, load: .bodyweight(raw: "BW"), target: .fixed(value: 10, raw: "10"), actual: .fixed(value: 8, raw: "8"))
         let e = EntryDraftSnapshot(id: UUID(), exerciseID: "squat", rounds: [r], restSeconds: nil, recordingMetric: .reps)
         XCTAssertTrue(EntryDraft.restore(from: e, exercises: exercises).entry!.rounds[0].actualRecorded)
     }

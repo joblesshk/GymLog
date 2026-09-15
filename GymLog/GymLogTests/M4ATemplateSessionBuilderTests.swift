@@ -62,10 +62,10 @@ final class M4ATemplateSessionBuilderTests: XCTestCase {
         // CONTRACT-M5.md §3.3.2: defaultRepTarget (.range(6,10)) must be
         // converted to a single exact Int via the documented rounding rule
         // (midpoint, rounded) -- (6+10)/2 = 8.
-        XCTAssertEqual(entries[0].rounds[0].targetQuantity, 8, "range defaultRepTarget must convert to its rounded midpoint")
+        XCTAssertEqual(entries[0].rounds[0].target, .fixed(value: 8, raw: "8"), "range defaultRepTarget must convert to its rounded midpoint")
         // CONTRACT-M9.md: a template slot has no "actual" concept yet (this
         // Round has never been performed) -- 目标/实际 start equal.
-        XCTAssertEqual(entries[0].rounds[0].actualQuantity, 8, "a freshly-built template Round has no actual history yet, so actual starts equal to target")
+        XCTAssertEqual(entries[0].rounds[0].actual, .fixed(value: 8, raw: "8"), "a freshly-built template Round has no actual history yet, so actual starts equal to target")
         XCTAssertEqual(result.blocks[0].restSeconds, 90, "block rest must carry over from the template block")
     }
 

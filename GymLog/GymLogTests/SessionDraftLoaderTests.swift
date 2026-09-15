@@ -88,9 +88,9 @@ final class SessionDraftLoaderTests: XCTestCase {
         let context = ModelContext(container)
         let exercise = makeExercise()
         let entry = EntryDraft(exercise: exercise, rounds: [
-            RoundDraft(setsCount: 2, load: .absolute(kg: 30, raw: "30"), targetQuantity: 10, actualQuantity: 10),
-            RoundDraft(setsCount: 3, load: .absolute(kg: 45, raw: "45"), targetQuantity: 8, actualQuantity: 7),
-            RoundDraft(setsCount: 2, load: .absolute(kg: 40, raw: "40"), targetQuantity: 8, actualQuantity: 8),
+            RoundDraft(setsCount: 2, load: .absolute(kg: 30, raw: "30"), targetQuantity: 10, actualQuantity: 10, metric: .reps),
+            RoundDraft(setsCount: 3, load: .absolute(kg: 45, raw: "45"), targetQuantity: 8, actualQuantity: 7, metric: .reps),
+            RoundDraft(setsCount: 2, load: .absolute(kg: 40, raw: "40"), targetQuantity: 8, actualQuantity: 8, metric: .reps),
         ])
         let session = try persist(blocks: [BlockDraft(entries: [entry])], exercise: exercise, in: context)
 
@@ -99,10 +99,10 @@ final class SessionDraftLoaderTests: XCTestCase {
         XCTAssertEqual(loaded.blocks.count, 1)
         let rounds = try XCTUnwrap(loaded.blocks.first?.entries.first?.rounds)
         XCTAssertEqual(rounds.map(\.setsCount), [2, 3, 2])
-        XCTAssertEqual(rounds.map(\.targetQuantity), [10, 8, 8])
-        XCTAssertEqual(rounds.map(\.actualQuantity), [10, 7, 8])
+        XCTAssertEqual(rounds.map { RepTargetToRoundQuantity.quantity(from: $0.target, metric: .reps) }, [10, 8, 8])
+        XCTAssertEqual(rounds.map { RepTargetToRoundQuantity.quantity(from: $0.actual, metric: .reps) }, [10, 7, 8])
         XCTAssertEqual(rounds.map(\.load), [
-            .absolute(kg: 30, raw: "30"), .absolute(kg: 45, raw: "45"), .absolute(kg: 40, raw: "40"),
+            LoadValue.absolute(kg: 30, raw: "30"), .absolute(kg: 45, raw: "45"), .absolute(kg: 40, raw: "40"),
         ])
     }
 
@@ -113,14 +113,50 @@ final class SessionDraftLoaderTests: XCTestCase {
         let context = ModelContext(container)
         let exercise = makeExercise()
         let entry = EntryDraft(exercise: exercise, rounds: [
-            RoundDraft(setsCount: 2, load: .absolute(kg: 40, raw: "40"), targetQuantity: 10, actualQuantity: 10),
-            RoundDraft(setsCount: 1, load: .absolute(kg: 40, raw: "40"), targetQuantity: 10, actualQuantity: 7),
+            RoundDraft(setsCount: 2, load: .absolute(kg: 40, raw: "40"), targetQuantity: 10, actualQuantity: 10, metric: .reps),
+            RoundDraft(setsCount: 1, load: .absolute(kg: 40, raw: "40"), targetQuantity: 10, actualQuantity: 7, metric: .reps),
         ])
         let session = try persist(blocks: [BlockDraft(entries: [entry])], exercise: exercise, in: context)
 
         let rounds = try XCTUnwrap(SessionDraftLoader.load(from: session, exercises: [exercise]).blocks.first?.entries.first?.rounds)
         XCTAssertEqual(rounds.map(\.setsCount), [2, 1])
-        XCTAssertEqual(rounds.map(\.actualQuantity), [10, 7])
+        XCTAssertEqual(rounds.map { RepTargetToRoundQuantity.quantity(from: $0.actual, metric: .reps) }, [10, 7])
+    }
+
+    /// R01 (2026-09-16): 打开一条区间/每侧成绩的历史记录、不做任何修改、再
+    /// 保存——`.range`/`.perSide` 必须原样往返，不能被折叠成中点整数。这是
+    /// GymLog_Review_2026-09-15.md R01 的核心验收（T01）。
+    func testUntouchedRangeAndPerSideActualsRoundTripLosslessly() throws {
+        let container = try TestSupport.makeInMemoryContainer()
+        let context = ModelContext(container)
+        let exercise = makeExercise()
+        let session = try persist(blocks: [], exercise: exercise, in: context)
+        let block = SessionBlock(order: 0, blockType: .single, restSeconds: nil, sourceRow: 0, sectionKind: .strength)
+        block.session = session
+        context.insert(block)
+        let entry = ExerciseEntry(order: 0, exerciseIdRef: exercise.id, exerciseRaw: exercise.canonicalName, plannedSets: 1, exercise: exercise)
+        entry.block = block
+        context.insert(entry)
+        let setLog = SetLog(
+            setIndex: 0, load: .absolute(kg: 40, raw: "40"),
+            target: .range(low: 8, high: 12, raw: "8-12"), actual: .perSide(left: 8, right: 12, raw: "L8/R12"),
+            isInferred: false
+        )
+        setLog.entry = entry
+        context.insert(setLog)
+        try context.save()
+
+        let loadedRound = try XCTUnwrap(SessionDraftLoader.load(from: session, exercises: [exercise]).blocks.first?.entries.first?.rounds.first)
+        XCTAssertEqual(loadedRound.target, .range(low: 8, high: 12, raw: "8-12"), "untouched target must keep its exact original range, not collapse to a midpoint Int")
+        XCTAssertEqual(loadedRound.actual, .perSide(left: 8, right: 12, raw: "L8/R12"), "untouched actual must keep its exact original perSide values")
+
+        // "打开 → 不改 → 保存": resaving without touching this Round must
+        // write back byte-identical `SetLog`s, not `.fixed(10)`.
+        let entryDraft = try XCTUnwrap(SessionDraftLoader.load(from: session, exercises: [exercise]).blocks.first?.entries.first)
+        let resolved = entryDraft.resolvedSets()
+        XCTAssertEqual(resolved.count, 1)
+        XCTAssertEqual(resolved[0].target, .range(low: 8, high: 12, raw: "8-12"))
+        XCTAssertEqual(resolved[0].actual, .perSide(left: 8, right: 12, raw: "L8/R12"))
     }
 
     // MARK: - 单位
@@ -132,7 +168,7 @@ final class SessionDraftLoaderTests: XCTestCase {
         let context = ModelContext(container)
         let exercise = makeExercise(id: "ex-row", name: "Rowing", metric: .distance, equipment: .ergometer)
         let entry = EntryDraft(exercise: exercise, rounds: [
-            RoundDraft(setsCount: 1, load: .bodyweight(raw: "BW"), targetQuantity: 500, actualQuantity: 500),
+            RoundDraft(setsCount: 1, load: .bodyweight(raw: "BW"), targetQuantity: 500, actualQuantity: 500, metric: .distance),
         ])
         let session = try persist(blocks: [BlockDraft(entries: [entry])], exercise: exercise, in: context)
 
@@ -142,7 +178,7 @@ final class SessionDraftLoaderTests: XCTestCase {
 
         let restored = try XCTUnwrap(SessionDraftLoader.load(from: session, exercises: [exercise]).blocks.first?.entries.first)
         XCTAssertEqual(restored.recordingMetric, .distance)
-        XCTAssertEqual(restored.rounds.first?.targetQuantity, 500)
+        XCTAssertEqual(RepTargetToRoundQuantity.quantity(from: restored.rounds.first?.target ?? .unknown(raw: ""), metric: .distance), 500)
     }
 
     // MARK: - WOD

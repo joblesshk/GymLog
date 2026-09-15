@@ -37,8 +37,8 @@ final class SupersetBlockDraftTests: XCTestCase {
 
     /// 一輪＝一個 `RoundDraft`，`setsCount` 固定為 1——`SupersetBlockDraftCard`
     /// 實際建立成員時走的就是這個形狀。
-    private func supersetRounds(count: Int, load: LoadValue, target: Int, actual: Int) -> [RoundDraft] {
-        (0..<count).map { _ in RoundDraft(setsCount: 1, load: load, targetQuantity: target, actualQuantity: actual) }
+    private func supersetRounds(count: Int, load: LoadValue, target: Int, actual: Int, metric: RecordingMetric = .reps) -> [RoundDraft] {
+        (0..<count).map { _ in RoundDraft(setsCount: 1, load: load, targetQuantity: target, actualQuantity: actual, metric: metric) }
     }
 
     // MARK: - 保存→載入→再保存：組數不齊、不同記錄單位/負重
@@ -53,8 +53,8 @@ final class SupersetBlockDraftTests: XCTestCase {
         context.insert(plank)
 
         // A1 三輪、A2 只有兩輪——組數不齊是允許的，各自獨立。
-        let a1 = EntryDraft(exercise: squat, rounds: supersetRounds(count: 3, load: .absolute(kg: 60, raw: "60"), target: 8, actual: 6))
-        let a2 = EntryDraft(exercise: plank, rounds: supersetRounds(count: 2, load: .bodyweight(raw: "BW"), target: 45, actual: 40))
+        let a1 = EntryDraft(exercise: squat, rounds: supersetRounds(count: 3, load: .absolute(kg: 60, raw: "60"), target: 8, actual: 6, metric: .reps))
+        let a2 = EntryDraft(exercise: plank, rounds: supersetRounds(count: 2, load: .bodyweight(raw: "BW"), target: 45, actual: 40, metric: .time))
         let block = BlockDraft(blockType: .superset, restSeconds: 75, entries: [a1, a2], sectionKind: .strength)
 
         let input = baseInput(client: client, blocks: [block], finishing: false)
@@ -71,11 +71,11 @@ final class SupersetBlockDraftTests: XCTestCase {
         let loadedSquat = try XCTUnwrap(loaded.entries.first { $0.exercise.id == "ex-squat" })
         XCTAssertEqual(loadedSquat.rounds.count, 3, "A1 的 3 輪必須完整保留")
         XCTAssertTrue(loadedSquat.rounds.allSatisfy { $0.setsCount == 1 })
-        XCTAssertEqual(loadedSquat.rounds.map(\.actualQuantity), [6, 6, 6])
+        XCTAssertEqual(loadedSquat.rounds.map { RepTargetToRoundQuantity.quantity(from: $0.actual, metric: .reps) }, [6, 6, 6])
 
         let loadedPlank = try XCTUnwrap(loaded.entries.first { $0.exercise.id == "ex-plank" })
         XCTAssertEqual(loadedPlank.rounds.count, 2, "A2 只有 2 輪，不能被 A1 的輪數撐大")
-        XCTAssertEqual(loadedPlank.rounds.map(\.actualQuantity), [40, 40])
+        XCTAssertEqual(loadedPlank.rounds.map { RepTargetToRoundQuantity.quantity(from: $0.actual, metric: .time) }, [40, 40])
 
         // 再保存一次（暫存→再暫存），不能产生第二条历史记录。
         let secondInput = baseInput(client: client, blocks: loadedBlocks, existingSessionID: output.session.id, finishing: false)
@@ -96,14 +96,14 @@ final class SupersetBlockDraftTests: XCTestCase {
         context.insert(row)
 
         let benchRounds = [
-            RoundDraft(setsCount: 1, load: .absolute(kg: 40, raw: "40"), targetQuantity: 10, actualQuantity: 10),
-            RoundDraft(setsCount: 1, load: .absolute(kg: 40, raw: "40"), targetQuantity: 10, actualQuantity: 8),
-            RoundDraft(setsCount: 1, load: .absolute(kg: 40, raw: "40"), targetQuantity: 10, actualQuantity: 7)
+            RoundDraft(setsCount: 1, load: .absolute(kg: 40, raw: "40"), targetQuantity: 10, actualQuantity: 10, metric: .reps),
+            RoundDraft(setsCount: 1, load: .absolute(kg: 40, raw: "40"), targetQuantity: 10, actualQuantity: 8, metric: .reps),
+            RoundDraft(setsCount: 1, load: .absolute(kg: 40, raw: "40"), targetQuantity: 10, actualQuantity: 7, metric: .reps)
         ]
         let rowRounds = [
-            RoundDraft(setsCount: 1, load: .absolute(kg: 30, raw: "30"), targetQuantity: 12, actualQuantity: 12),
-            RoundDraft(setsCount: 1, load: .absolute(kg: 30, raw: "30"), targetQuantity: 12, actualQuantity: 11),
-            RoundDraft(setsCount: 1, load: .absolute(kg: 30, raw: "30"), targetQuantity: 12, actualQuantity: 9)
+            RoundDraft(setsCount: 1, load: .absolute(kg: 30, raw: "30"), targetQuantity: 12, actualQuantity: 12, metric: .reps),
+            RoundDraft(setsCount: 1, load: .absolute(kg: 30, raw: "30"), targetQuantity: 12, actualQuantity: 11, metric: .reps),
+            RoundDraft(setsCount: 1, load: .absolute(kg: 30, raw: "30"), targetQuantity: 12, actualQuantity: 9, metric: .reps)
         ]
         let a1 = EntryDraft(exercise: bench, rounds: benchRounds)
         let a2 = EntryDraft(exercise: row, rounds: rowRounds)
@@ -116,8 +116,8 @@ final class SupersetBlockDraftTests: XCTestCase {
         let loaded = try XCTUnwrap(loadedBlocks.first)
         let loadedBench = try XCTUnwrap(loaded.entries.first { $0.exercise.id == "ex-bench" })
         let loadedRow = try XCTUnwrap(loaded.entries.first { $0.exercise.id == "ex-row" })
-        XCTAssertEqual(loadedBench.rounds.map(\.actualQuantity), [10, 8, 7], "每輪各自不同的實際次數必須逐輪保留")
-        XCTAssertEqual(loadedRow.rounds.map(\.actualQuantity), [12, 11, 9])
+        XCTAssertEqual(loadedBench.rounds.map { RepTargetToRoundQuantity.quantity(from: $0.actual, metric: .reps) }, [10, 8, 7], "每輪各自不同的實際次數必須逐輪保留")
+        XCTAssertEqual(loadedRow.rounds.map { RepTargetToRoundQuantity.quantity(from: $0.actual, metric: .reps) }, [12, 11, 9])
     }
 
     // MARK: - 訓練量/分析按動作各自歸屬，不因同屬一個 Superset block 而混算
@@ -269,8 +269,8 @@ final class SupersetBlockDraftTests: XCTestCase {
         XCTAssertEqual(dissolved.count, 2)
         XCTAssertEqual(dissolved[0].blockType, .single)
         XCTAssertEqual(dissolved[0].entries.first?.exercise.id, "ex-bench")
-        XCTAssertEqual(dissolved[0].entries.first?.rounds.map(\.actualQuantity), [8, 8, 8])
+        XCTAssertEqual(dissolved[0].entries.first?.rounds.map { RepTargetToRoundQuantity.quantity(from: $0.actual, metric: .reps) }, [8, 8, 8])
         XCTAssertEqual(dissolved[1].entries.first?.exercise.id, "ex-row")
-        XCTAssertEqual(dissolved[1].entries.first?.rounds.map(\.actualQuantity), [11, 11])
+        XCTAssertEqual(dissolved[1].entries.first?.rounds.map { RepTargetToRoundQuantity.quantity(from: $0.actual, metric: .reps) }, [11, 11])
     }
 }

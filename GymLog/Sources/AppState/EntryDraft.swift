@@ -8,44 +8,73 @@ import Observation
 /// subsystem entirely -- there is no separate per-set override layer
 /// anymore, only Rounds.
 ///
-/// `targetQuantity`/`actualQuantity` are plain `Int`s, never `RepTarget`s --
-/// only the unit each is in comes from a `RepTarget` case (see
-/// `RepTargetToRoundQuantity`/`recordingMetric` below), not the shape.
-///
-/// CONTRACT-M9.md: M5 originally collapsed 目标/实际 into one shared number
-/// for new entries ("为什么 reps 是 Int 不是 RepTarget", `CONTRACT-M5.md
-/// §3.3.2`). The coach later asked for that reversed -- 目标 (what's planned)
-/// and 实际 (what actually happened) are independently editable again, same
-/// as `SetLog.target`/`SetLog.actual` always were at the model layer; only
-/// the M5/M8 entry UI had ever merged them.
-///
-/// CONTRACT-M8.md: what unit these are actually in (reps / seconds / meters
-/// / rounds) is not carried on `RoundDraft` itself -- it's whatever the
-/// owning `EntryDraft.exercise.recordingMetric` says.
+/// R01 (2026-09-16): `target`/`actual` are the real `RepTarget` this Round
+/// was (or will be) recorded as -- `.range(low,high)`/`.perSide(left,right)`
+/// included, not collapsed to a single `Int` the moment a historical Round
+/// is loaded back for editing. Before this, loading a saved `.range(8,12)`
+/// actual into a draft and saving again -- without ever touching that field
+/// -- silently rewrote it as `.fixed(10)` (the midpoint): "打开 → 不改 →
+/// 保存" was not actually lossless. `SessionDraftLoader.rounds(from:...)`
+/// now passes a loaded Round's `SetLog.target`/`.actual` straight through
+/// unchanged, and `EntryDraft.resolvedSets()` passes them straight back out
+/// on save -- neither step touches `RepTargetToRoundQuantity` at all
+/// anymore. `RepTargetToRoundQuantity` still exists, but purely as the
+/// UI/voice-command edit-time bridge: extracting a single editable `Int`
+/// from whatever `RepTarget` is currently here (`quantity(from:metric:)`,
+/// lossy for `.range`/`.perSide` exactly as before -- a wheel can only show
+/// one number), and wrapping an edited `Int` back into the metric's SIMPLE
+/// shape (`repTarget(quantity:metric:)`). Only an actual edit -- through a
+/// wheel, a voice command, `addRound`/`setExercise` seeding a fresh Round --
+/// ever narrows `target`/`actual` away from whatever richer shape they
+/// started as; merely loading and re-saving a Round nobody touched never
+/// does.
 public struct RoundDraft: Identifiable, Equatable {
     public let id: UUID
     public var setsCount: Int
     public var load: LoadValue
-    public var targetQuantity: Int
-    public var actualQuantity: Int { didSet { actualRecorded = true } }
+    public var target: RepTarget
+    public var actual: RepTarget { didSet { actualRecorded = true } }
     public var actualRecorded: Bool
 
-    public init(id: UUID = UUID(), setsCount: Int, load: LoadValue, targetQuantity: Int, actualQuantity: Int, actualRecorded: Bool = true) {
+    public init(id: UUID = UUID(), setsCount: Int, load: LoadValue, target: RepTarget, actual: RepTarget, actualRecorded: Bool = true) {
         self.id = id
         self.setsCount = setsCount
         self.load = load
-        self.targetQuantity = targetQuantity
-        self.actualQuantity = actualQuantity
+        self.target = target
+        self.actual = actual
         self.actualRecorded = actualRecorded
+    }
+
+    /// Convenience for every call site that only has (or only needs) a
+    /// plain edited `Int` -- a wheel write, a voice command, a fresh Round's
+    /// per-metric default -- not an arbitrary historical `RepTarget`. Wraps
+    /// both quantities into `metric`'s SIMPLE shape via
+    /// `RepTargetToRoundQuantity.repTarget(quantity:metric:)`; never
+    /// produces a `.range`/`.perSide`, by construction -- those only ever
+    /// come from `SessionDraftLoader` passing an untouched historical
+    /// `SetLog.target`/`.actual` straight through the other initializer.
+    public init(id: UUID = UUID(), setsCount: Int, load: LoadValue, targetQuantity: Int, actualQuantity: Int, metric: RecordingMetric, actualRecorded: Bool = true) {
+        self.init(
+            id: id, setsCount: setsCount, load: load,
+            target: RepTargetToRoundQuantity.repTarget(quantity: targetQuantity, metric: metric),
+            actual: RepTargetToRoundQuantity.repTarget(quantity: actualQuantity, metric: metric),
+            actualRecorded: actualRecorded
+        )
     }
 }
 
+/// R01 (2026-09-16): now purely an edit-time bridge between a `RoundDraft`'s
+/// real `RepTarget` (`target`/`actual`) and the single `Int` a wheel/voice
+/// command can actually read or write -- it no longer sits on the
+/// load/save round-trip path at all (see `RoundDraft`'s own doc comment).
+///
 /// CONTRACT-M5.md §3.3.2 (extended by CONTRACT-M8.md): converts a historical
-/// `RepTarget` into the single exact integer a new `RoundDraft.quantity`
-/// requires. Every call site that seeds a Round's quantity from historical
-/// data (new-entry prefill, 复制上次课次, 从模板新建) routes through this so
-/// the rounding rule is applied once and identically everywhere, per the
-/// contract's explicit "不要在不同入口用不同规则" requirement.
+/// `RepTarget` into the single exact integer a wheel needs to display/edit.
+/// Every call site that needs one number from a `RepTarget` -- a wheel
+/// showing the current value, new-entry prefill, 复制上次课次, 从模板新建 --
+/// routes through this so the rounding rule is applied once and identically
+/// everywhere, per the contract's explicit "不要在不同入口用不同规则"
+/// requirement.
 ///
 /// `metric` is the exercise's own `recordingMetric` classification -- the
 /// source of truth for which unit `quantity` should end up in, independent
@@ -84,6 +113,26 @@ public enum RepTargetToRoundQuantity {
         case .distance: return 200
         case .rounds: return 3
         case .reps, .unknown: return 10
+        }
+    }
+
+    /// R01 (2026-09-16): wraps an edited `quantity` back into the `RepTarget`
+    /// case matching `metric` -- a plank's Round becomes `.time(seconds:)`,
+    /// a farmer walk's `.rounds(count:)`, never unconditionally `.fixed`
+    /// (reps). Formerly `EntryDraft.repTarget(quantity:metric:)` (private);
+    /// moved here so both `EntryDraft` and `RoundDraft`'s own convenience
+    /// initializer can reach it, and so it sits next to the `quantity(from:
+    /// metric:)` it's the inverse of. Always produces metric's SIMPLE shape
+    /// -- callers that need to preserve an arbitrary historical `.range`/
+    /// `.perSide` must pass the original `RepTarget` straight through
+    /// `RoundDraft`'s other initializer instead of round-tripping through
+    /// this pair.
+    public static func repTarget(quantity: Int, metric: RecordingMetric, raw: String? = nil) -> RepTarget {
+        switch metric {
+        case .time: return .time(seconds: quantity, raw: raw ?? "\(quantity)")
+        case .distance: return .distance(meters: quantity, raw: raw ?? "\(quantity)m")
+        case .rounds: return .rounds(count: quantity, raw: raw ?? "\(quantity)round")
+        case .reps, .unknown: return .fixed(value: quantity, raw: raw ?? "\(quantity)")
         }
     }
 }
@@ -140,7 +189,7 @@ public final class EntryDraft: Identifiable {
             ? [RoundDraft(
                 setsCount: 3, load: PrefillResolver.defaultLoad(for: exercise.equipment),
                 targetQuantity: RepTargetToRoundQuantity.defaultQuantity(for: metric),
-                actualQuantity: RepTargetToRoundQuantity.defaultQuantity(for: metric), actualRecorded: false
+                actualQuantity: RepTargetToRoundQuantity.defaultQuantity(for: metric), metric: metric, actualRecorded: false
             )]
             : rounds
         self.restSeconds = restSeconds
@@ -159,10 +208,11 @@ public final class EntryDraft: Identifiable {
         recordingMetric: RecordingMetric? = nil,
         actualRecorded: Bool = true
     ) {
+        let metric = recordingMetric ?? exercise.recordingMetric
         self.init(
             id: id,
             exercise: exercise,
-            rounds: [RoundDraft(setsCount: setsCount, load: load, targetQuantity: targetQuantity, actualQuantity: actualQuantity, actualRecorded: actualRecorded)],
+            rounds: [RoundDraft(setsCount: setsCount, load: load, targetQuantity: targetQuantity, actualQuantity: actualQuantity, metric: metric, actualRecorded: actualRecorded)],
             restSeconds: restSeconds,
             recordingMetric: recordingMetric
         )
@@ -204,7 +254,14 @@ public final class EntryDraft: Identifiable {
                 load: PrefillResolver.defaultLoad(for: newExercise.equipment),
                 targetQuantity: fallback,
                 actualQuantity: fallback,
-                actualRecorded: $0.actualRecorded
+                metric: newMetric,
+                // R02 (2026-09-16): NOT `$0.actualRecorded`. `actualQuantity`
+                // just got reset to a generic per-metric placeholder, not
+                // anything the coach actually measured -- carrying over a
+                // `true` from before the swap would show/save that
+                // placeholder as a confirmed result. A metric change always
+                // demands a fresh confirmation, same as an all-new Round.
+                actualRecorded: false
             )
         }
         recordingMetric = newMetric
@@ -218,15 +275,21 @@ public final class EntryDraft: Identifiable {
     /// next attempt usually starts from where the previous one left off,
     /// then gets adjusted) -- no-op once `maxRounds` is reached. 目标/实际 are
     /// copied independently, not synced to each other.
+    ///
+    /// R01 (2026-09-16): seeds `target`/`actual` with the seed Round's own
+    /// `RepTarget` verbatim (a `.range`/`.perSide` included) rather than a
+    /// re-quantized `Int` -- a new Round starting from an untouched
+    /// historical range should start as that same range, not silently
+    /// collapse to its midpoint before the coach has touched anything.
     public func addRound() {
         guard canAddRound else { return }
         let seed = rounds.last
-        let fallback = RepTargetToRoundQuantity.defaultQuantity(for: recordingMetric)
+        let fallback = RepTargetToRoundQuantity.repTarget(quantity: RepTargetToRoundQuantity.defaultQuantity(for: recordingMetric), metric: recordingMetric)
         rounds.append(RoundDraft(
             setsCount: seed?.setsCount ?? 3,
             load: seed?.load ?? PrefillResolver.defaultLoad(for: exercise.equipment),
-            targetQuantity: seed?.targetQuantity ?? fallback,
-            actualQuantity: seed?.actualQuantity ?? fallback,
+            target: seed?.target ?? fallback,
+            actual: seed?.actual ?? fallback,
             actualRecorded: false
         ))
     }
@@ -273,12 +336,12 @@ public final class EntryDraft: Identifiable {
             let offsetWithinRound = physicalSetIndex - consumed - 1
             var pieces: [RoundDraft] = []
             if offsetWithinRound > 0 {
-                pieces.append(RoundDraft(setsCount: offsetWithinRound, load: round.load, targetQuantity: round.targetQuantity, actualQuantity: round.actualQuantity, actualRecorded: round.actualRecorded))
+                pieces.append(RoundDraft(setsCount: offsetWithinRound, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded))
             }
-            pieces.append(RoundDraft(id: round.id, setsCount: 1, load: round.load, targetQuantity: round.targetQuantity, actualQuantity: round.actualQuantity, actualRecorded: round.actualRecorded))
+            pieces.append(RoundDraft(id: round.id, setsCount: 1, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded))
             let afterCount = round.setsCount - offsetWithinRound - 1
             if afterCount > 0 {
-                pieces.append(RoundDraft(setsCount: afterCount, load: round.load, targetQuantity: round.targetQuantity, actualQuantity: round.actualQuantity, actualRecorded: round.actualRecorded))
+                pieces.append(RoundDraft(setsCount: afterCount, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded))
             }
             rounds.replaceSubrange(index...index, with: pieces)
             return round.id
@@ -297,26 +360,17 @@ public final class EntryDraft: Identifiable {
     /// gapless `setIndex` via `.enumerated()` over this array, so Round 1
     /// occupies `0..<n1`, Round 2 occupies `n1..<n1+n2`, and so on, matching
     /// CONTRACT-M5.md §3.3.2's expansion rule exactly.
+    ///
+    /// R01 (2026-09-16): `round.target`/`round.actual` are written straight
+    /// through, unchanged -- no re-quantizing through `RepTargetToRoundQuantity`
+    /// here anymore. A Round nobody edited after `SessionDraftLoader` loaded
+    /// it carries the exact same `RepTarget` (`.range`/`.perSide` included)
+    /// it was loaded with, so "打开 → 不改 → 保存" writes back byte-identical
+    /// `SetLog`s.
     public func resolvedSets() -> [(load: LoadValue, target: RepTarget, actual: RepTarget)] {
-        let metric = recordingMetric
-        return rounds.flatMap { round -> [(load: LoadValue, target: RepTarget, actual: RepTarget)] in
-            let target = Self.repTarget(quantity: round.targetQuantity, metric: metric)
-            let actual: RepTarget = round.actualRecorded ? Self.repTarget(quantity: round.actualQuantity, metric: metric) : .unknown(raw: "")
-            return (0..<round.setsCount).map { _ in (round.load, target, actual) }
-        }
-    }
-
-    /// CONTRACT-M8.md: wraps a Round's raw `quantity` back into the
-    /// `RepTarget` case matching the exercise's `recordingMetric`, so a
-    /// plank's Round is persisted as `.time(seconds:)` and a farmer walk's as
-    /// `.rounds(count:)`, not unconditionally `.fixed` (reps) the way every
-    /// exercise was persisted before M8.
-    private static func repTarget(quantity: Int, metric: RecordingMetric) -> RepTarget {
-        switch metric {
-        case .time: return .time(seconds: quantity, raw: "\(quantity)")
-        case .distance: return .distance(meters: quantity, raw: "\(quantity)m")
-        case .rounds: return .rounds(count: quantity, raw: "\(quantity)round")
-        case .reps, .unknown: return .fixed(value: quantity, raw: "\(quantity)")
+        rounds.flatMap { round -> [(load: LoadValue, target: RepTarget, actual: RepTarget)] in
+            let actual: RepTarget = round.actualRecorded ? round.actual : .unknown(raw: "")
+            return (0..<round.setsCount).map { _ in (round.load, round.target, actual) }
         }
     }
 }

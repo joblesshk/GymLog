@@ -89,7 +89,7 @@ public final class CloudVoiceExecutor {
                 } ?? (ex.recordingMetric == .distance ? 100 : RepTargetToRoundQuantity.defaultQuantity(for: ex.recordingMetric))
                 let load = try op.load?.resolved() ?? history?.load ?? PrefillResolver.defaultLoad(for: ex.equipment)
                 let e = EntryDraft(exercise: ex, rounds: [RoundDraft(setsCount: op.sets ?? min(max(history?.sets ?? 3, 1), 50),
-                    load: load, targetQuantity: target, actualQuantity: target, actualRecorded: false)])
+                    load: load, targetQuantity: target, actualQuantity: target, metric: ex.recordingMetric, actualRecorded: false)])
                 e.restSeconds = op.restSeconds
                 work.blocks.append(BlockDraft(blockType: .single, restSeconds: op.restSeconds, entries: [e]))
                 if let ref = op.ref {
@@ -111,11 +111,16 @@ public final class CloudVoiceExecutor {
                 if let count = op.sets {
                     guard op.setIndex == nil else { throw CloudVoiceError.message("指定單組時不能同時更改總組數。") }
                     if count < e.plannedSets && e.rounds.contains(where: { $0.actualRecorded }) && !confirmed { throw CloudVoiceExecutionNeedsConfirmation() }
-                    let expanded = e.rounds.flatMap { r in (0..<r.setsCount).map { _ in RoundDraft(setsCount: 1, load: r.load, targetQuantity: r.targetQuantity, actualQuantity: r.actualQuantity, actualRecorded: r.actualRecorded) } }
+                    // R01 (2026-09-16): expand losslessly -- pass each Round's
+                    // real `target`/`actual` straight through instead of
+                    // re-quantizing via `RepTargetToRoundQuantity`, so
+                    // resizing set count never collapses an untouched
+                    // `.range`/`.perSide` Round to its midpoint.
+                    let expanded = e.rounds.flatMap { r in (0..<r.setsCount).map { _ in RoundDraft(setsCount: 1, load: r.load, target: r.target, actual: r.actual, actualRecorded: r.actualRecorded) } }
                     var resized = Array(expanded.prefix(count))
                     while resized.count < count {
                         let r = expanded.last!
-                        resized.append(RoundDraft(setsCount: 1, load: r.load, targetQuantity: r.targetQuantity, actualQuantity: r.targetQuantity, actualRecorded: false))
+                        resized.append(RoundDraft(setsCount: 1, load: r.load, target: r.target, actual: r.target, actualRecorded: false))
                     }
                     e.rounds = resized
                 }
@@ -126,8 +131,8 @@ public final class CloudVoiceExecutor {
                     indexes = [i]
                 }
                 for i in indexes {
-                    if op.kind == .recordActual { e.rounds[i].actualQuantity = q! }
-                    else { if let q { e.rounds[i].targetQuantity = q }; if let load { e.rounds[i].load = load } }
+                    if op.kind == .recordActual { e.rounds[i].actual = RepTargetToRoundQuantity.repTarget(quantity: q!, metric: e.recordingMetric) }
+                    else { if let q { e.rounds[i].target = RepTargetToRoundQuantity.repTarget(quantity: q, metric: e.recordingMetric) }; if let load { e.rounds[i].load = load } }
                 }
                 lastTarget = e.id.uuidString
                 details.append("已更新「\(e.exercise.voiceCandidateDisplayName)」的\(op.kind == .recordActual ? "實際成績" : "計劃")" + (op.setIndex.map { "（第\($0 == -1 ? e.plannedSets : $0)組）" } ?? ""))
@@ -161,7 +166,7 @@ public final class CloudVoiceExecutor {
                 let blocks = work.blocks.filter { ids.contains($0.id) }
                 let entries = blocks.flatMap(\.entries)
                 for e in entries {
-                    e.rounds = e.rounds.flatMap { r in (0..<r.setsCount).map { _ in RoundDraft(setsCount: 1, load: r.load, targetQuantity: r.targetQuantity, actualQuantity: r.actualQuantity, actualRecorded: r.actualRecorded) } }
+                    e.rounds = e.rounds.flatMap { r in (0..<r.setsCount).map { _ in RoundDraft(setsCount: 1, load: r.load, target: r.target, actual: r.actual, actualRecorded: r.actualRecorded) } }
                 }
                 let index = work.blocks.firstIndex { ids.contains($0.id) }!
                 work.blocks.removeAll { ids.contains($0.id) }
