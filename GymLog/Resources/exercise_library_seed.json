@@ -54,7 +54,8 @@
     },
     {
       "aliases": [
-        "Back extension (side)"
+        "Back extension (side)",
+        "Side extension"
       ],
       "canonicalName": "Back extension (side)",
       "equipment": "bodyweight",
@@ -573,7 +574,8 @@
     },
     {
       "aliases": [
-        "Chest support DB row"
+        "Chest support DB row",
+        "Chest support row"
       ],
       "canonicalName": "Chest support DB row",
       "equipment": "dumbbell",
@@ -955,7 +957,8 @@
     },
     {
       "aliases": [
-        "DB split squat 1.5"
+        "DB split squat 1.5",
+        "Split squat 1.5"
       ],
       "canonicalName": "DB split squat 1.5",
       "equipment": "dumbbell",
@@ -1200,7 +1203,8 @@
     },
     {
       "aliases": [
-        "Hip abduction"
+        "Hip abduction",
+        "Hip abduction superset"
       ],
       "canonicalName": "Hip abduction",
       "equipment": "machine",
@@ -1902,7 +1906,8 @@
     },
     {
       "aliases": [
-        "Machine rear row"
+        "Machine rear row",
+        "Machine row reardelt"
       ],
       "canonicalName": "Machine rear row",
       "equipment": "machine",
@@ -2390,7 +2395,8 @@
     },
     {
       "aliases": [
-        "Seated row narrow"
+        "Seated row narrow",
+        "Seated row narrow grip"
       ],
       "canonicalName": "Seated row narrow",
       "equipment": "cable",
@@ -2650,7 +2656,8 @@
     },
     {
       "aliases": [
-        "Spider curl"
+        "Spider curl",
+        "Spider curl reverse eccentric"
       ],
       "canonicalName": "Spider curl",
       "equipment": "barbell",
@@ -3082,7 +3089,8 @@
     {
       "aliases": [
         "BS",
-        "后蹲"
+        "后蹲",
+        "Barbell squat"
       ],
       "canonicalName": "Back Squat",
       "equipment": "barbell",
@@ -4230,13 +4238,1011 @@
       "discipline": "both",
       "nameZh": "負重引體向上",
       "notes": "腰掛負重帶或夾啞鈴完成引體向上，力量進階版本"
+    },
+    {
+      "aliases": [
+        "Low-bar squat",
+        "Lowbar squat",
+        "Barbell squat (low)"
+      ],
+      "canonicalName": "Low-bar squat",
+      "equipment": "barbell",
+      "id": "ex-663266e4",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "squat",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "低槓深蹲",
+      "notes": "槓鈴置於後三角肌下緣，軀幹前傾角度較大，加強臀部與後鏈參與"
+    },
+    {
+      "aliases": [
+        "Sumo deadlift",
+        "Sumo DL",
+        "Sumo DL (light)"
+      ],
+      "canonicalName": "Sumo deadlift",
+      "equipment": "barbell",
+      "id": "ex-dd58671c",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "hipHinge",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "相撲硬舉",
+      "notes": "寬站姿、腳尖外八的硬舉，加強內收肌與臀部，減少下背負擔"
+    },
+    {
+      "aliases": [
+        "Bulgarian split squat drop"
+      ],
+      "canonicalName": "Bulgarian split squat drop",
+      "equipment": "dumbbell",
+      "id": "ex-be94615b",
+      "isUnilateral": true,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "squat",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "保加利亞分腿蹲(遞減組)",
+      "notes": "後腳抬高分腿蹲，組間遞減重量做到力竭"
+    },
+    {
+      "aliases": [
+        "SL RDL",
+        "Single leg RDL"
+      ],
+      "canonicalName": "SL RDL",
+      "equipment": "dumbbell",
+      "id": "ex-7ba18d46",
+      "isUnilateral": true,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "hipHinge",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "單腳羅馬尼亞硬舉",
+      "notes": "單腳站立進行羅馬尼亞硬舉，強化臀部與核心穩定"
+    },
+    {
+      "aliases": [
+        "Chest dips"
+      ],
+      "canonicalName": "Chest dips",
+      "equipment": "bodyweight",
+      "id": "ex-f09deb9a",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "push",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "胸推撐體",
+      "notes": "雙槓撐體時軀幹前傾、肘部外展，加強胸肌下緣刺激"
+    },
+    {
+      "aliases": [
+        "Rack pull"
+      ],
+      "canonicalName": "Rack pull",
+      "equipment": "barbell",
+      "id": "ex-6668b450",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "hipHinge",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "架上硬舉",
+      "notes": "從膝上高度架上拉起，縮短活動範圍，加強上背與握力"
+    },
+    {
+      "aliases": [
+        "Leg press (ham)"
+      ],
+      "canonicalName": "Leg press (ham)",
+      "equipment": "machine",
+      "id": "ex-aeec5aa1",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "hipHinge",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "腿推舉(腿後側重點)",
+      "notes": "腳掌置於踏板高處進行腿推，轉移重點至腿後肌群與臀部"
+    },
+    {
+      "aliases": [
+        "Weighted dips"
+      ],
+      "canonicalName": "Weighted dips",
+      "equipment": "bodyweight",
+      "id": "ex-6a60e964",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "push",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "加重雙槓撐體",
+      "notes": "腰間掛負重進行雙槓撐體，加大三頭肌與胸肌訓練強度"
+    },
+    {
+      "aliases": [
+        "Side lunges w/slider"
+      ],
+      "canonicalName": "Side lunges w/slider",
+      "equipment": "bodyweight",
+      "id": "ex-9bf2a3cd",
+      "isUnilateral": true,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "squat",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "滑步側弓步蹲",
+      "notes": "腳踩滑盤向側邊滑出做側弓步，加強內收肌與臀中肌離心控制"
+    },
+    {
+      "aliases": [
+        "Weighted chin-up",
+        "Chin up weighted",
+        "Pullup weighted"
+      ],
+      "canonicalName": "Weighted chin-up",
+      "equipment": "bodyweight",
+      "id": "ex-ab63a873",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "pull",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "加重引體向上",
+      "notes": "腰間掛負重進行引體向上，加大背闊肌與二頭肌訓練強度"
+    },
+    {
+      "aliases": [
+        "Plank tuck in"
+      ],
+      "canonicalName": "Plank tuck in",
+      "equipment": "bodyweight",
+      "id": "ex-ce5d154a",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "core",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "棒式抬膝捲腹",
+      "notes": "棒式撐體姿勢下交替將膝蓋收往胸口，強化核心與髖屈肌"
+    },
+    {
+      "aliases": [
+        "DB pullover"
+      ],
+      "canonicalName": "DB pullover",
+      "equipment": "dumbbell",
+      "id": "ex-4e322498",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "pull",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "啞鈴直臂上拉",
+      "notes": "仰臥將啞鈴由頭頂拉向胸口，伸展並訓練背闊肌與胸廓"
+    },
+    {
+      "aliases": [
+        "Cable reverse fly"
+      ],
+      "canonicalName": "Cable reverse fly",
+      "equipment": "cable",
+      "id": "ex-286dd122",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "pull",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "繩索反向飛鳥",
+      "notes": "站姿雙手交叉握繩索向外後方展開，加強後三角肌與上背"
+    },
+    {
+      "aliases": [
+        "Cable pullover"
+      ],
+      "canonicalName": "Cable pullover",
+      "equipment": "cable",
+      "id": "ex-85a2151e",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "pull",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "繩索直臂下拉",
+      "notes": "站姿高位繩索直臂下拉，訓練背闊肌與核心穩定"
+    },
+    {
+      "aliases": [
+        "Smith hip thrust"
+      ],
+      "canonicalName": "Smith hip thrust",
+      "equipment": "machine",
+      "id": "ex-87b3686f",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "hipHinge",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "史密斯臀推",
+      "notes": "背靠臥推椅、槓鈴置於史密斯機軌道上做臀推，動作軌跡更穩定"
+    },
+    {
+      "aliases": [
+        "Australian pull up"
+      ],
+      "canonicalName": "Australian pull up",
+      "equipment": "bodyweight",
+      "id": "ex-e8ecdf38",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "pull",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "澳式引體向上",
+      "notes": "低槓下正握懸吊划船，軀幹打直，訓練上背與二頭肌"
+    },
+    {
+      "aliases": [
+        "Chin up w/assist reverse"
+      ],
+      "canonicalName": "Chin up w/assist reverse",
+      "equipment": "bodyweight",
+      "id": "ex-a59fa6e0",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "pull",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "輔助反握引體向上(反式)",
+      "notes": "使用輔助器械進行反握引體向上的反向(離心強調)變化"
+    },
+    {
+      "aliases": [
+        "Box step to curl"
+      ],
+      "canonicalName": "Box step to curl",
+      "equipment": "dumbbell",
+      "id": "ex-8415812b",
+      "isUnilateral": true,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "conditioning",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "登箱接彎舉",
+      "notes": "手持啞鈴完成登箱後接續二頭彎舉，結合下肢與上肢動作"
+    },
+    {
+      "aliases": [
+        "Box step to knee up"
+      ],
+      "canonicalName": "Box step to knee up",
+      "equipment": "bodyweight",
+      "id": "ex-47770467",
+      "isUnilateral": true,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "conditioning",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "登箱接抬膝",
+      "notes": "登箱後另一側腿抬膝至高位，加強髖屈肌與平衡協調"
+    },
+    {
+      "aliases": [
+        "Incline bench press"
+      ],
+      "canonicalName": "Incline bench press",
+      "equipment": "barbell",
+      "id": "ex-a2582a4c",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "push",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "上斜槓鈴臥推",
+      "notes": "上斜臥推椅上進行槓鈴臥推，加強上胸肌群"
+    },
+    {
+      "aliases": [
+        "Smith incline bench press"
+      ],
+      "canonicalName": "Smith incline bench press",
+      "equipment": "machine",
+      "id": "ex-91269c92",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "push",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "史密斯上斜臥推",
+      "notes": "史密斯機上斜臥推，加強上胸肌群且軌跡固定"
+    },
+    {
+      "aliases": [
+        "DB plank row",
+        "Plank row"
+      ],
+      "canonicalName": "DB plank row",
+      "equipment": "dumbbell",
+      "id": "ex-0ecd8c9d",
+      "isUnilateral": true,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "pull",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "啞鈴棒式划船",
+      "notes": "雙手撐啞鈴呈棒式姿勢，交替做單臂划船，結合核心穩定與背部訓練"
+    },
+    {
+      "aliases": [
+        "Smith narrow squat"
+      ],
+      "canonicalName": "Smith narrow squat",
+      "equipment": "machine",
+      "id": "ex-2b91d5dd",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "squat",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "史密斯窄距深蹲",
+      "notes": "史密斯機上採窄站距進行深蹲，加強股四頭肌內側頭"
+    },
+    {
+      "aliases": [
+        "Cable OH triceps extension"
+      ],
+      "canonicalName": "Cable OH triceps extension",
+      "equipment": "cable",
+      "id": "ex-8d54a8ef",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "push",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "繩索過頭三頭伸展",
+      "notes": "面向繩索背對機器，雙手過頭伸展手肘，加強三頭肌長頭"
+    },
+    {
+      "aliases": [
+        "Pull up"
+      ],
+      "canonicalName": "Pull up",
+      "equipment": "bodyweight",
+      "id": "ex-5fa36308",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "pull",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "引體向上",
+      "notes": "正握單槓將身體拉起至下巴過槓，訓練背闊肌與二頭肌"
+    },
+    {
+      "aliases": [
+        "V up"
+      ],
+      "canonicalName": "V up",
+      "equipment": "bodyweight",
+      "id": "ex-966fe2f5",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "core",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "V字捲腹",
+      "notes": "仰臥同時抬起上肢與下肢在空中呈V字，強化整體核心"
+    },
+    {
+      "aliases": [
+        "Barbell box squat",
+        "Box squat"
+      ],
+      "canonicalName": "Barbell box squat",
+      "equipment": "barbell",
+      "id": "ex-0dec11c8",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "squat",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "槓鈴箱式深蹲",
+      "notes": "深蹲至箱子上稍作停頓再站起，訓練啟動力與下蹲深度控制"
+    },
+    {
+      "aliases": [
+        "DB shoulder raise"
+      ],
+      "canonicalName": "DB shoulder raise",
+      "equipment": "dumbbell",
+      "id": "ex-beb86180",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "push",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "啞鈴肩部側平舉",
+      "notes": "啞鈴側平舉訓練三角肌中束，肩關節穩定發展"
+    },
+    {
+      "aliases": [
+        "Smith shoulder press"
+      ],
+      "canonicalName": "Smith shoulder press",
+      "equipment": "machine",
+      "id": "ex-dd3e882f",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "push",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "史密斯肩推",
+      "notes": "史密斯機上進行肩推，軌跡固定、便於加重訓練三角肌"
+    },
+    {
+      "aliases": [
+        "Pull up w/assist 1.5"
+      ],
+      "canonicalName": "Pull up w/assist 1.5",
+      "equipment": "bodyweight",
+      "id": "ex-b6eaac46",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "pull",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "輔助引體向上(1.5次法)",
+      "notes": "輔助引體向上搭配1.5次法(半程加全程)，延長張力時間"
+    },
+    {
+      "aliases": [
+        "Ball plank rotate"
+      ],
+      "canonicalName": "Ball plank rotate",
+      "equipment": "ball",
+      "id": "ex-2eda03c8",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "core",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "抗力球棒式轉體",
+      "notes": "雙手撐抗力球呈棒式，同時做軀幹旋轉，加強核心抗旋能力"
+    },
+    {
+      "aliases": [
+        "Powell raise"
+      ],
+      "canonicalName": "Powell raise",
+      "equipment": "dumbbell",
+      "id": "ex-a62d454c",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "push",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "鮑威爾側平舉",
+      "notes": "站姿啞鈴側平舉變化，強調肩胛骨與三角肌後束協調"
+    },
+    {
+      "aliases": [
+        "KB walking lunges"
+      ],
+      "canonicalName": "KB walking lunges",
+      "equipment": "kettlebell",
+      "id": "ex-f9685a70",
+      "isUnilateral": true,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "squat",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "rounds",
+      "discipline": "strength",
+      "nameZh": "壺鈴走動弓步蹲",
+      "notes": "手持壺鈴進行走動式弓步蹲，加強下肢肌力與核心穩定"
+    },
+    {
+      "aliases": [
+        "DB RDL"
+      ],
+      "canonicalName": "DB RDL",
+      "equipment": "dumbbell",
+      "id": "ex-4b82d1f1",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "hipHinge",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "啞鈴羅馬尼亞硬舉",
+      "notes": "手持啞鈴進行羅馬尼亞硬舉，強化臀部與腿後肌群"
+    },
+    {
+      "aliases": [
+        "Barbell lunges"
+      ],
+      "canonicalName": "Barbell lunges",
+      "equipment": "barbell",
+      "id": "ex-d6949a32",
+      "isUnilateral": true,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "squat",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "槓鈴弓步蹲",
+      "notes": "槓鈴置於背部進行原地弓步蹲，訓練下肢單邊肌力"
+    },
+    {
+      "aliases": [
+        "Bosu wall sit"
+      ],
+      "canonicalName": "Bosu wall sit",
+      "equipment": "other",
+      "id": "ex-f77f92bc",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "squat",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "time",
+      "discipline": "strength",
+      "nameZh": "波速球撐體靜坐",
+      "notes": "背靠球面或站於波速球上做靜態半蹲，加強股四頭肌耐力與平衡"
+    },
+    {
+      "aliases": [
+        "Chest support rear delt row",
+        "Chest support rear row"
+      ],
+      "canonicalName": "Chest support rear delt row",
+      "equipment": "dumbbell",
+      "id": "ex-700e182b",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "pull",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "胸靠式後三角划船",
+      "notes": "胸部貼靠斜板進行後三角肌划船，孤立訓練後三角與上背"
+    },
+    {
+      "aliases": [
+        "Bosu straight arm plank"
+      ],
+      "canonicalName": "Bosu straight arm plank",
+      "equipment": "other",
+      "id": "ex-eae66146",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "core",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "time",
+      "discipline": "strength",
+      "nameZh": "波速球直臂棒式",
+      "notes": "雙手撐波速球呈直臂棒式，加強核心與肩關節穩定"
+    },
+    {
+      "aliases": [
+        "Bosu MT climber"
+      ],
+      "canonicalName": "Bosu MT climber",
+      "equipment": "other",
+      "id": "ex-6760bf3d",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "conditioning",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "波速球登山者",
+      "notes": "雙手撐波速球做登山者動作，結合核心與心肺訓練"
+    },
+    {
+      "aliases": [
+        "DB incline chest press",
+        "DB incline chest press drop"
+      ],
+      "canonicalName": "DB incline chest press",
+      "equipment": "dumbbell",
+      "id": "ex-954df3ee",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "push",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "啞鈴上斜臥推",
+      "notes": "上斜臥推椅上進行啞鈴臥推，加強上胸肌群"
+    },
+    {
+      "aliases": [
+        "Machine lower chest press"
+      ],
+      "canonicalName": "Machine lower chest press",
+      "equipment": "machine",
+      "id": "ex-67b42521",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "push",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "器械下斜胸推",
+      "notes": "器械上採下斜角度進行胸推，加強下胸肌群"
+    },
+    {
+      "aliases": [
+        "Cable triceps extension OH unilateral"
+      ],
+      "canonicalName": "Cable triceps extension OH unilateral",
+      "equipment": "cable",
+      "id": "ex-ac4527f4",
+      "isUnilateral": true,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "push",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "繩索單臂過頭三頭伸展",
+      "notes": "單臂繩索過頭伸展，孤立訓練單側三頭肌長頭"
+    },
+    {
+      "aliases": [
+        "Landmine russian twist"
+      ],
+      "canonicalName": "Landmine russian twist",
+      "equipment": "barbell",
+      "id": "ex-22c5bcf9",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "core",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "地雷管俄羅斯轉體",
+      "notes": "雙手握住插於地雷管架上的槓鈴末端，左右轉體訓練旋轉核心力量"
+    },
+    {
+      "aliases": [
+        "Sled rope pull"
+      ],
+      "canonicalName": "Sled rope pull",
+      "equipment": "sled",
+      "id": "ex-451eaee4",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "pull",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "雪橇繩索拖拉",
+      "notes": "雙手交替拉繩將雪橇拖近身體，訓練上背與握力耐力"
+    },
+    {
+      "aliases": [
+        "KB gorilla row"
+      ],
+      "canonicalName": "KB gorilla row",
+      "equipment": "kettlebell",
+      "id": "ex-2d047587",
+      "isUnilateral": true,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "pull",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "壺鈴大猩猩划船",
+      "notes": "雙手各持壺鈴呈深蹲姿勢，交替划船，結合下肢與背部訓練"
+    },
+    {
+      "aliases": [
+        "Narrow squat"
+      ],
+      "canonicalName": "Narrow squat",
+      "equipment": "barbell",
+      "id": "ex-48094ad3",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "squat",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "窄距深蹲",
+      "notes": "採窄於肩寬的站距進行槓鈴深蹲，加強股四頭肌內側頭"
+    },
+    {
+      "aliases": [
+        "Narrow squat 1.5"
+      ],
+      "canonicalName": "Narrow squat 1.5",
+      "equipment": "barbell",
+      "id": "ex-899b2eb5",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "squat",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "窄距深蹲(1.5次法)",
+      "notes": "窄距深蹲搭配1.5次法(半程加全程)，延長張力時間"
+    },
+    {
+      "aliases": [
+        "Barbell walking lunges"
+      ],
+      "canonicalName": "Barbell walking lunges",
+      "equipment": "barbell",
+      "id": "ex-b184c857",
+      "isUnilateral": true,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "squat",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "rounds",
+      "discipline": "strength",
+      "nameZh": "槓鈴走動弓步蹲",
+      "notes": "槓鈴置於背部進行走動式弓步蹲，加強下肢肌力與核心穩定"
+    },
+    {
+      "aliases": [
+        "Calves raise"
+      ],
+      "canonicalName": "Calves raise",
+      "equipment": "machine",
+      "id": "ex-86436867",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "squat",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "小腿提踵",
+      "notes": "器械或站姿提踵訓練小腿三頭肌"
+    },
+    {
+      "aliases": [
+        "Jumping lunges drop"
+      ],
+      "canonicalName": "Jumping lunges drop",
+      "equipment": "bodyweight",
+      "id": "ex-49181262",
+      "isUnilateral": true,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "squat",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "跳躍弓步蹲(遞減組)",
+      "notes": "跳躍式弓步蹲換腳，組間遞減強度做到力竭"
+    },
+    {
+      "aliases": [
+        "Leg extension drop"
+      ],
+      "canonicalName": "Leg extension drop",
+      "equipment": "machine",
+      "id": "ex-0ee4de89",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "squat",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "腿伸展(遞減組)",
+      "notes": "器械腿伸展遞減組訓練，力竭後降重量繼續"
+    },
+    {
+      "aliases": [
+        "Box side step",
+        "Side box step"
+      ],
+      "canonicalName": "Box side step",
+      "equipment": "bodyweight",
+      "id": "ex-6dba0069",
+      "isUnilateral": true,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "conditioning",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "側向登箱",
+      "notes": "側向踏上箱子再下，訓練下肢單邊肌力與協調"
+    },
+    {
+      "aliases": [
+        "Elbow to hand plank"
+      ],
+      "canonicalName": "Elbow to hand plank",
+      "equipment": "bodyweight",
+      "id": "ex-fcfe8f08",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "core",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "肘撐至手撐棒式",
+      "notes": "在肘撐棒式與手撐棒式之間交替撐起，強化核心與肩部穩定"
+    },
+    {
+      "aliases": [
+        "DB OH triceps extension"
+      ],
+      "canonicalName": "DB OH triceps extension",
+      "equipment": "dumbbell",
+      "id": "ex-614bd2e6",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "push",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "啞鈴過頭三頭伸展",
+      "notes": "雙手或單手持啞鈴過頭伸展手肘，加強三頭肌長頭"
+    },
+    {
+      "aliases": [
+        "Weighted burpee"
+      ],
+      "canonicalName": "Weighted burpee",
+      "equipment": "other",
+      "id": "ex-ff368f42",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "conditioning",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "both",
+      "nameZh": "加重波比跳",
+      "notes": "手持啞鈴或穿負重背心完成波比跳，加大心肺與全身負荷"
+    },
+    {
+      "aliases": [
+        "Hip adduction drop"
+      ],
+      "canonicalName": "Hip adduction drop",
+      "equipment": "machine",
+      "id": "ex-675a7e5b",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "hipHinge",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "strength",
+      "nameZh": "髖內收(遞減組)",
+      "notes": "器械髖內收遞減組訓練，力竭後降重量繼續"
+    },
+    {
+      "aliases": [
+        "Walking lunges w/ball rotate"
+      ],
+      "canonicalName": "Walking lunges w/ball rotate",
+      "equipment": "ball",
+      "id": "ex-c4b3dfe5",
+      "isUnilateral": true,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "squat",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "rounds",
+      "discipline": "strength",
+      "nameZh": "抗力球走動弓步蹲轉體",
+      "notes": "走動弓步蹲同時手持抗力球轉體，結合下肢與核心旋轉訓練"
+    },
+    {
+      "aliases": [
+        "Plate snatch"
+      ],
+      "canonicalName": "Plate snatch",
+      "equipment": "other",
+      "id": "ex-5d119fa7",
+      "isUnilateral": false,
+      "loadDirection": "higherIsStronger",
+      "movementPattern": "conditioning",
+      "needsReview": false,
+      "occurrenceCount": 0,
+      "recordingMetric": "reps",
+      "discipline": "both",
+      "nameZh": "槓片抓舉",
+      "notes": "雙手持槓片由地面爆發上舉過頭，訓練全身爆發力"
     }
   ],
   "generatedAt": "2026-09-14T00:00:00Z",
   "schemaVersion": 1,
   "source": "GymLog exercise vocabulary; no athlete records",
   "stats": {
-    "exerciseCount": 240,
+    "exerciseCount": 298,
     "clientCount": 0,
     "sessionCount": 0,
     "entryCount": 0,

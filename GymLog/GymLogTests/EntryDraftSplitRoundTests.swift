@@ -40,7 +40,7 @@ final class EntryDraftSplitRoundTests: XCTestCase {
         guard let idx = entry.rounds.firstIndex(where: { $0.id == roundID }) else {
             return XCTFail("找不到拆分後的 round")
         }
-        entry.rounds[idx].actualQuantity = 6
+        entry.rounds[idx].actual = .fixed(value: 6, raw: "6")
 
         let resolved = entry.resolvedSets()
         XCTAssertEqual(resolved.count, 3)
@@ -90,8 +90,8 @@ final class EntryDraftSplitRoundTests: XCTestCase {
 
     func testSplittingAtRoundBoundaryOnlyTouchesThatRound() {
         let exercise = makeExercise()
-        let round1 = RoundDraft(setsCount: 2, load: .absolute(kg: 40, raw: "40"), targetQuantity: 10, actualQuantity: 10)
-        let round2 = RoundDraft(setsCount: 3, load: .absolute(kg: 50, raw: "50"), targetQuantity: 8, actualQuantity: 8)
+        let round1 = RoundDraft(setsCount: 2, load: .absolute(kg: 40, raw: "40"), targetQuantity: 10, actualQuantity: 10, metric: .reps)
+        let round2 = RoundDraft(setsCount: 3, load: .absolute(kg: 50, raw: "50"), targetQuantity: 8, actualQuantity: 8, metric: .reps)
         let entry = EntryDraft(exercise: exercise, rounds: [round1, round2])
 
         // 第 2 個物理 Set 是 round1 的最後一個 -- 拆分不應該碰到 round2。

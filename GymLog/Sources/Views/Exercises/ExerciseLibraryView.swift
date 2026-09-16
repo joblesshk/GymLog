@@ -50,12 +50,14 @@ struct ExerciseLibraryView: View {
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
     enum LibraryMode: String, CaseIterable, Identifiable {
-        case exercises, templates
+        case exercises, templates, supersets, wods
         var id: String { rawValue }
         var label: String {
             switch self {
             case .exercises: return L("動作", "Exercises")
             case .templates: return L("組合模板", "Templates")
+            case .supersets: return L("Superset 模板", "Superset Templates")
+            case .wods: return L("WOD 模板", "WOD Templates")
             }
         }
     }
@@ -111,6 +113,10 @@ struct ExerciseLibraryView: View {
                     exerciseListContent
                 case .templates:
                     TemplateLibraryView()
+                case .supersets:
+                    SupersetTemplateLibraryView()
+                case .wods:
+                    WODTemplateLibraryView()
                 }
             }
             .safeAreaInset(edge: .top) {
@@ -119,7 +125,7 @@ struct ExerciseLibraryView: View {
             .scrollContentBackground(.hidden)
             .background(DS.C.canvas)
             .reserveFloatingTabBarSpace()
-            .navigationTitle(mode == .exercises ? language.t("動作庫 (\(exercises.count))", "Exercises (\(exercises.count))") : language.t("組合模板 (\(templates.count))", "Templates (\(templates.count))"))
+            .navigationTitle(navigationTitleText)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     if let client = currentClient {
@@ -127,6 +133,15 @@ struct ExerciseLibraryView: View {
                     }
                 }
             }
+        }
+    }
+
+    private var navigationTitleText: String {
+        switch mode {
+        case .exercises: return language.t("動作庫 (\(exercises.count))", "Exercises (\(exercises.count))")
+        case .templates: return language.t("組合模板 (\(templates.count))", "Templates (\(templates.count))")
+        case .supersets: return language.t("Superset 模板 (\(templates.filter { $0.isSupersetOnly }.count))", "Superset Templates (\(templates.filter { $0.isSupersetOnly }.count))")
+        case .wods: return language.t("WOD 模板 (\(templates.filter { $0.isWODOnly }.count))", "WOD Templates (\(templates.filter { $0.isWODOnly }.count))")
         }
     }
 

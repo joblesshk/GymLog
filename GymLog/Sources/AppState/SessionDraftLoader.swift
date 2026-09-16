@@ -4,14 +4,15 @@ import Foundation
 /// `BlockDraft` 列表（2026-09-09 教练要求：「暫時保存」之后能回来接着录，
 /// 以及「所有生成的 section 都可以方便地进行修改」）。
 ///
-/// 与 `TodayView.copyLastSession` 的关键区别——那是**复制处方去做新一次**，
-/// 这是**打开同一次继续改**：
+/// `load` 与 `copy`（2026-09-16 新增）的关键区别——两者现在都完整还原每个
+/// Round（不再有「只带第一组」的简化版），差别在于是**打开同一次继续改**
+/// 还是**复制成新的一次**：
 ///
-/// 1. 复制只带出每个动作的第一组（下一次训练从上次的重量起步就够了）；这里
-///    必须把整条 `SetLog` 序列原样还原成 Round，否则「保存 → 重新打开 → 再
-///    保存」会把 Round 2/3/4 悄悄抹掉。
-/// 2. 复制会把 WOD 成绩清空（同标准复测，成绩不能带过去）；这里必须连成绩一
-///    起带回来，教练打开的就是那一次本身。
+/// 1. `load` 把 WOD 成绩原样带回来，教练打开的就是那一次本身；`copy` 沿用
+///    `WODBlockDraft.fromPrescription` 本来的行为，把成绩清空（同标准复测）。
+/// 2. `load` 保留每个 Round 原本的 `actualRecorded`；`copy` 把所有 Round 的
+///    `actualRecorded` 重置为 `false`（`actual` 的数值仍然带过去当参考，只是
+///    标成待确认）——新的一天不能假装教练已经确认过还没发生的成绩。
 ///
 /// 纯逻辑、不碰 `ModelContext`，所以放在 GymLogKit 里可以直接单测。日期的
 /// UTC/本地换算留在视图层（`TrainingDayEncoding` 在 App target 里），这里只
@@ -62,7 +63,7 @@ public enum SessionDraftLoader {
                 if block.blockType == .superset {
                     loadedRounds = loadedRounds.flatMap { round in
                         (0..<max(round.setsCount, 1)).map { _ in
-                            RoundDraft(setsCount: 1, load: round.load, targetQuantity: round.targetQuantity, actualQuantity: round.actualQuantity, actualRecorded: round.actualRecorded)
+                            RoundDraft(setsCount: 1, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded)
                         }
                     }
                 }
@@ -87,6 +88,68 @@ public enum SessionDraftLoader {
         return (blocks, droppedTotal)
     }
 
+    /// 2026-09-16：把一節歷史課次**複製**成今天全新一節的起點——跟 `load`
+    /// 保留完全一樣的 Round 結構（含 `.range`/`.perSide`，不因為「只是複製」
+    /// 就退回單輪簡化版），差別只在於這是新的一天，不是接著同一節課繼續
+    /// 錄：每一輪的「實際」都重置為未確認（`actualRecorded = false`，但
+    /// `actual` 的數值原樣保留，UI 上顯示成教練可以直接確認或微調的參考值，
+    /// 例如「上次是 8 下」），WOD 沿用 `fromPrescription` 本來就會清空成績
+    /// 的行為（跟 `copyLastSession` 原本的 WOD 處理一致）。不回傳
+    /// `existingSessionID`——呼叫端必須當成一節全新課次寫入，不能覆蓋原本
+    /// 那一節。
+    public static func copy(from session: WorkoutSession, exercises: [Exercise]) -> (blocks: [BlockDraft], droppedEntryCount: Int) {
+        var droppedTotal = 0
+        var blocks: [BlockDraft] = []
+
+        for block in session.orderedBlocks {
+            if block.sectionKind == .wod, let payload = block.wodPayload {
+                // 不呼叫 `apply(payload.result, to:)`——複製到新的一天要的正是
+                // `fromPrescription` 本來就會做的「只帶處方、成績從零開始」。
+                let wodDraft = WODBlockDraft.fromPrescription(payload.prescription, exercises: exercises)
+                blocks.append(BlockDraft(
+                    blockType: block.blockType, restSeconds: block.restSeconds,
+                    sectionKind: .wod, wodDraft: wodDraft
+                ))
+                continue
+            }
+
+            var entries: [EntryDraft] = []
+            for entry in block.orderedEntries {
+                guard let exercise = entry.exercise else {
+                    droppedTotal += 1
+                    continue
+                }
+                let sets = entry.orderedSets
+                let metric = recordingMetric(for: sets, fallback: exercise.recordingMetric)
+                var copiedRounds = rounds(from: sets, metric: metric, equipment: exercise.equipment).map {
+                    RoundDraft(setsCount: $0.setsCount, load: $0.load, target: $0.target, actual: $0.actual, actualRecorded: false)
+                }
+                // 跟 `load` 同一個 P1 (2026-09-11) 修正：Superset 的一輪固定
+                // `setsCount == 1`，`rounds(from:...)` 合併同重量/目標/實際的
+                // 連續組會誤判成同一輪、組數變多。
+                if block.blockType == .superset {
+                    copiedRounds = copiedRounds.flatMap { round in
+                        (0..<max(round.setsCount, 1)).map { _ in
+                            RoundDraft(setsCount: 1, load: round.load, target: round.target, actual: round.actual, actualRecorded: false)
+                        }
+                    }
+                }
+                entries.append(EntryDraft(
+                    exercise: exercise,
+                    rounds: copiedRounds,
+                    restSeconds: block.restSeconds,
+                    recordingMetric: metric
+                ))
+            }
+            guard !entries.isEmpty else { continue }
+            blocks.append(BlockDraft(
+                blockType: block.blockType, restSeconds: block.restSeconds,
+                entries: entries, sectionKind: block.sectionKind
+            ))
+        }
+        return (blocks, droppedTotal)
+    }
+
     /// 连续的、三个值都相同的 `SetLog` 合成一个 Round——正是保存时
     /// `EntryDraft.resolvedSets()` 展开动作的逆运算，所以「打开 → 不改 → 再
     /// 保存」得到的 `SetLog` 序列与原来逐条相同。
@@ -95,12 +158,22 @@ public enum SessionDraftLoader {
     /// 个 Round，而 Excel 导入的历史课次一个动作出现 6 种不同重量是真实存在的。
     /// 强行折叠会丢数据，截断更糟；多出来的 Round 照样显示、照样能改，只是
     /// 「加一組」按钮在删到 4 个以下之前不可用。
+    /// R01 (2026-09-16): `set.target`/`set.actual` are carried straight into
+    /// the `RoundDraft` as-is -- no more `RepTargetToRoundQuantity.quantity(
+    /// from:metric:)` here. That call used to be the exact point where a
+    /// historical `.range(8,12)`/`.perSide(left,right)` actual got collapsed
+    /// to its midpoint `Int` the moment a saved course was merely opened for
+    /// editing, before the coach had touched anything -- "打开 → 不改 → 保存"
+    /// was silently lossy. `RoundDraft.target`/`.actual` now hold the real
+    /// `RepTarget`, so this function is a direct passthrough (still merging
+    /// consecutive identical-triple `SetLog`s into one multi-set Round,
+    /// unchanged).
     static func rounds(from sets: [SetLog], metric: RecordingMetric, equipment: Equipment) -> [RoundDraft] {
         guard !sets.isEmpty else {
-            let fallback = RepTargetToRoundQuantity.defaultQuantity(for: metric)
+            let fallback = RepTargetToRoundQuantity.repTarget(quantity: RepTargetToRoundQuantity.defaultQuantity(for: metric), metric: metric)
             return [RoundDraft(
                 setsCount: 1, load: PrefillResolver.defaultLoad(for: equipment),
-                targetQuantity: fallback, actualQuantity: fallback, actualRecorded: false
+                target: fallback, actual: fallback, actualRecorded: false
             )]
         }
         var result: [RoundDraft] = []
@@ -119,8 +192,8 @@ public enum SessionDraftLoader {
             result.append(RoundDraft(
                 setsCount: 1,
                 load: set.load,
-                targetQuantity: RepTargetToRoundQuantity.quantity(from: set.target, metric: metric),
-                actualQuantity: RepTargetToRoundQuantity.quantity(from: set.actual, metric: metric),
+                target: set.target,
+                actual: set.actual,
                 actualRecorded: { if case .unknown = set.actual { return false }; return true }()
             ))
         }

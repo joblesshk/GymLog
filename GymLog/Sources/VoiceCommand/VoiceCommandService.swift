@@ -383,8 +383,9 @@ public final class VoiceCommandService {
         if let block = draft.blocks.first(where: { $0.id == blockID }), let entry = block.entries.first(where: { $0.id == entryID }), var firstRound = entry.rounds.first {
             if let setsCount = payload.setsCount { firstRound.setsCount = setsCount }
             if let targetQuantity = payload.targetQuantity {
-                firstRound.targetQuantity = targetQuantity
-                firstRound.actualQuantity = targetQuantity
+                let repTarget = RepTargetToRoundQuantity.repTarget(quantity: targetQuantity, metric: exercise.recordingMetric)
+                firstRound.target = repTarget
+                firstRound.actual = repTarget
             }
             if let load = payload.load { firstRound.load = load }
             entry.rounds[0] = firstRound
@@ -429,7 +430,7 @@ public final class VoiceCommandService {
 
     private func applyReplaceExerciseResolved(blockID: UUID, block: BlockDraft, entry: EntryDraft, newExercise: Exercise, forceApply: Bool) -> VoiceCommandOutcome {
         let entryID = entry.id
-        let hasRecordedActual = entry.rounds.contains { $0.actualQuantity != RepTargetToRoundQuantity.defaultQuantity(for: entry.recordingMetric) }
+        let hasRecordedActual = entry.rounds.contains { RepTargetToRoundQuantity.quantity(from: $0.actual, metric: entry.recordingMetric) != RepTargetToRoundQuantity.defaultQuantity(for: entry.recordingMetric) }
         if hasRecordedActual, !forceApply {
             return .needsPreviewConfirm(summary: "「\(entry.exercise.voiceCandidateDisplayName)」已有記錄成績，換成「\(newExercise.voiceCandidateDisplayName)」會重置該動作的組數/目標/實際 -- 確認嗎？")
         }
@@ -481,7 +482,8 @@ public final class VoiceCommandService {
             newRounds[0].setsCount = setsCount
         }
         if let targetQuantity = payload.targetQuantity {
-            for i in newRounds.indices { newRounds[i].targetQuantity = targetQuantity }
+            let repTarget = RepTargetToRoundQuantity.repTarget(quantity: targetQuantity, metric: entry.recordingMetric)
+            for i in newRounds.indices { newRounds[i].target = repTarget }
         }
         if let load = payload.load {
             for i in newRounds.indices { newRounds[i].load = load }
@@ -532,7 +534,7 @@ public final class VoiceCommandService {
             return .rejected(reason: "內部錯誤")
         }
         let didSplit = entry.rounds.count != oldRounds.count
-        entry.rounds[idx].actualQuantity = payload.actualQuantity
+        entry.rounds[idx].actual = RepTargetToRoundQuantity.repTarget(quantity: payload.actualQuantity, metric: entry.recordingMetric)
         let summary = "已將「\(entry.exercise.voiceCandidateDisplayName)」第\(setIndex)組實際\(unitLabel(entry.recordingMetric))改為\(payload.actualQuantity)"
         if didSplit {
             // splitRound 是結構性操作 -- 撤銷粒度是整個 entry 的 rounds
@@ -542,11 +544,15 @@ public final class VoiceCommandService {
                 entry.rounds = oldRounds
             }
         } else {
-            let oldValue = oldRounds[idx].actualQuantity
+            // R01 (2026-09-16): capture the actual pre-edit `RepTarget`
+            // (not a re-quantized `Int`) so undo restores it exactly --
+            // this round wasn't split, so `oldRounds[idx]` is still the
+            // untouched original.
+            let oldValue = oldRounds[idx].actual
             undoSlot = UndoSlot(summary: summary) { draft in
                 guard let block = draft.blocks.first(where: { $0.id == blockID }), let entry = block.entries.first(where: { $0.id == entryID }),
                       let i = entry.rounds.firstIndex(where: { $0.id == roundID }) else { return }
-                entry.rounds[i].actualQuantity = oldValue
+                entry.rounds[i].actual = oldValue
             }
         }
         return .applied(summary: summary, canUndo: true)

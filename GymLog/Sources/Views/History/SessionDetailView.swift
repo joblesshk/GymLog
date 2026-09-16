@@ -15,6 +15,12 @@ struct SessionDetailView: View {
 
     // 历史课次编辑及补录日期（2026-09-06 审查报告"适合当前范围的功能"第二批）。
     @State private var showingEditSheet = false
+    // 2026-09-16「把某一天的運動組合設計成範本」：命名 → `TemplateFromSessionBuilder`
+    // 建立並插入模板 → 提示結果。
+    @State private var showingSaveAsTemplateSheet = false
+    @State private var saveAsTemplateResultMessage: String?
+    @State private var saveAsTemplateErrorMessage: String?
+    @Environment(\.modelContext) private var modelContext
 
     // 课后摘要（同批次）：判断本次课里哪些动作创造了新 PR，需要该学员这个动作的
     // 完整跨课次历史，所以在这里查询，而不是在纯格式化的
@@ -24,10 +30,35 @@ struct SessionDetailView: View {
     @Query private var allSessions: [WorkoutSession]
     @State private var summaryText: String?
 
+    /// 首屏 = 課次摘要（GymLog 改版設計 §6）：總量／最大／時長 + PR 個數 +
+    /// 練了什麼的模式色標，全部沿用既有的 `SessionSummaryMetrics`／
+    /// `prPointIDs()`，不重新定義任何一條規則。
+    private var summaryMetrics: SessionSummaryMetrics { SessionSummaryMetrics.compute(for: session) }
+
+    private var nonWODEntries: [ExerciseEntry] {
+        session.orderedBlocks.filter { $0.sectionKind != .wod }.flatMap(\.orderedEntries)
+    }
+
+    private var summaryMovementPatterns: [MovementPattern] {
+        var seen: [MovementPattern] = []
+        for entry in nonWODEntries {
+            guard let pattern = entry.exercise?.movementPattern, !seen.contains(pattern) else { continue }
+            seen.append(pattern)
+            if seen.count >= 4 { break }
+        }
+        return seen
+    }
+
     var body: some View {
+        let prIDs = prPointIDs()
         List {
             Section {
-                TrainingInsightView(session: session)
+                sessionSummaryCard(prCount: prIDs.count)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
+            Section {
+                EnergyReportView(report: TrainingInsights.report(session))
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
             }
@@ -46,7 +77,7 @@ struct SessionDetailView: View {
                         WODBlockCard(block: block, recordStatus: wodRecordStatuses["\(session.id)#\(block.order)"] ?? .none)
                             .listRowBackground(DS.C.surface)
                     } else {
-                        BlockCard(block: block)
+                        BlockCard(block: block, sessionID: session.id, prPointIDs: prIDs)
                             .listRowBackground(DS.C.surface)
                     }
                     if let note = block.note, !note.isEmpty {
@@ -59,6 +90,15 @@ struct SessionDetailView: View {
                             .sectionLabelStyle()
                             .lineLimit(1)
                         Spacer()
+                        if block.orderedEntries.contains(where: { $0.orderedSets.contains { $0.isInferred } }) {
+                            // 「推斷」整塊只標一次，不再逐行出現。
+                            HStack(spacing: 4) {
+                                Circle().fill(DS.C.inferred).frame(width: 6, height: 6)
+                                Text(L("推斷", "Inferred"))
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(DS.C.inferred)
+                            }
+                        }
                         if let rest = block.restSeconds {
                             Text(L("休息 \(rest)s", "Rest \(rest)s"))
                                 .font(.system(size: 11, weight: .regular))
@@ -68,24 +108,36 @@ struct SessionDetailView: View {
                 }
             }
 
-            if session.cooldown != nil || session.cooldownNote != nil {
-                Section {
-                    NoteRow(text: session.cooldown, note: session.cooldownNote)
-                        .listRowBackground(DS.C.surface)
-                } header: {
-                    Text(L("放鬆", "Cooldown")).sectionLabelStyle()
-                }
-            }
-
             Section {
-                LabeledContent(L("原始日期文本", "Original Date Text"), value: session.dateRaw)
-                LabeledContent(L("日期來源", "Date Source"), value: session.dateOrigin == .reconstructed ? L("還原", "Restored") : (session.dateOrigin == .asRecorded ? L("原樣採信", "As Recorded") : L("未知", "Unknown")))
-                LabeledContent(L("來源表", "Source Sheet"), value: L("\(session.sourceSheet) 第 \(session.sourceRow) 行", "\(session.sourceSheet) row \(session.sourceRow)"))
+                DisclosureGroup {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if session.cooldown != nil || session.cooldownNote != nil {
+                            NoteRow(text: session.cooldown, note: session.cooldownNote)
+                        }
+                        LabeledContent(L("原始日期文本", "Original Date Text"), value: session.dateRaw)
+                        LabeledContent(L("日期來源", "Date Source"), value: session.dateOrigin == .reconstructed ? L("還原", "Restored") : (session.dateOrigin == .asRecorded ? L("原樣採信", "As Recorded") : L("未知", "Unknown")))
+                        LabeledContent(L("來源表", "Source Sheet"), value: L("\(session.sourceSheet) 第 \(session.sourceRow) 行", "\(session.sourceSheet) row \(session.sourceRow)"))
+                    }
+                    .padding(.top, 6)
+                } label: {
+                    Text(L("放鬆與資料來源", "Cooldown & Data Source"))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(DS.C.textMid)
+                }
             }
             .listRowBackground(DS.C.surface)
             .font(.system(size: 14, weight: .medium))
             .foregroundStyle(DS.C.textHi)
             .tint(DS.C.textLow)
+
+            // 2026-09-16：AI 訓練評價移到整頁最下面，且不再自動生成
+            // （`TrainingInsightView` 已經拿掉那個 `.task` 自動觸發）——教練
+            // 翻歷史課次的第一眼要看到的是這節課本身的數據，不是等雲端評價。
+            Section {
+                TrainingInsightView(session: session)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
         }
         .scrollContentBackground(.hidden)
         .background(DS.C.canvas)
@@ -121,6 +173,14 @@ struct SessionDetailView: View {
                     } label: {
                         Label(L("分享摘要", "Share Summary"), systemImage: "square.and.arrow.up")
                     }
+                    // 2026-09-16：「從歷史記錄的某天生成模板」——把這節課的區塊／
+                    // 動作組合存成一份可重複使用的組合模板（不含重量，模板本
+                    // 來就不帶重量，見 `TemplateFromSessionBuilder`）。
+                    Button {
+                        showingSaveAsTemplateSheet = true
+                    } label: {
+                        Label(L("存為組合模板", "Save as Template"), systemImage: "square.stack.3d.up")
+                    }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
@@ -128,6 +188,22 @@ struct SessionDetailView: View {
         }
         .sheet(isPresented: $showingEditSheet) {
             SessionEditSheet(session: session)
+        }
+        .sheet(isPresented: $showingSaveAsTemplateSheet) {
+            SaveSessionAsTemplateSheet(session: session) { name in
+                showingSaveAsTemplateSheet = false
+                saveSessionAsTemplate(name: name)
+            }
+        }
+        .alert(L("已存為組合模板", "Saved as Template"), isPresented: Binding(get: { saveAsTemplateResultMessage != nil }, set: { if !$0 { saveAsTemplateResultMessage = nil } })) {
+            Button(L("好", "OK"), role: .cancel) {}
+        } message: {
+            Text(saveAsTemplateResultMessage ?? "")
+        }
+        .alert(L("存為組合模板失敗", "Couldn't Save as Template"), isPresented: Binding(get: { saveAsTemplateErrorMessage != nil }, set: { if !$0 { saveAsTemplateErrorMessage = nil } })) {
+            Button(L("好", "OK"), role: .cancel) {}
+        } message: {
+            Text(saveAsTemplateErrorMessage ?? "")
         }
         .sheet(isPresented: Binding(get: { summaryText != nil }, set: { if !$0 { summaryText = nil } })) {
             if let summaryText {
@@ -156,6 +232,25 @@ struct SessionDetailView: View {
             }
         }
         return result
+    }
+
+    private func saveSessionAsTemplate(name: String) {
+        do {
+            let result = try TemplateFromSessionBuilder.build(from: session, name: name, in: modelContext)
+            if result.droppedEntryCount > 0 {
+                saveAsTemplateResultMessage = L(
+                    "已存為組合模板「\(result.template.name)」，其中 \(result.droppedEntryCount) 個動作已從動作庫刪除或合併，未能加入模板。",
+                    "Saved as template \"\(result.template.name)\" — \(result.droppedEntryCount) exercise(s) had been deleted or merged from the library and couldn't be included."
+                )
+            } else {
+                saveAsTemplateResultMessage = L(
+                    "已存為組合模板「\(result.template.name)」，可以在「動作庫」的「組合模板」裡找到。",
+                    "Saved as template \"\(result.template.name)\" — find it under \"Exercises\" › \"Templates\"."
+                )
+            }
+        } catch {
+            saveAsTemplateErrorMessage = error.localizedDescription
+        }
     }
 
     /// "\(session.id)#\(block.order)" -> `WODPRAnalyzer.RecordStatus` for
@@ -193,6 +288,90 @@ struct SessionDetailView: View {
         }
         let names = block.orderedEntries.map(\.displayName).joined(separator: " + ")
         return "\(block.blockType.displayName) · \(names.uppercased())"
+    }
+
+    /// 課次摘要卡（GymLog 改版設計 §6）：總量／最大／時長 + 動作模式色標，
+    /// 首屏先回答「這堂課練了什麼、表現如何」，其餘說明性卡片（
+    /// `TrainingInsightView`）退到它後面。
+    private func sessionSummaryCard(prCount: Int) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("課次摘要", "Session Summary")).sectionLabelStyle()
+                    if let name = session.client?.displayName {
+                        Text(L("第 \(session.weekNumber) 週 · \(name)", "Week \(session.weekNumber) · \(name)"))
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.C.textLow)
+                    }
+                }
+                Spacer()
+                if prCount > 0 {
+                    Text(L("PR ×\(prCount)", "PR ×\(prCount)"))
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(DS.C.pr)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(DS.C.prBg, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+            }
+            HStack(spacing: 8) {
+                summaryStat(L("總訓練量", "Total Volume"), summaryMetrics.totalVolumeKg, unit: "kg")
+                summaryStat(L("主項最大", "Top Load"), summaryMetrics.maxLoadKg, unit: "kg")
+                summaryStat(L("時長", "Duration"), session.plannedDurationMinutes.map { Double($0) / 60 }, unit: "h", isDuration: true)
+            }
+            if !summaryMovementPatterns.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(summaryMovementPatterns, id: \.self) { pattern in
+                        MovementPatternBadge(pattern: pattern, size: 22)
+                    }
+                    Text(L("\(session.orderedBlocks.count) 個訓練塊", "\(session.orderedBlocks.count) blocks"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(DS.C.textMid)
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .gymCard()
+        .padding(.horizontal, DS.Space.pageMargin)
+    }
+
+    private func summaryStat(_ title: String, _ value: Double?, unit: String, isDuration: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 9, weight: .semibold))
+                .tracking(0.6)
+                .foregroundStyle(DS.C.textLow)
+                .textCase(.uppercase)
+            HStack(alignment: .lastTextBaseline, spacing: 3) {
+                if let value {
+                    Text(isDuration ? Self.formatHours(value) : Self.formatNumber(value))
+                        .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(DS.C.textHi)
+                } else {
+                    Text("—")
+                        .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(DS.C.textLow)
+                }
+                if value != nil, !isDuration {
+                    Text(unit).font(.system(size: 11)).foregroundStyle(DS.C.textLow)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(11)
+        .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .opacity(value == nil ? 0.6 : 1)
+    }
+
+    private static func formatNumber(_ value: Double) -> String {
+        let rounded = value.rounded()
+        return abs(value - rounded) < 0.05 ? Int(rounded).formatted(.number.grouping(.automatic)) : String(format: "%.1f", value)
+    }
+
+    private static func formatHours(_ hours: Double) -> String {
+        let totalMinutes = Int((hours * 60).rounded())
+        return String(format: "%d:%02d", totalMinutes / 60, totalMinutes % 60)
     }
 }
 
@@ -243,11 +422,18 @@ private struct NoteCard: View {
 /// sub-section within the same card so the grouping is visually obvious.
 private struct BlockCard: View {
     let block: SessionBlock
+    let sessionID: String
+    let prPointIDs: Set<String>
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(Array(block.orderedEntries.enumerated()), id: \.element.persistentModelID) { index, entry in
-                EntryView(entry: entry, showsLetter: block.isMultiEntry, letterIndex: index)
+                EntryView(
+                    entry: entry,
+                    showsLetter: block.isMultiEntry,
+                    letterIndex: index,
+                    isPR: prPointIDs.contains("\(sessionID)#\(block.order)#\(entry.order)")
+                )
                 if index < block.orderedEntries.count - 1 {
                     Divider().overlay(DS.C.hairlineSoft)
                 }
@@ -336,10 +522,35 @@ private struct EntryView: View {
     let entry: ExerciseEntry
     let showsLetter: Bool
     let letterIndex: Int
+    var isPR: Bool = false
 
     private var letter: String {
         let letters = ["A", "B", "C", "D", "E", "F"]
         return letterIndex < letters.count ? letters[letterIndex] : "\(letterIndex + 1)"
+    }
+
+    /// 這個 entry 真正達成最大可比較重量的那一組——`isPR` 只代表「這個 entry
+    /// 這堂課有 PR」，不代表哪一組；沒有這個就只能瞎猜（例如猜最後一組），
+    /// 猜錯了會誤導教練覺得破紀錄的是另一組。
+    private var prSetIndex: Int? {
+        guard isPR else { return nil }
+        let direction = entry.exercise?.loadDirection ?? .higherIsStronger
+        var bestIndex: Int?
+        var bestValue: Double?
+        for (index, set) in entry.orderedSets.enumerated() {
+            guard AnalyticsMath.isEffectiveCompletion(actual: set.actual),
+                  let kg = AnalyticsMath.comparableKg(set.load) else { continue }
+            if let currentBest = bestValue {
+                if AnalyticsMath.isImprovement(candidate: kg, overBest: currentBest, direction: direction) {
+                    bestValue = kg
+                    bestIndex = index
+                }
+            } else {
+                bestValue = kg
+                bestIndex = index
+            }
+        }
+        return bestIndex
     }
 
     var body: some View {
@@ -349,7 +560,7 @@ private struct EntryView: View {
                     Text(letter)
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(DS.C.onAccent)
-                        .frame(width: 18, height: 18)
+                        .frame(width: 20, height: 20)
                         .background(Circle().fill(DS.C.accent))
                 }
                 Text(entry.displayName)
@@ -360,21 +571,26 @@ private struct EntryView: View {
                         .foregroundStyle(DS.C.danger)
                         .help(L("動作庫中未找到該動作引用", "Exercise reference not found in library"))
                 }
+                if isPR {
+                    DataTagView(kind: .pr)
+                }
             }
             if entry.exerciseRaw != entry.displayName {
                 Text(L("原始文本：\(entry.exerciseRaw)", "Original text: \(entry.exerciseRaw)"))
                     .font(.system(size: 11))
                     .foregroundStyle(DS.C.textLow)
+                    .padding(.leading, showsLetter ? 28 : 0)
             }
 
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(entry.orderedSets.enumerated()), id: \.element.persistentModelID) { index, set in
-                    SetRow(set: set)
+                    SetRow(set: set, isPR: index == prSetIndex)
                     if index < entry.orderedSets.count - 1 {
                         Divider().overlay(DS.C.hairlineSoft)
                     }
                 }
             }
+            .padding(.leading, showsLetter ? 28 : 0)
         }
     }
 }
@@ -382,6 +598,7 @@ private struct EntryView: View {
 /// 课次详情行（HANDOFF.md §4.5）：网格 `46 | 62 | 1fr | auto`。
 private struct SetRow: View {
     let set: SetLog
+    var isPR: Bool = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -392,18 +609,44 @@ private struct SetRow: View {
 
             loadValue
 
-            Text(L("目標 \(set.target.displayText) · 完成 \(set.actual.displayText)", "Target \(set.target.displayText) · Actual \(set.actual.displayText)"))
-                .font(.system(size: 12, weight: .regular))
-                .foregroundStyle(DS.C.textMid)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            // 2026-09-16（GymLog 改版設計 §6 逐組行規格）：實際完成單獨用
+            // 「× 8」這種緊湊、加粗的記法當主角，跟目標（小字、靠右、次要）
+            // 拉開視覺層級——原本「目標 X · 完成 Y」擠在同一行同樣的灰字裡，
+            // 掃一眼分不出教練真正做了多少。
+            Text(compactActualText)
+                .font(.system(size: 15, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(DS.C.textHi)
 
-            if set.isInferred {
-                DataTagView(kind: .inferred)
+            Spacer(minLength: 4)
+
+            if isPR {
+                DataTagView(kind: .pr)
+            } else {
+                Text(L("目標 \(set.target.displayText)", "Target \(set.target.displayText)"))
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(DS.C.textLow)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
         }
         .padding(.vertical, 9)
+        .padding(.horizontal, isPR ? 10 : 0)
+        .background(isPR ? DS.C.prBg : Color.clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    /// 「× 8」這種緊湊記法只對「次數型」量化（固定/區間/每側/輪次）有意義；
+    /// 時間、距離這類量化本身已經是自然的度量單位，不需要、也不該加「×」
+    /// 前綴（沒有人會說「×0:30」），直接沿用 `displayText`。
+    private var compactActualText: String {
+        switch set.actual {
+        case .fixed(let value, _): return "× \(value)"
+        case .range(let low, let high, _): return "× \(low)-\(high)"
+        case .rounds(let count, _): return "× \(count)"
+        case .perSide(let left, let right, _): return left == right ? "× \(left)" : "× \(left)/\(right)"
+        case .time, .distance: return set.actual.displayText
+        case .unknown: return "—"
+        }
     }
 
     @ViewBuilder
@@ -426,6 +669,64 @@ private struct SetRow: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .frame(width: 62, alignment: .leading)
+        }
+    }
+}
+
+/// 「存為組合模板」的命名頁（2026-09-16）——同一套樣式跟 `TemplateLibraryView`
+/// 的 `NewTemplateNameSheet`一致，但獨立一份而不是共用：那邊是「新建空模
+/// 板」，這邊預先帶入根據這節課日期猜的名稱，兩邊未來各自調整文案不需要
+/// 互相牽動。
+private struct SaveSessionAsTemplateSheet: View {
+    let session: WorkoutSession
+    let onSave: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
+
+    init(session: WorkoutSession, onSave: @escaping (String) -> Void) {
+        self.session = session
+        self.onSave = onSave
+        _name = State(initialValue: L(
+            "\(SessionDateFormat.display.string(from: session.date)) 的訓練",
+            "Session from \(SessionDateFormat.display.string(from: session.date))"
+        ))
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField(language.t("範本名稱", "Template name"), text: $name)
+                } footer: {
+                    Text(language.t(
+                        "會把這節課的區塊與動作組合存成範本，供以後的課次直接套用；重量不會存進範本，套用時一律按當時的最近記錄自動帶入。",
+                        "This saves the blocks and exercises in this session as a reusable template for future sessions; weights aren't stored — a session started from this template always prefills weight from the most recent record at the time."
+                    ))
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(DS.C.canvas)
+            .font(DS.F.listRow)
+            .foregroundStyle(DS.C.textHi)
+            .navigationTitle(language.t("存為組合模板", "Save as Template"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(language.t("取消", "Cancel")) { dismiss() }
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(DS.C.textHi)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(language.t("儲存", "Save")) {
+                        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        onSave(trimmed.isEmpty ? name : trimmed)
+                    }
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(DS.C.accent)
+                }
+            }
         }
     }
 }

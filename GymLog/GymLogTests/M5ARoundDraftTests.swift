@@ -30,9 +30,9 @@ final class M5ARoundDraftTests: XCTestCase {
         let draft = EntryDraft(
             exercise: makeExercise(),
             rounds: [
-                RoundDraft(setsCount: 2, load: .absolute(kg: 30, raw: "30"), targetQuantity: 10, actualQuantity: 10),
-                RoundDraft(setsCount: 3, load: .absolute(kg: 45, raw: "45"), targetQuantity: 6, actualQuantity: 6),
-                RoundDraft(setsCount: 2, load: .absolute(kg: 40, raw: "40"), targetQuantity: 8, actualQuantity: 8),
+                RoundDraft(setsCount: 2, load: .absolute(kg: 30, raw: "30"), targetQuantity: 10, actualQuantity: 10, metric: .reps),
+                RoundDraft(setsCount: 3, load: .absolute(kg: 45, raw: "45"), targetQuantity: 6, actualQuantity: 6, metric: .reps),
+                RoundDraft(setsCount: 2, load: .absolute(kg: 40, raw: "40"), targetQuantity: 8, actualQuantity: 8, metric: .reps),
             ]
         )
 
@@ -90,9 +90,9 @@ final class M5ARoundDraftTests: XCTestCase {
         let draft = EntryDraft(
             exercise: makeExercise(),
             rounds: [
-                RoundDraft(setsCount: 2, load: .absolute(kg: 30, raw: "30"), targetQuantity: 10, actualQuantity: 10),
-                RoundDraft(setsCount: 3, load: .absolute(kg: 45, raw: "45"), targetQuantity: 6, actualQuantity: 6),
-                RoundDraft(setsCount: 2, load: .absolute(kg: 40, raw: "40"), targetQuantity: 8, actualQuantity: 8),
+                RoundDraft(setsCount: 2, load: .absolute(kg: 30, raw: "30"), targetQuantity: 10, actualQuantity: 10, metric: .reps),
+                RoundDraft(setsCount: 3, load: .absolute(kg: 45, raw: "45"), targetQuantity: 6, actualQuantity: 6, metric: .reps),
+                RoundDraft(setsCount: 2, load: .absolute(kg: 40, raw: "40"), targetQuantity: 8, actualQuantity: 8, metric: .reps),
             ]
         )
         XCTAssertEqual(draft.plannedSets, 7)
@@ -114,9 +114,9 @@ final class M5ARoundDraftTests: XCTestCase {
         let entryDraft = EntryDraft(
             exercise: exercise,
             rounds: [
-                RoundDraft(setsCount: 2, load: .absolute(kg: 30, raw: "30"), targetQuantity: 10, actualQuantity: 10),
-                RoundDraft(setsCount: 3, load: .absolute(kg: 45, raw: "45"), targetQuantity: 6, actualQuantity: 6),
-                RoundDraft(setsCount: 2, load: .absolute(kg: 40, raw: "40"), targetQuantity: 8, actualQuantity: 8),
+                RoundDraft(setsCount: 2, load: .absolute(kg: 30, raw: "30"), targetQuantity: 10, actualQuantity: 10, metric: .reps),
+                RoundDraft(setsCount: 3, load: .absolute(kg: 45, raw: "45"), targetQuantity: 6, actualQuantity: 6, metric: .reps),
+                RoundDraft(setsCount: 2, load: .absolute(kg: 40, raw: "40"), targetQuantity: 8, actualQuantity: 8, metric: .reps),
             ]
         )
 

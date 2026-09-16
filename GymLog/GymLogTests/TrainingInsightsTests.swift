@@ -132,7 +132,7 @@ final class TrainingInsightsTests: XCTestCase {
         TodayDraftMutationService.addEntry(ex,clientID:client.id,placement:.newBlock,draft:draft,context:context)
         XCTAssertNil(TrainingInsights.draft(draft,client:client).actual)
         let e = try XCTUnwrap(draft.allEntries.first)
-        e.rounds[0].actualQuantity = 10
+        e.rounds[0].actual = .fixed(value: 10, raw: "10")
         XCTAssertNotNil(TrainingInsights.draft(draft,client:client).actual)
         e.addRound()
         XCTAssertFalse(e.rounds.last!.actualRecorded)

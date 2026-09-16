@@ -116,7 +116,7 @@ final class TodayDraftSnapshotTests: XCTestCase {
         let exercise = makeExercise()
         let legacySnapshot = EntryDraftSnapshot(
             id: UUID(), exerciseID: exercise.id,
-            rounds: [RoundDraftSnapshot(id: UUID(), setsCount: 3, load: .absolute(kg: 40, raw: "40"), targetQuantity: 8, actualQuantity: 8)],
+            rounds: [RoundDraftSnapshot(id: UUID(), setsCount: 3, load: .absolute(kg: 40, raw: "40"), target: .fixed(value: 8, raw: "8"), actual: .fixed(value: 8, raw: "8"))],
             restSeconds: nil, recordingMetric: nil
         )
         let (restored, metricUncertain) = EntryDraft.restore(from: legacySnapshot, exercises: [exercise])

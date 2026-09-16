@@ -49,6 +49,20 @@ struct TodayView: View {
     @State private var saveErrorMessage: String?
     @State private var saveSuccessMessage: String?
     @State private var templateResolutionWarning: String?
+    // 2026-09-16：複製上次課次／從歷史記錄複製都走同一個提示，用詞不提「模板」。
+    @State private var copyResolutionWarning: String?
+    // 2026-09-16：「從歷史記錄選擇」——教練從自己完整的歷史課次列表裡挑一天
+    // 複製，不限於最近一次。
+    @State private var showingHistoryCopyPicker = false
+    // 2026-09-16：「添加 Superset」預設彈出這個 picker（復用
+    // `SessionTemplatePickerView`，篩成只顯示 `isSupersetOnly` 的模板），選中
+    // 後直接把該模板的那個 superset block 加進目前這堂課（不是新建課次）；
+    // 2026-09-17：picker 裡找不到想要的組合時，`onManualFallback` 改回原本
+    // 的手動選動作流程（`exercisePickerTarget = .newSuperset`）。
+    @State private var showingSupersetTemplatePicker = false
+    // 同上，「添加 WOD」的預設路徑——篩成 `isWODOnly` 的模板（網上知名的
+    // CrossFit 基準 WOD），找不到時一樣能退回手動輸入。
+    @State private var showingWODTemplatePicker = false
     // P2 (2026-09-11)：「分享計劃」——生成的文件 URL 兼做 `.sheet` 觸發條件
     // （非 nil 就顯示），與 `SettingsView`/`HistoryListView` 既有的
     // `exportedBackupURL`/`exportedFileURL` 是同一個模式。
@@ -117,11 +131,18 @@ struct TodayView: View {
                             unfinishedSession: unfinishedSession(for: client),
                             onStartEmpty: { draft.startNew(clientID: client.id) },
                             onCopyLast: { copyLastSession(client: client) },
+                            onCopyFromHistory: { showingHistoryCopyPicker = true },
                             onSelectTemplate: { template in startFromTemplate(template, client: client) },
                             onContinueUnfinished: { session in
                                 SessionEditingCoordinator.open(session, exercises: allExercises, into: draft, tabSelection: nil)
                             }
                         )
+                        .sheet(isPresented: $showingHistoryCopyPicker) {
+                            SessionCopyPickerView(client: client) { session in
+                                showingHistoryCopyPicker = false
+                                startFromCopy(of: session, client: client)
+                            }
+                        }
                     }
                 } else {
                     ContentUnavailableView {
@@ -275,6 +296,45 @@ struct TodayView: View {
         } message: {
             Text(templateResolutionWarning ?? "")
         }
+        .alert(language.t("部分動作未能複製", "Some Exercises Couldn't Be Copied"), isPresented: Binding(get: { copyResolutionWarning != nil }, set: { if !$0 { copyResolutionWarning = nil } })) {
+            Button(language.t("好", "OK"), role: .cancel) {}
+        } message: {
+            Text(copyResolutionWarning ?? "")
+        }
+        .sheet(isPresented: $showingSupersetTemplatePicker) {
+            SessionTemplatePickerView(
+                onSelect: { template in
+                    if let client = currentClient {
+                        addSupersetFromTemplate(template, client: client)
+                    }
+                },
+                filter: { $0.isSupersetOnly },
+                titleOverride: (zh: "選擇 Superset 模板", en: "Select Superset Template"),
+                emptyStateOverride: (
+                    title: (zh: "暫無 Superset 模板", en: "No Superset Templates"),
+                    description: (zh: "請先在「動作庫」的「Superset 模板」分段中創建", en: "Please create one under \"Exercises\" › \"Superset Templates\" first")
+                ),
+                onManualFallback: { exercisePickerTarget = .newSuperset },
+                manualFallbackLabel: (zh: "找不到想要的組合？手動選擇動作", en: "Can't find the combo you want? Pick exercises manually")
+            )
+        }
+        .sheet(isPresented: $showingWODTemplatePicker) {
+            SessionTemplatePickerView(
+                onSelect: { template in
+                    if let client = currentClient {
+                        addWODFromTemplate(template, client: client)
+                    }
+                },
+                filter: { $0.isWODOnly },
+                titleOverride: (zh: "選擇 WOD 模板", en: "Select WOD Template"),
+                emptyStateOverride: (
+                    title: (zh: "暫無 WOD 模板", en: "No WOD Templates"),
+                    description: (zh: "知名的 CrossFit 基準 WOD 會顯示在這裡", en: "Well-known CrossFit benchmark WODs will appear here")
+                ),
+                onManualFallback: { exercisePickerTarget = .newWODBlock },
+                manualFallbackLabel: (zh: "找不到想要的 WOD？手動輸入", en: "Can't find the WOD you want? Enter one manually")
+            )
+        }
     }
 
     // MARK: - Active session
@@ -339,8 +399,11 @@ struct TodayView: View {
                     .buttonStyle(.gymAdd)
                     .accessibilityIdentifier("add-exercise-button")
 
+                    // 2026-09-17：預設先從模板庫選，模板裡沒有想要的組合/WOD
+                    // 才手動一個個加動作（`SessionTemplatePickerView` 的
+                    // `onManualFallback` 接手既有的 `exercisePickerTarget` 流程）。
                     Button {
-                        exercisePickerTarget = .newSuperset
+                        showingSupersetTemplatePicker = true
                     } label: {
                         Label(language.t("添加 Superset", "Add Superset"), systemImage: "plus")
                     }
@@ -348,11 +411,12 @@ struct TodayView: View {
                     .accessibilityIdentifier("add-superset-button")
 
                     Button {
-                        exercisePickerTarget = .newWODBlock
+                        showingWODTemplatePicker = true
                     } label: {
                         Label(language.t("添加 WOD", "Add WOD"), systemImage: "plus")
                     }
                     .buttonStyle(.gymAdd)
+                    .accessibilityIdentifier("add-wod-button")
                 }
                 .padding(.top, 4)
 
@@ -543,10 +607,8 @@ struct TodayView: View {
 
     private var sessionTopBar: some View {
         VStack(spacing: 4) {
-            HStack {
-                RestTimerPill(timer: restTimer)
-                Spacer(minLength: 8)
-                HeartRateChip(monitor: heartRate)
+            RestTimerHeaderRow(timer: restTimer) {
+                HeartRateChip(monitor: heartRate, age: currentClient?.age)
             }
             if restAlertsAuthorized == false {
                 // 与 WODBlockDraftCard 的同名提示一致：说清楚「后台不会响，画面
@@ -811,35 +873,24 @@ struct TodayView: View {
 
     private func copyLastSession(client: Client) {
         guard let last = mostRecentSession(for: client) else { return }
+        startFromCopy(of: last, client: client)
+    }
+
+    /// 2026-09-16：「複製上次課次」與「從歷史記錄選擇」共用的複製邏輯——
+    /// 兩者現在都透過 `SessionDraftLoader.copy` 完整帶出每個動作原本的所有
+    /// Round（不再只取第一組簡化成一輪），差異只在於挑的是哪一節課。
+    /// `SessionDraftLoader.copy` 本身已經處理好「新的一天」該有的重置
+    /// （WOD 成績清空、每輪「實際」標成未確認），這裡只負責把結果接上
+    /// `draft` 並把跳過的動作數量顯示成提示。
+    private func startFromCopy(of session: WorkoutSession, client: Client) {
         draft.startNew(clientID: client.id)
-        for block in last.orderedBlocks {
-            // M2 CrossFit extension: copying a WOD block for a same-standard
-            // retest brings back the PRESCRIPTION only -- the result always
-            // starts fresh (`.notRecorded`), never the previous attempt's
-            // score, per 工程审阅 §5.2/§6's "复测默认带出同版计划，成绩清空".
-            if block.sectionKind == .wod, let prescription = block.wodPayload?.prescription {
-                let wodDraft = WODBlockDraft.fromPrescription(prescription, exercises: allExercises)
-                draft.blocks.append(BlockDraft(blockType: block.blockType, restSeconds: block.restSeconds, sectionKind: .wod, wodDraft: wodDraft))
-                continue
-            }
-            let entries: [EntryDraft] = block.orderedEntries.compactMap { entry in
-                guard let exercise = entry.exercise else { return nil } // unresolved ref, skip rather than crash
-                let lastSet = entry.orderedSets.first
-                // CONTRACT-M5.md §3.4 (extended by CONTRACT-M8.md/CONTRACT-M9.md):
-                // same single-Round shape as addEntry's prefill and
-                // TemplateSessionBuilder.build below; 目标/实际 come from the
-                // last session's own target/actual independently.
-                return EntryDraft(
-                    exercise: exercise,
-                    setsCount: entry.plannedSets > 0 ? entry.plannedSets : entry.orderedSets.count,
-                    load: lastSet?.load ?? PrefillResolver.defaultLoad(for: exercise.equipment),
-                    targetQuantity: RepTargetToRoundQuantity.quantity(from: lastSet?.target ?? PrefillResolver.defaultRepTarget, metric: exercise.recordingMetric),
-                    actualQuantity: RepTargetToRoundQuantity.quantity(from: lastSet?.actual ?? PrefillResolver.defaultRepTarget, metric: exercise.recordingMetric),
-                    restSeconds: block.restSeconds, actualRecorded: false
-                )
-            }
-            guard !entries.isEmpty else { continue }
-            draft.blocks.append(BlockDraft(blockType: block.blockType, restSeconds: block.restSeconds, entries: entries))
+        let result = SessionDraftLoader.copy(from: session, exercises: allExercises)
+        draft.blocks.append(contentsOf: result.blocks)
+        if result.droppedEntryCount > 0 {
+            copyResolutionWarning = language.t(
+                "這節課有 \(result.droppedEntryCount) 個動作已從動作庫中刪除或合併，未能複製；其餘動作已加入今天的課次。",
+                "\(result.droppedEntryCount) exercise(s) from that session were deleted or merged from the library and couldn't be copied; the rest have been added to today's session."
+            )
         }
     }
 
@@ -866,6 +917,41 @@ struct TodayView: View {
                 "\(word) exercise(s) in template \"\(template.name)\" couldn't be matched to the current exercise library (possibly merged or deleted) and were skipped; the rest have been added to this session — please review before saving."
             )
         }
+    }
+
+    /// 2026-09-16：與 `startFromTemplate` 共用同一個 `TemplateSessionBuilder`
+    /// 轉換，但**不**呼叫 `draft.startNew`——這裡是把 Superset 模板的那個
+    /// block 加進「目前這堂課」，不是開一堂新課，跟「添加動作」「添加
+    /// Superset」兩顆按鈕一樣是純新增。一個 superset 模板照定義只有一個
+    /// `.superset` block，所以 `result.blocks` 正常情況下就是那一個 block；
+    /// 未能解析的動作走同一套「加入但提示」慣例，不整塊丟棄。
+    private func addSupersetFromTemplate(_ template: SessionTemplate, client: Client) {
+        let result = TemplateSessionBuilder.build(from: template, clientID: client.id, allExercises: allExercises, in: modelContext)
+        draft.blocks.append(contentsOf: result.blocks)
+
+        if result.unresolvedSlotCount > 0 {
+            let totalSlots = template.orderedBlocks.reduce(0) { $0 + $1.orderedSlots.count }
+            let word = language.t(
+                totalSlots == result.unresolvedSlotCount ? "全部" : "\(result.unresolvedSlotCount) 個",
+                totalSlots == result.unresolvedSlotCount ? "all" : "\(result.unresolvedSlotCount)"
+            )
+            templateResolutionWarning = language.t(
+                "Superset 模板「\(template.name)」中有\(word)動作未能匹配到當前動作庫（可能已被合並或刪除），已跳過。",
+                "\(word) exercise(s) in superset template \"\(template.name)\" couldn't be matched to the current exercise library (possibly merged or deleted) and were skipped."
+            )
+        }
+    }
+
+    /// 2026-09-17：跟 `addSupersetFromTemplate` 同一種「純新增、不 startNew」
+    /// 手法——一個 WOD 模板照定義只有一個 `sectionKind == .wod` 的 block，
+    /// `TemplateSessionBuilder.build` 既有的 WOD 分支（見該檔案）會把
+    /// `block.wodPrescription` 轉成一份全新的 `WODBlockDraft`（成績重置、
+    /// 處方原樣帶出，動作名稱走 `exerciseNameSnapshot` 快照，不像 strength
+    /// slot 需要重新解析 `exerciseID`，所以這裡沒有「部分動作未能匹配」的
+    /// 提示需要處理），這裡只需要把結果接到目前這堂課。
+    private func addWODFromTemplate(_ template: SessionTemplate, client: Client) {
+        let result = TemplateSessionBuilder.build(from: template, clientID: client.id, allExercises: allExercises, in: modelContext)
+        draft.blocks.append(contentsOf: result.blocks)
     }
 
     // MARK: - Save (CONTRACT-UI.md §3.6, 2026-09-09 拆成「暫存 / 結束」两步)

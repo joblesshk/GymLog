@@ -93,6 +93,41 @@ final class M2ClientSwitchGuardTests: XCTestCase {
         XCTAssertFalse(draftStore.blocks.isEmpty, "and must never touch the draft")
     }
 
+    // MARK: - R05 (2026-09-16): additional unsaved-work sources (学员资料表单)
+
+    /// The coordinator has no idea what `hasAdditionalUnsavedWork` tracks --
+    /// this pins that it gates a switch exactly like `draftStore
+    /// .hasUnsavedWork` does, for a caller (`ClientProfileView`) that has
+    /// nothing to do with the training draft at all.
+    func testDoesNotSwitchImmediatelyWhenAdditionalUnsavedWorkIsFlagged() {
+        let clientStore = CurrentClientStore(userDefaults: UserDefaults(suiteName: #function)!)
+        clientStore.currentClientID = "cl-a"
+        let draftStore = TodayDraftStore()
+        XCTAssertFalse(draftStore.hasUnsavedWork, "sanity: the training draft itself must be clean for this test to isolate the other source")
+
+        let coordinator = ClientSwitchCoordinator(clientStore: clientStore, draftStore: draftStore)
+        coordinator.hasAdditionalUnsavedWork = true
+        let switched = coordinator.requestSwitch(to: "cl-b")
+
+        XCTAssertFalse(switched, "an unsaved profile-form edit must block the immediate switch too")
+        XCTAssertEqual(clientStore.currentClientID, "cl-a")
+        XCTAssertEqual(coordinator.pendingClientID, "cl-b")
+    }
+
+    func testConfirmingPendingSwitchWorksWhenOnlyAdditionalUnsavedWorkBlocked() {
+        let clientStore = CurrentClientStore(userDefaults: UserDefaults(suiteName: #function)!)
+        clientStore.currentClientID = "cl-a"
+        let draftStore = TodayDraftStore()
+        let coordinator = ClientSwitchCoordinator(clientStore: clientStore, draftStore: draftStore)
+        coordinator.hasAdditionalUnsavedWork = true
+
+        coordinator.requestSwitch(to: "cl-b")
+        coordinator.confirmPendingSwitch()
+
+        XCTAssertEqual(clientStore.currentClientID, "cl-b", "discard & switch must still work when the training draft was never the blocker")
+        XCTAssertNil(coordinator.pendingClientID)
+    }
+
     // MARK: - CurrentClientStore persistence
 
     func testCurrentClientStorePersistsAcrossInstancesViaUserDefaults() {

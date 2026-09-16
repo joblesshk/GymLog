@@ -222,7 +222,11 @@ struct ContentView: View {
             applyExerciseLibraryAdditions20260907IfNeeded()
             applyExerciseLibraryAdditions20260909IfNeeded()
             applyExerciseDisciplineClassification20260909IfNeeded()
+            applyExerciseLibraryAdditions20260916IfNeeded()
+            applyExerciseLibraryAliasAdditions20260916IfNeeded()
             await importTemplateSeedIfNeeded()
+            await applyTemplateLibraryAdditions20260916IfNeeded()
+            await applyTemplateLibraryAdditions20260917IfNeeded()
             exportExerciseLibraryIfRequested()
         }
     }
@@ -332,6 +336,86 @@ struct ContentView: View {
             UserDefaults.standard.set(true, forKey: flagKey)
         } catch {
             print("[GymLog] Exercise discipline classification pass failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Fifth one-time heal, same shape as the 2026-09-09 pass above: 58
+    /// exercises extracted from two clients' (Example Athlete A、Example
+    /// Athlete B) coach Excel workout logs that the library was still missing.
+    private func applyExerciseLibraryAdditions20260916IfNeeded() {
+        let flagKey = "appliedExerciseLibraryAdditions20260916"
+        guard !UserDefaults.standard.bool(forKey: flagKey) else { return }
+        guard let url = Bundle.main.url(forResource: "exercise_library_seed", withExtension: "json") else { return }
+        do {
+            let inserted = try SeedImporter.applyExerciseLibraryAdditions20260916(seedURL: url, context: modelContext)
+            print("[GymLog] Exercise library additions 2026-09-16: inserted \(inserted).")
+            UserDefaults.standard.set(true, forKey: flagKey)
+        } catch {
+            print("[GymLog] Exercise library additions (2026-09-16) pass failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Companion to the heal above: 8 more names from the same two Excel
+    /// files turned out to already exist under a slightly different
+    /// wording (e.g. "Barbell squat" == existing "Back Squat") -- these
+    /// only add search aliases to already-existing rows, never a new row
+    /// and never overwrite anything the coach edited by hand. See
+    /// `SeedImporter.applyExerciseLibraryAliasAdditions20260916`.
+    private func applyExerciseLibraryAliasAdditions20260916IfNeeded() {
+        let flagKey = "appliedExerciseLibraryAliasAdditions20260916"
+        guard !UserDefaults.standard.bool(forKey: flagKey) else { return }
+        do {
+            let changed = try SeedImporter.applyExerciseLibraryAliasAdditions20260916(context: modelContext)
+            print("[GymLog] Exercise library alias additions 2026-09-16: updated \(changed).")
+            UserDefaults.standard.set(true, forKey: flagKey)
+        } catch {
+            print("[GymLog] Exercise library alias additions (2026-09-16) pass failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// One-time heal for devices whose `SessionTemplate` table was already
+    /// non-empty by the time `importTemplateSeedIfNeeded()` below first ran
+    /// (i.e. every real device, which imported the single 示範訓練 demo
+    /// template on an earlier build) -- that guard only ever fires once per
+    /// install, so a `template_seed.json` that grows new templates later
+    /// (2026-09-16: 4 characteristic split-day templates + 17 superset
+    /// templates extracted from real coach Excel logs) is otherwise never
+    /// re-read. Safe to call `importTemplateSeed` again unconditionally:
+    /// per its own doc comment, `SessionTemplate`/`TemplateBlock`/
+    /// `TemplateExerciseSlot` ids are deterministic and `@Attribute(.unique)`,
+    /// so re-importing the existing demo template coalesces into the same
+    /// row instead of duplicating it -- only the genuinely new template ids
+    /// actually insert.
+    private func applyTemplateLibraryAdditions20260916IfNeeded() async {
+        let flagKey = "appliedTemplateLibraryAdditions20260916"
+        guard !UserDefaults.standard.bool(forKey: flagKey) else { return }
+        guard let url = Bundle.main.url(forResource: "template_seed", withExtension: "json") else { return }
+        do {
+            let count = try SeedImporter.importTemplateSeed(from: url, into: modelContext)
+            print("[GymLog] Template library additions 2026-09-16: re-processed \(count) templates.")
+            UserDefaults.standard.set(true, forKey: flagKey)
+        } catch {
+            print("[GymLog] Template library additions (2026-09-16) pass failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// 2026-09-17：跟上面那支 20260916 heal 同一個理由的第二支——
+    /// `template_seed.json` 這次又長出 14 個 WOD 模板（網上最知名的
+    /// CrossFit 基準 WOD：Fran/Grace/Helen/…/Murph/DT/Jackie），
+    /// `importTemplateSeedIfNeeded` 的 guard 早就因為 20260916 那批而失效
+    /// 了，需要自己的 flag 再補跑一次 `importTemplateSeed`（一樣安全：見
+    /// `applyTemplateLibraryAdditions20260916IfNeeded` 的說明，唯一 id 讓
+    /// 重複匯入自然合併，不會產生重複列）。
+    private func applyTemplateLibraryAdditions20260917IfNeeded() async {
+        let flagKey = "appliedTemplateLibraryAdditions20260917"
+        guard !UserDefaults.standard.bool(forKey: flagKey) else { return }
+        guard let url = Bundle.main.url(forResource: "template_seed", withExtension: "json") else { return }
+        do {
+            let count = try SeedImporter.importTemplateSeed(from: url, into: modelContext)
+            print("[GymLog] Template library additions 2026-09-17: re-processed \(count) templates.")
+            UserDefaults.standard.set(true, forKey: flagKey)
+        } catch {
+            print("[GymLog] Template library additions (2026-09-17) pass failed: \(error.localizedDescription)")
         }
     }
 

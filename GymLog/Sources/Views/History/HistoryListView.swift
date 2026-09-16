@@ -77,6 +77,120 @@ struct HistoryListView: View {
         sessions.filter { !$0.isInProgress }
     }
 
+    /// 依週 sticky 分組（GymLog 改版設計 §6）。按各組最新一節課的日期排序，
+    /// 不是直接按 `weekNumber` 數字排序——`weekNumber` 沒有年份，跨年份的資料
+    /// 用數字排序會在年底/年初交界處錯序，用實際日期排就不會。
+    private struct WeekGroup: Identifiable {
+        let weekNumber: Int
+        let sessions: [WorkoutSession]
+        var id: Int { weekNumber }
+        var startDate: Date? { sessions.map(\.date).min() }
+    }
+
+    private var weekGroups: [WeekGroup] {
+        let grouped = Dictionary(grouping: sessions, by: \.weekNumber)
+        return grouped.keys
+            .map { week in WeekGroup(weekNumber: week, sessions: grouped[week]!.sorted { $0.date > $1.date }) }
+            .sorted { ($0.sessions.first?.date ?? .distantPast) > ($1.sessions.first?.date ?? .distantPast) }
+    }
+
+    // MARK: - 訓練強度概覽 (GymLog 改版設計 §6：「頂部加入…本週／本月訓練頻率
+    // 概覽」)
+
+    /// 本月至今每一天的訓練量（kg），沒有練的日子是 0——顏色深淺直接映射這個
+    /// 數字，同一天多節課次疊加。復用 `SessionSummaryMetrics`（與課次卡片、
+    /// 課次詳情同一套口徑），WOD-only 的日子沒有力量訓練量會是 0，跟真的沒練
+    /// 目前無法區分，屬於這個概覽本身的已知限制，不影響下方逐堂課次列表。
+    private var monthlyIntensity: [(day: Date, volumeKg: Double)] {
+        let calendar = Calendar.current
+        let today = Date()
+        guard let monthStart = calendar.dateInterval(of: .month, for: today)?.start else { return [] }
+        let dayCount = (calendar.dateComponents([.day], from: monthStart, to: today).day ?? 0) + 1
+        var volumeByDay: [Date: Double] = [:]
+        for session in sessions {
+            let day = calendar.startOfDay(for: session.date)
+            guard day >= monthStart, day <= today else { continue }
+            let volume = SessionSummaryMetrics.compute(for: session).totalVolumeKg ?? 0
+            volumeByDay[day, default: 0] += volume
+        }
+        return (0..<max(dayCount, 1)).compactMap { offset in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: monthStart) else { return nil }
+            return (day, volumeByDay[calendar.startOfDay(for: day)] ?? 0)
+        }
+    }
+
+    private var thisMonthSessionCount: Int {
+        let calendar = Calendar.current
+        guard let monthStart = calendar.dateInterval(of: .month, for: Date())?.start else { return 0 }
+        return sessions.filter { $0.date >= monthStart }.count
+    }
+
+    private var monthLabel: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: language == .zhHant ? "zh_Hant" : "en_US")
+        formatter.setLocalizedDateFormatFromTemplate(language == .zhHant ? "yyyyMMMM" : "MMMM yyyy")
+        return formatter.string(from: Date())
+    }
+
+    @ViewBuilder
+    private var trainingIntensityStrip: some View {
+        let days = monthlyIntensity
+        if !days.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .lastTextBaseline) {
+                    Text(language.t("\(monthLabel) · \(thisMonthSessionCount) 堂", "\(monthLabel) · \(thisMonthSessionCount) sessions"))
+                        .sectionLabelStyle()
+                    Spacer()
+                    Text(language.t("共 \(sessions.count) 堂", "\(sessions.count) total"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.C.textLow)
+                }
+                HStack(spacing: 4) {
+                    ForEach(Array(days.enumerated()), id: \.offset) { _, entry in
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(intensityColor(volumeKg: entry.volumeKg, maxVolumeKg: days.map(\.volumeKg).max() ?? 0))
+                            .frame(height: 30)
+                    }
+                }
+                HStack {
+                    Text(SessionDateFormat.display.string(from: days.first?.day ?? Date()))
+                    Spacer()
+                    Text(language.t("頻率概覽 · 顏色深淺 = 訓練量", "Frequency · color depth = volume"))
+                    Spacer()
+                    Text(SessionDateFormat.display.string(from: days.last?.day ?? Date()))
+                }
+                .font(.system(size: 10))
+                .foregroundStyle(DS.C.textLow)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .gymCard()
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+        }
+    }
+
+    /// 沒練＝`inset` 底色；有練的日子按當月最高單日訓練量分四階漸深，最高的
+    /// 那天（或那幾天並列）直接用實心 `accent`，呼應設計稿 §6 的漸層深淺。
+    private func intensityColor(volumeKg: Double, maxVolumeKg: Double) -> Color {
+        guard volumeKg > 0, maxVolumeKg > 0 else { return DS.C.inset }
+        let ratio = volumeKg / maxVolumeKg
+        if ratio >= 0.999 { return DS.C.accent }
+        if ratio >= 0.66 { return DS.C.accent.opacity(0.85) }
+        if ratio >= 0.33 { return DS.C.accent.opacity(0.55) }
+        return DS.C.accent.opacity(0.28)
+    }
+
+    private func weekHeader(_ group: WeekGroup) -> some View {
+        HStack(spacing: 8) {
+            Text(language.t("第 \(group.weekNumber) 週", "Week \(group.weekNumber)"))
+            if let start = group.startDate {
+                Text(language.t("· \(SessionDateFormat.display.string(from: start))起", "· from \(SessionDateFormat.display.string(from: start))"))
+            }
+        }
+        .sectionLabelStyle()
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             Group {
@@ -100,28 +214,36 @@ struct HistoryListView: View {
                     )
                 } else {
                     List {
-                        ForEach(sessions) { session in
-                            NavigationLink(value: session.id) {
-                                SessionRow(session: session)
-                            }
-                            .listRowBackground(DS.C.surface)
-                            .listRowSeparatorTint(DS.C.hairlineSoft)
-                            // 「進行中」的课次左滑就能回到「今天」接着录——这是
-                            // 「暫時保存」之后最常走的那一步，不该埋在详情页里。
-                            .swipeActions(edge: .leading) {
-                                if session.isInProgress, draft != nil {
-                                    Button {
-                                        openInToday(session)
-                                    } label: {
-                                        Label(language.t("繼續記錄", "Continue"), systemImage: "play.fill")
+                        trainingIntensityStrip
+
+                        ForEach(weekGroups) { group in
+                            Section {
+                                ForEach(group.sessions) { session in
+                                    NavigationLink(value: session.id) {
+                                        SessionRow(session: session)
                                     }
-                                    .tint(DS.C.accent)
+                                    .listRowBackground(DS.C.surface)
+                                    .listRowSeparatorTint(DS.C.hairlineSoft)
+                                    // 「進行中」的课次左滑就能回到「今天」接着录——这是
+                                    // 「暫時保存」之后最常走的那一步，不该埋在详情页里。
+                                    .swipeActions(edge: .leading) {
+                                        if session.isInProgress, draft != nil {
+                                            Button {
+                                                openInToday(session)
+                                            } label: {
+                                                Label(language.t("繼續記錄", "Continue"), systemImage: "play.fill")
+                                            }
+                                            .tint(DS.C.accent)
+                                        }
+                                    }
                                 }
-                            }
-                        }
-                        .onDelete { offsets in
-                            if let index = offsets.first {
-                                pendingDeleteSession = sessions[index]
+                                .onDelete { offsets in
+                                    if let index = offsets.first {
+                                        pendingDeleteSession = group.sessions[index]
+                                    }
+                                }
+                            } header: {
+                                weekHeader(group)
                             }
                         }
                     }
@@ -372,56 +494,138 @@ struct HistoryListView: View {
     }
 }
 
+/// 課次卡片——回答兩件事：練了什麼（模式色標 + 主要動作名）、練得多重
+/// （總量／最大／消耗）（GymLog 改版設計 §6）。PR 沒有現成的「這堂課共幾個
+/// PR」彙總可用，這裡只升級既有的「進行中」「日期已還原」徽章與 WOD 摘要行
+/// 的視覺權重，不新增 PR 計數（避免另外拼一套跨動作 PR 判斷邏輯）。
 private struct SessionRow: View {
     let session: WorkoutSession
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
+    private var nonWODEntries: [ExerciseEntry] {
+        session.orderedBlocks.filter { $0.sectionKind != .wod }.flatMap(\.orderedEntries)
+    }
+
+    private var wodBlocks: [SessionBlock] {
+        session.orderedBlocks.filter { $0.sectionKind == .wod }
+    }
+
+    private var movementPatterns: [MovementPattern] {
+        var seen: [MovementPattern] = []
+        for entry in nonWODEntries {
+            guard let pattern = entry.exercise?.movementPattern, !seen.contains(pattern) else { continue }
+            seen.append(pattern)
+            if seen.count >= 3 { break }
+        }
+        return seen
+    }
+
+    private var exerciseSummaryText: String {
+        let names = nonWODEntries.map(\.displayName)
+        guard !names.isEmpty else { return "" }
+        let shown = Array(names.prefix(2))
+        let extra = names.count - shown.count
+        let joined = shown.joined(separator: " · ")
+        return extra > 0 ? "\(joined) · +\(extra)" : joined
+    }
+
+    private var weekdayText: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: language == .zhHant ? "zh_Hant" : "en_US")
+        formatter.setLocalizedDateFormatFromTemplate("EEE")
+        return formatter.string(from: session.date)
+    }
+
+    private var energy: EnergyReport { TrainingInsights.report(session) }
+    private var metrics: SessionSummaryMetrics { SessionSummaryMetrics.compute(for: session) }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(SessionDateFormat.display.string(from: session.date))
-                    .font(DS.F.cardTitle)
-                    .foregroundStyle(DS.C.textHi)
-                Spacer()
-                Text(language.t("第 \(session.weekNumber) 週", "Week \(session.weekNumber)"))
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(DS.C.textMid)
-            }
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                if let name = session.client?.displayName {
-                    Text(language.t("\(name) · \(session.orderedBlocks.count) 個訓練塊", "\(name) · \(session.orderedBlocks.count) blocks"))
-                        .font(DS.F.subtitle)
-                        .foregroundStyle(DS.C.textLow)
-                } else {
-                    Text(language.t("\(session.orderedBlocks.count) 個訓練塊", "\(session.orderedBlocks.count) blocks"))
-                        .font(DS.F.subtitle)
-                        .foregroundStyle(DS.C.textLow)
-                }
-                if session.isInProgress {
-                    DataTagView(kind: .inProgress)
-                }
-                if session.dateOrigin == .reconstructed {
-                    DataTagView(kind: .restored)
+                Text(SessionDateFormat.display.string(from: session.date))
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(DS.C.textHi)
+                Text(weekdayText)
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.C.textLow)
+                if session.isInProgress { DataTagView(kind: .inProgress) }
+                if session.dateOrigin == .reconstructed { DataTagView(kind: .restored) }
+            }
+
+            if !movementPatterns.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(movementPatterns, id: \.self) { pattern in
+                        MovementPatternBadge(pattern: pattern, size: 22)
+                    }
+                    Text(exerciseSummaryText)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(DS.C.textHi)
+                        .lineLimit(1)
                 }
             }
-            Text(L("完成後估算：", "Completed estimate: ") + EnergyReport.display(TrainingInsights.report(session).actual) + (TrainingInsights.report(session).isPartial ? L("（部分）", " (partial)") : ""))
-                .font(.caption).foregroundStyle(.secondary)
-            if let archive = TrainingInsights.decode(session), let review = archive.review {
-                Text(archive.reviewFingerprint == TrainingInsights.reviewKey(session) ? review.summary : L("記錄已更新，AI 評價待更新", "Records changed; AI review needs updating"))
-                    .font(.caption).lineLimit(2)
-            }
-            // 2026-09-07 M2 CrossFit extension: 工程审阅 §6's history-list
-            // example ("力量 + AMRAP 12:00 · 5輪+12次 · Scaled") -- one line
-            // per WOD block, appended after the existing block-count line.
-            ForEach(Array(session.orderedBlocks.enumerated()), id: \.offset) { _, block in
-                if block.sectionKind == .wod, let payload = block.wodPayload {
+
+            // 2026-09-07 M2 CrossFit extension，改版後升為主要動作行（原本是
+            // 卡片底部的 accent 小字）：一行一個 WOD 區塊。
+            ForEach(Array(wodBlocks.enumerated()), id: \.offset) { _, block in
+                if let payload = block.wodPayload {
                     Text(WODSummaryFormatter.compactSummary(payload))
-                        .font(DS.F.subtitle)
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(DS.C.accent)
                 }
             }
+
+            statsRow
+
+            if let archive = TrainingInsights.decode(session), let review = archive.review {
+                Text(archive.reviewFingerprint == TrainingInsights.reviewKey(session) ? review.summary : L("記錄已更新，AI 評價待更新", "Records changed; AI review needs updating"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(DS.C.textLow)
+                    .lineLimit(2)
+            }
+
+            // 「完成後估算」退為卡片最後一行灰字——原本佔主位的「資料不足」不
+            // 該是教練一眼看到的第一件事（GymLog 改版設計 §6）。
+            Text(L("完成後估算：", "Completed estimate: ") + EnergyReport.display(energy.actual) + (energy.isPartial ? L("（部分）", " (partial)") : ""))
+                .font(.system(size: 11))
+                .foregroundStyle(DS.C.textLow)
         }
         .padding(.vertical, 4)
+    }
+
+    private var statsRow: some View {
+        HStack(spacing: 6) {
+            statCell(language.t("總量", "Volume"), metrics.totalVolumeKg, unit: "kg")
+            statCell(language.t("最大", "Top"), metrics.maxLoadKg, unit: "kg")
+            statCell(language.t("消耗", "Burn"), energy.actual, unit: "kcal")
+        }
+    }
+
+    private func statCell(_ title: String, _ value: Double?, unit: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 9, weight: .semibold))
+                .tracking(0.6)
+                .foregroundStyle(DS.C.textLow)
+                .textCase(.uppercase)
+            HStack(alignment: .lastTextBaseline, spacing: 2) {
+                Text(value.map { Self.fmt($0) } ?? "—")
+                    .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(value == nil ? DS.C.textLow : DS.C.textHi)
+                Text(unit).font(.system(size: 10)).foregroundStyle(DS.C.textLow)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(9)
+        .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .opacity(value == nil ? 0.6 : 1)
+    }
+
+    private static func fmt(_ value: Double) -> String {
+        let rounded = value.rounded()
+        if abs(value - rounded) < 0.05 {
+            return Int(rounded).formatted(.number.grouping(.automatic))
+        }
+        return String(format: "%.1f", value)
     }
 }
 

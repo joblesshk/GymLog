@@ -54,10 +54,11 @@ public enum TodayDraftMutationService {
             let round1 = RoundDraft(
                 setsCount: 1, load: prefill.load,
                 targetQuantity: RepTargetToRoundQuantity.quantity(from: prefill.targetRepTarget, metric: exercise.recordingMetric),
-                actualQuantity: RepTargetToRoundQuantity.quantity(from: prefill.actualRepTarget, metric: exercise.recordingMetric), actualRecorded: false
+                actualQuantity: RepTargetToRoundQuantity.quantity(from: prefill.actualRepTarget, metric: exercise.recordingMetric),
+                metric: exercise.recordingMetric, actualRecorded: false
             )
             let laterRounds = (1..<3).map { _ in
-                RoundDraft(setsCount: 1, load: prefill.load, targetQuantity: fallback, actualQuantity: fallback, actualRecorded: false)
+                RoundDraft(setsCount: 1, load: prefill.load, targetQuantity: fallback, actualQuantity: fallback, metric: exercise.recordingMetric, actualRecorded: false)
             }
             let supersetEntry = EntryDraft(exercise: exercise, rounds: [round1] + laterRounds)
             let block = BlockDraft(blockType: .superset, restSeconds: 60, entries: [supersetEntry], sectionKind: .strength)
@@ -127,7 +128,7 @@ public enum TodayDraftMutationService {
         let roundCount = max(block.entries.map(\.rounds.count).max() ?? 0, 1)
         let fallback = RepTargetToRoundQuantity.defaultQuantity(for: exercise.recordingMetric)
         let rounds = (0..<roundCount).map { _ in
-            RoundDraft(setsCount: 1, load: PrefillResolver.defaultLoad(for: exercise.equipment), targetQuantity: fallback, actualQuantity: fallback, actualRecorded: false)
+            RoundDraft(setsCount: 1, load: PrefillResolver.defaultLoad(for: exercise.equipment), targetQuantity: fallback, actualQuantity: fallback, metric: exercise.recordingMetric, actualRecorded: false)
         }
         block.entries.append(EntryDraft(exercise: exercise, rounds: rounds))
     }

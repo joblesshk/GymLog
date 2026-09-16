@@ -1,6 +1,29 @@
 import SwiftUI
 import SwiftData
+import Charts
 import GymLogKit
+
+/// 身體組成趨勢圖可切換的三個指標（GymLog 改版設計 §5：「單一折線 + 指標
+/// 切換，最穩且好實作」）。
+enum BodyMetricTrend: CaseIterable, Hashable {
+    case weight, bodyFat, muscle
+
+    var label: String {
+        switch self {
+        case .weight: return L("體重", "Weight")
+        case .bodyFat: return L("體脂率", "Body Fat")
+        case .muscle: return L("骨骼肌量", "Muscle")
+        }
+    }
+
+    func value(of metric: BodyMetric) -> Double? {
+        switch self {
+        case .weight: return metric.weightKg
+        case .bodyFat: return metric.bodyFatPercent
+        case .muscle: return metric.skeletalMuscleKg
+        }
+    }
+}
 
 /// 学员 tab (CONTRACT-M4.md §4.3), replacing the switcher-list role
 /// `ClientListView` used to play under M2. Switching now lives entirely in
@@ -38,6 +61,8 @@ struct ClientProfileView: View {
     @State private var showInBodyScan = false
     @State private var saveErrorMessage: String?
     @State private var showSavedConfirmation = false
+    /// GymLog 改版設計 §5：趨勢圖的指標切換，純 UI 狀態。
+    @State private var trendMetric: BodyMetricTrend = .weight
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
     private var currentClient: Client? {
@@ -72,6 +97,13 @@ struct ClientProfileView: View {
                     .foregroundStyle(DS.C.textHi)
                     .onAppear { loadFormIfNeeded(client: client) }
                     .onChange(of: client.id) { loadForm(client: client) }
+                    // R05 (2026-09-16): every edit to the local buffer
+                    // re-syncs `coordinator.hasAdditionalUnsavedWork` so a
+                    // client switch started from anywhere (nav-bar switcher,
+                    // any tab) goes through the same unsaved-work
+                    // confirmation the training draft already gets, instead
+                    // of `loadForm` silently overwriting an in-progress edit.
+                    .onChange(of: form) { syncDirtyState(against: client) }
                 } else {
                     ContentUnavailableView {
                         Label(language.t("暫無學員", "No Clients"), systemImage: "person.crop.circle.badge.exclamationmark")
@@ -240,10 +272,28 @@ struct ClientProfileView: View {
     private func inBodySection(for client: Client) -> some View {
         Section {
             let metrics = (client.bodyMetrics ?? []).sorted { $0.date > $1.date }
+            if !metrics.isEmpty {
+                overviewCard(metrics: metrics)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                trendCard(metrics: metrics)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
+
+            HStack {
+                Text(language.t("歷史記錄 · \(metrics.count)", "History · \(metrics.count)"))
+                    .sectionLabelStyle()
+                Spacer()
+            }
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 0, trailing: 16))
+            .listRowBackground(Color.clear)
+
             if metrics.isEmpty {
                 Text(language.t("暫無 InBody 記錄", "No InBody records yet"))
                     .font(.system(size: 13))
                     .foregroundStyle(DS.C.textLow)
+                    .listRowBackground(DS.C.surface)
             } else {
                 ForEach(metrics, id: \.id) { metric in
                     // Tappable: the row itself is a dense summary, and a
@@ -254,24 +304,31 @@ struct ClientProfileView: View {
                     } label: {
                         BodyMetricRow(metric: metric)
                     }
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    .listRowBackground(Color.clear)
                 }
             }
-            Button {
-                showAddBodyMetric = true
-            } label: {
-                Text(language.t("新增一條 InBody 記錄", "Add InBody Record"))
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(DS.C.accent)
+
+            HStack(spacing: 8) {
+                Button {
+                    showAddBodyMetric = true
+                } label: {
+                    Text(language.t("新增記錄", "Add Record"))
+                }
+                .buttonStyle(.gymPrimary)
+
+                Button {
+                    showInBodyScan = true
+                } label: {
+                    Label(language.t("掃描報告", "Scan Report"), systemImage: "doc.viewfinder")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .buttonStyle(.gymSecondary)
             }
-            Button {
-                showInBodyScan = true
-            } label: {
-                Label(language.t("掃描報告照片", "Scan Report Photo"), systemImage: "doc.viewfinder")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(DS.C.accent)
-            }
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+            .listRowBackground(Color.clear)
         } header: {
-            Text("InBody").sectionLabelStyle()
+            Text(language.t("身體組成 · BODY COMPOSITION", "BODY COMPOSITION")).sectionLabelStyle()
         } footer: {
             Text(language.t(
                 "支持體測報告照片識別，不限機型（全程本機處理，不聯網）。識別後仍需逐項核對。",
@@ -279,7 +336,213 @@ struct ClientProfileView: View {
             ))
             .foregroundStyle(DS.C.textLow)
         }
-        .listRowBackground(DS.C.surface)
+    }
+
+    // MARK: - InBody overview + trend (GymLog 改版設計 §5)
+
+    private func overviewCard(metrics: [BodyMetric]) -> some View {
+        let latest = metrics[0]
+        let previous = metrics.count > 1 ? metrics[1] : nil
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(language.t(
+                    "最新 · \(SessionDateFormat.display.string(from: latest.date))",
+                    "Latest · \(SessionDateFormat.display.string(from: latest.date))"
+                ))
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(DS.C.textHi)
+                Spacer()
+                if let previous, let days = Calendar.current.dateComponents([.day], from: previous.date, to: latest.date).day {
+                    Text(language.t("距上次 \(days) 天", "\(days) days since last"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.C.textLow)
+                }
+            }
+            HStack(spacing: 8) {
+                bodyMetricStatCell(
+                    title: language.t("體重", "Weight"), unit: "kg",
+                    value: latest.weightKg, previous: previous?.weightKg, goal: .neutral
+                )
+                bodyMetricStatCell(
+                    title: language.t("體脂率", "Body Fat"), unit: "%",
+                    value: latest.bodyFatPercent, previous: previous?.bodyFatPercent, goal: .down
+                )
+                bodyMetricStatCell(
+                    title: language.t("骨骼肌", "Muscle"), unit: "kg",
+                    value: latest.skeletalMuscleKg, previous: previous?.skeletalMuscleKg, goal: .up
+                )
+            }
+            Text(language.t(
+                "綠色 = 朝目標方向移動（體脂下降、肌肉上升）；中性灰 = 僅供參考",
+                "Green = moving toward the goal (fat down, muscle up); neutral gray is for reference only"
+            ))
+            .font(.system(size: 11))
+            .foregroundStyle(DS.C.textLow)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .gymCard()
+        .padding(.horizontal, DS.Space.pageMargin)
+    }
+
+    /// 方向判定依指標而異：體脂下降、肌肉上升皆為正向（`review` 綠 + 對應箭
+    /// 頭）；體重沒有「好方向」，變化量一律中性灰。
+    private enum BodyMetricGoalDirection { case up, down, neutral }
+
+    private func bodyMetricStatCell(title: String, unit: String, value: Double?, previous: Double?, goal: BodyMetricGoalDirection) -> some View {
+        let delta = (value != nil && previous != nil) ? value! - previous! : nil
+        let isPositive = delta.map { d in
+            switch goal {
+            case .up: return d > 0
+            case .down: return d < 0
+            case .neutral: return false
+            }
+        } ?? false
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(DS.C.textLow)
+            if let value {
+                HStack(alignment: .lastTextBaseline, spacing: 2) {
+                    Text(Self.fmt(value))
+                        .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(DS.C.textHi)
+                    Text(unit).font(.system(size: 11)).foregroundStyle(DS.C.textLow)
+                }
+            } else {
+                Text("—")
+                    .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(DS.C.textLow)
+            }
+            if let delta {
+                HStack(spacing: 2) {
+                    Text(delta >= 0 ? "↑" : "↓")
+                    Text(Self.fmt(abs(delta)))
+                }
+                .font(.system(size: 11, weight: isPositive ? .bold : .semibold))
+                .foregroundStyle(goal == .neutral ? DS.C.textMid : (isPositive ? DS.C.review : DS.C.textMid))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    /// 從真實資料點裡等距挑出最多 4 個日期當 X 軸刻度——不透過 Charts 的
+    /// `.automatic` 在 `Date` 定義域上自己找「好看的整數日期」，這批資料點數
+    /// 少、時間跨度窄（可能只是同一個月裡的幾次量測），教練實測 `.automatic`
+    /// 找出來的刻度會全部落在同一個（錯誤）日期上。永遠保證回傳的每個
+    /// `Date` 都真的來自 `points`，橫軸標籤就不可能顯示資料裡沒有的日期。
+    /// 從真實資料點裡等距挑出最多 4 個日期——依索引均勻抽樣。教練連續兩輪
+    /// 實測 `AxisMarks` 都定位不對（先是全部刻度顯示同一個日期，改成明確傳
+    /// 入這批日期後變成全部擠在最左邊），不管挑的日期值本身對不對，Charts
+    /// 把它們放到 x 軸「哪個像素位置」這一步在這張圖上就是不可靠。第三次不
+    /// 再信任 `chartXAxis`／`AxisMarks` 的定位——這批日期改成拿去手排一條
+    /// 普通 `HStack` + `Spacer` 的文字列（`sessionTrendChart` 那條「本次課走
+    /// 勢」列本來就是這樣做，一直沒被回報有問題），完全不經過 Charts 的座標
+    /// 系統。
+    private func axisTickDates(from points: [(id: String, date: Date, value: Double)]) -> [Date] {
+        guard points.count > 1 else { return points.map(\.date) }
+        let tickCount = min(4, points.count)
+        return (0..<tickCount).map { i in
+            let index = Int((Double(i) * Double(points.count - 1) / Double(tickCount - 1)).rounded())
+            return points[min(max(index, 0), points.count - 1)].date
+        }
+    }
+
+    /// 圖表下方手排的日期列——`Spacer()` 之間均勻分配寬度，不依賴 Charts 的
+    /// 座標系統，也不必是每個日期跟折線上對應資料點嚴格對齊的刻度，純粹是
+    /// 「這條線大致覆蓋哪段時間」的參考，跟 `sessionTrendChart` 的「本次課
+    /// 走勢」列同一個做法。
+    private func dateAxisLabelsRow(dates: [Date]) -> some View {
+        HStack {
+            ForEach(Array(dates.enumerated()), id: \.offset) { index, date in
+                Text(date.formatted(.dateTime.month(.defaultDigits).day()))
+                if index != dates.count - 1 { Spacer() }
+            }
+        }
+        .font(.system(size: 10))
+        .foregroundStyle(DS.C.textLow)
+    }
+
+    private func trendCard(metrics: [BodyMetric]) -> some View {
+        let ascending = metrics.sorted { $0.date < $1.date }
+        let points = ascending.compactMap { m -> (id: String, date: Date, value: Double)? in
+            trendMetric.value(of: m).map { (m.id, m.date, $0) }
+        }
+        return VStack(alignment: .leading, spacing: 12) {
+            GymSegmentedControl(selection: $trendMetric, options: BodyMetricTrend.allCases, label: { $0.label })
+
+            if points.count >= 2 {
+                // 2026-09-16：縱軸改成貼著實際數值範圍的緊湊區間，而不是任由
+                // Charts 的預設 domain（通常會把 0 也框進去）把幾公斤內的真實
+                // 波動壓成一條幾乎看不出變化的橫線；上下各留 15% 留白，至少
+                // 留白 0.5（同一指標多次量測完全相同時，domain 不能退化成一個
+                // 點）。橫軸改回顯示日期刻度，不再整條隱藏。
+                let values = points.map(\.value)
+                let minValue = values.min() ?? 0
+                let maxValue = values.max() ?? 0
+                let padding = Swift.max((maxValue - minValue) * 0.15, 0.5)
+                Chart {
+                    ForEach(Array(points.enumerated()), id: \.element.id) { index, point in
+                        LineMark(x: .value("date", point.date), y: .value("value", point.value))
+                            .foregroundStyle(DS.C.accent)
+                            .lineStyle(StrokeStyle(lineWidth: 2.5, lineJoin: .round))
+                        PointMark(x: .value("date", point.date), y: .value("value", point.value))
+                            .symbolSize(index == points.count - 1 ? 60 : 20)
+                            .foregroundStyle(DS.C.accent)
+                    }
+                }
+                .chartYScale(domain: (minValue - padding)...(maxValue + padding))
+                // 2026-09-16 第三次修正：連續兩版 `chartXAxis`／`AxisMarks` 都
+                // 被教練實測定位錯誤（同一日期 → 全擠左邊），問題出在 Charts
+                // 把刻度值換算成 x 軸像素位置這一步，不是刻度值本身。整條
+                // `chartXAxis` 拿掉，日期改到圖表下方另起一條普通文字列自己
+                // 排版（見下面 `dateAxisLabelsRow`），不再經過 Charts 的座標
+                // 系統。
+                .chartXAxis(.hidden)
+                .chartYAxis {
+                    AxisMarks(values: .automatic(desiredCount: 3)) { _ in
+                        AxisGridLine().foregroundStyle(DS.C.inset)
+                    }
+                }
+                .frame(height: 106)
+
+                dateAxisLabelsRow(dates: axisTickDates(from: points))
+
+                HStack {
+                    Text(language.t("\(metrics.count) 次量測", "\(metrics.count) measurements"))
+                    Spacer()
+                    if let first = points.first?.value, let last = points.last?.value {
+                        let diff = last - first
+                        Text("\(diff >= 0 ? "+" : "")\(Self.fmt(diff))")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(DS.C.textHi)
+                    }
+                }
+                .font(.system(size: 11))
+                .foregroundStyle(DS.C.textLow)
+            } else {
+                VStack(spacing: 6) {
+                    Circle().fill(DS.C.accent).frame(width: 10, height: 10)
+                    Text(language.t("再量一次就能看到趨勢", "Add one more to see a trend"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(DS.C.textMid)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+                .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .gymCard()
+        .padding(.horizontal, DS.Space.pageMargin)
+    }
+
+    fileprivate static func fmt(_ d: Double) -> String {
+        d == d.rounded() ? String(format: "%.0f", d) : String(format: "%.1f", d)
     }
 
     private func saveSection(for client: Client) -> some View {
@@ -305,6 +568,18 @@ struct ClientProfileView: View {
     private func loadForm(client: Client) {
         form = ClientProfileFormState(client: client)
         loadedClientID = client.id
+        syncDirtyState(against: client)
+    }
+
+    /// R05 (2026-09-16): the buffer is dirty exactly when it differs from
+    /// what `client`'s own fields would produce right now -- comparing
+    /// against a freshly-built `ClientProfileFormState`, not a separately
+    /// cached "as-loaded" snapshot, so this can't drift out of sync with
+    /// `client` if something else mutates it. `loadedClientID != client.id`
+    /// guards the one render frame where `client` has already switched but
+    /// `loadForm` for it hasn't run yet.
+    private func syncDirtyState(against client: Client) {
+        coordinator.hasAdditionalUnsavedWork = loadedClientID == client.id && form != ClientProfileFormState(client: client)
     }
 
     private func save(client: Client) {
@@ -312,14 +587,21 @@ struct ClientProfileView: View {
         do {
             try modelContext.save()
             showSavedConfirmation = true
+            syncDirtyState(against: client) // now clean -- `client` matches `form`
         } catch {
             // CONTRACT-M4.md's own risk callout: a save bug here corrupts
             // the real coach's profile, so a failure must surface, never be
             // swallowed (same discipline as TodayView's session save path,
             // CONTRACT-UI.md §3.6).
+            //
+            // R05 (2026-09-16): does NOT re-run `loadForm` here anymore --
+            // that used to rebuild `form` from the just-rolled-back `client`,
+            // silently replacing whatever the coach had just typed with the
+            // pre-edit values. `form` already holds exactly what they typed
+            // (rollback only reverted `client`, never touched `form`), so
+            // leaving it alone is what keeps 保存資料 usable as a retry button.
             modelContext.rollback()
             saveErrorMessage = error.localizedDescription
-            loadForm(client: client) // re-sync the buffer with the rolled-back object
         }
     }
 }
@@ -333,35 +615,51 @@ private struct BodyMetricRow: View {
     let metric: BodyMetric
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(SessionDateFormat.display.string(from: metric.date))
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(DS.C.textHi)
-            HStack(spacing: 12) {
-                if let w = metric.weightKg { field(language.t("體重", "Weight"), "\(Self.fmt(w))kg") }
-                if let bf = metric.bodyFatPercent { field(language.t("體脂率", "Body Fat"), "\(Self.fmt(bf))%") }
-                if let bfm = metric.bodyFatMassKg { field(language.t("體脂重", "Fat Mass"), "\(Self.fmt(bfm))kg") }
-                if let smm = metric.skeletalMuscleKg { field(language.t("骨骼肌", "Muscle"), "\(Self.fmt(smm))kg") }
-            }
-            HStack(spacing: 12) {
-                if let bmi = metric.bmi { field("BMI", Self.fmt(bmi)) }
-                if let vfl = metric.visceralFatLevel { field(language.t("內臟脂肪", "Visceral Fat"), "\(vfl)") }
-                if let bmr = metric.bmr { field("BMR", Self.fmt(bmr)) }
-                if let tdee = metric.tdee { field("TDEE", Self.fmt(tdee)) }
-            }
-            if let notes = metric.notes, !notes.isEmpty {
-                Text(notes).font(.system(size: 12)).foregroundStyle(DS.C.textLow)
-            }
-        }
-        .padding(.vertical, 2)
+    /// 缺欄位時只排有值的欄位並標「僅體重」，不留空洞（GymLog 改版設計 §5）。
+    private var isWeightOnly: Bool {
+        metric.weightKg != nil
+            && metric.bodyFatPercent == nil
+            && metric.bodyFatMassKg == nil
+            && metric.skeletalMuscleKg == nil
     }
 
-    @ViewBuilder
-    private func field(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(label).font(.system(size: 10)).foregroundStyle(DS.C.textLow)
-            Text(value).font(.system(size: 12)).foregroundStyle(DS.C.textHi)
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text(SessionDateFormat.display.string(from: metric.date))
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(DS.C.textHi)
+                if isWeightOnly {
+                    Text(language.t("僅體重", "Weight only"))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(DS.C.textLow)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+            }
+            HStack(spacing: 12) {
+                if let w = metric.weightKg { field(Self.fmt(w), "kg") }
+                if let bf = metric.bodyFatPercent { field(Self.fmt(bf), "%") }
+                if let smm = metric.skeletalMuscleKg { field(Self.fmt(smm), language.t("kg 肌", "kg muscle")) }
+            }
+            // 2026-09-16：備註、BMI、內臟脂肪、代謝等其餘欄位只在詳情頁顯示
+            // （GymLog 改版設計 §5：「小字網格改成三層資訊…歷史卡片」只留最
+            // 重要的體重／體脂率／骨骼肌，其餘「點進去再看」）——這裡不再把
+            // 備註原文整段排進列表卡片。
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .gymCard()
+    }
+
+    private func field(_ value: String, _ unit: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 2) {
+            Text(value)
+                .font(.system(size: 14, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(DS.C.textHi)
+            Text(unit).font(.system(size: 12)).foregroundStyle(DS.C.textMid)
         }
     }
 

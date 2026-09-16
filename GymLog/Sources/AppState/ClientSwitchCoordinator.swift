@@ -19,6 +19,16 @@ public final class ClientSwitchCoordinator {
     /// `isPresented` binding.
     public var pendingClientID: String?
 
+    /// R05 (2026-09-16): a second, independent "would switching discard
+    /// something the coach hasn't saved" signal, alongside
+    /// `draftStore.hasUnsavedWork` (the training draft). The coordinator
+    /// doesn't know or care what this tracks -- today it's the 学员 profile
+    /// form's local edit buffer (`ClientProfileView`), pushed in after every
+    /// edit/load/save since that buffer lives outside `TodayDraftStore`
+    /// entirely. Any other screen that stages edits outside a persisted
+    /// model can set this the same way without the coordinator changing.
+    public var hasAdditionalUnsavedWork = false
+
     public init(clientStore: CurrentClientStore, draftStore: TodayDraftStore) {
         self.clientStore = clientStore
         self.draftStore = draftStore
@@ -32,7 +42,7 @@ public final class ClientSwitchCoordinator {
     @discardableResult
     public func requestSwitch(to clientID: String) -> Bool {
         guard clientID != clientStore.currentClientID else { return true }
-        if draftStore.hasUnsavedWork {
+        if draftStore.hasUnsavedWork || hasAdditionalUnsavedWork {
             pendingClientID = clientID
             return false
         }

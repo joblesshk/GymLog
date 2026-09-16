@@ -77,6 +77,18 @@ public final class HeartRateMonitor: NSObject {
     private var sampleSum = 0
     private var sampleCount = 0
 
+    /// 2026-09-16 設計改版 §2：本次課走勢圖需要的逐點記錄——`averageBPM`
+    /// 那套只並總和/計數，畫不出線。`elapsedSeconds` 相對 `sessionStartedAt`，
+    /// 而不是絕對時間戳，圖表橫軸直接就是「第幾秒」，不用再減一次。一節課
+    /// 心率帶通常 1 秒發一次樣本，兩三個小時封頂也就一萬多個 `(Int, Int)`，
+    /// 用不著降採樣或設上限。
+    public struct HeartRateSample: Equatable {
+        public let elapsedSeconds: Int
+        public let bpm: Int
+    }
+    public private(set) var samples: [HeartRateSample] = []
+    private var sessionStartedAt: Date?
+
     private var central: CBCentralManager?
     private var peripheral: CBPeripheral?
     /// `startSession()` 在蓝牙还没 poweredOn 时被调用的话，扫描要推迟到
@@ -105,6 +117,8 @@ public final class HeartRateMonitor: NSObject {
         maxBPM = nil
         sampleSum = 0
         sampleCount = 0
+        samples = []
+        sessionStartedAt = Date()
         discovered = []
         wantsScan = true
         reconnectAttempts = 0
@@ -244,12 +258,21 @@ public final class HeartRateMonitor: NSObject {
         // 心率带偶尔会吐 0（没贴合皮肤）或明显离谱的值，直接丢掉而不是
         // 让它污染 min/avg。
         guard (25...240).contains(bpm) else { return }
+        let now = Date()
         currentBPM = bpm
-        lastSampleAt = Date()
+        lastSampleAt = now
         minBPM = min(minBPM ?? bpm, bpm)
         maxBPM = max(maxBPM ?? bpm, bpm)
         sampleSum += bpm
         sampleCount += 1
+        let elapsed = sessionStartedAt.map { Int(now.timeIntervalSince($0).rounded()) } ?? 0
+        // 同一秒可能收到不只一次樣本（重連、裝置重送）——後者覆蓋前者，不
+        // 疊加成兩個點，折線圖的橫軸才不會出現同一秒兩個不同高度的樣本。
+        if samples.last?.elapsedSeconds == elapsed {
+            samples[samples.count - 1] = HeartRateSample(elapsedSeconds: elapsed, bpm: bpm)
+        } else {
+            samples.append(HeartRateSample(elapsedSeconds: elapsed, bpm: bpm))
+        }
     }
 
     /// Pure, directly-testable staleness rule (2026-09-07 审阅 B09): a
