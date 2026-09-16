@@ -8,10 +8,17 @@ import GymLogKit
 /// `SessionTemplate`'s shape in CONTRACT-M4.md §3.
 struct TemplateLibraryView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \SessionTemplate.order) private var templates: [SessionTemplate]
+    @Query(sort: \SessionTemplate.order) private var allTemplates: [SessionTemplate]
 
     @State private var showingNewTemplateSheet = false
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
+
+    // 2026-09-17：這個分段只顯示一般多動作訓練模板——Superset 模板、WOD 模板
+    // 各自有自己的分段（見 `SupersetTemplateLibraryView`/`WODTemplateLibraryView`
+    // 及 `SessionTemplate.isSupersetOnly`/`isWODOnly`），三個模板庫互不重疊。
+    private var templates: [SessionTemplate] {
+        allTemplates.filter { !$0.isSupersetOnly && !$0.isWODOnly }
+    }
 
     var body: some View {
         List {
@@ -63,7 +70,9 @@ struct TemplateLibraryView: View {
 
     private func createTemplate(name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let newOrder = (templates.map(\.order).max() ?? -1) + 1
+        // 用 `allTemplates`（不是這個分段篩選後的 `templates`）算下一個 order，
+        // 避免跟 Superset/WOD 模板的 order 撞號。
+        let newOrder = (allTemplates.map(\.order).max() ?? -1) + 1
         let template = SessionTemplate(
             id: "tpl-\(UUID().uuidString.prefix(8))",
             name: trimmed.isEmpty ? language.t("新組合模板", "New Template") : trimmed,

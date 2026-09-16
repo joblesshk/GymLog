@@ -16,6 +16,11 @@ struct SessionTemplatePickerView: View {
     var filter: (SessionTemplate) -> Bool = { _ in true }
     var titleOverride: (zh: String, en: String)?
     var emptyStateOverride: (title: (zh: String, en: String), description: (zh: String, en: String))?
+    /// 2026-09-17：「先從模板選、模板裡沒有再手動加」——非 nil 時在清單最下面
+    /// （以及空清單時）都會多一顆按鈕，點擊後關掉這個 picker 並呼叫這個
+    /// closure，交給呼叫端接手既有的手動選動作流程（`exercisePickerTarget`）。
+    var onManualFallback: (() -> Void)?
+    var manualFallbackLabel: (zh: String, en: String)?
 
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \SessionTemplate.order) private var allTemplates: [SessionTemplate]
@@ -25,12 +30,16 @@ struct SessionTemplatePickerView: View {
         onSelect: @escaping (SessionTemplate) -> Void,
         filter: @escaping (SessionTemplate) -> Bool = { _ in true },
         titleOverride: (zh: String, en: String)? = nil,
-        emptyStateOverride: (title: (zh: String, en: String), description: (zh: String, en: String))? = nil
+        emptyStateOverride: (title: (zh: String, en: String), description: (zh: String, en: String))? = nil,
+        onManualFallback: (() -> Void)? = nil,
+        manualFallbackLabel: (zh: String, en: String)? = nil
     ) {
         self.onSelect = onSelect
         self.filter = filter
         self.titleOverride = titleOverride
         self.emptyStateOverride = emptyStateOverride
+        self.onManualFallback = onManualFallback
+        self.manualFallbackLabel = manualFallbackLabel
     }
 
     private var templates: [SessionTemplate] {
@@ -46,17 +55,27 @@ struct SessionTemplatePickerView: View {
                         systemImage: "square.stack.3d.up.slash",
                         description: Text(language.t(emptyStateOverride?.description.zh ?? "請先在「動作庫」的「組合模板」分段中創建", emptyStateOverride?.description.en ?? "Please create one under \"Exercises\" › \"Templates\" first"))
                     )
+                    if let onManualFallback {
+                        manualFallbackButton(onManualFallback)
+                    }
                 } else {
-                    ForEach(templates, id: \.id) { template in
-                        Button {
-                            onSelect(template)
-                            dismiss()
-                        } label: {
-                            TemplateSummaryRow(template: template)
+                    Section {
+                        ForEach(templates, id: \.id) { template in
+                            Button {
+                                onSelect(template)
+                                dismiss()
+                            } label: {
+                                TemplateSummaryRow(template: template)
+                            }
+                            .buttonStyle(.plain)
+                            .listRowBackground(DS.C.surface)
+                            .listRowSeparatorTint(DS.C.hairlineSoft)
                         }
-                        .buttonStyle(.plain)
-                        .listRowBackground(DS.C.surface)
-                        .listRowSeparatorTint(DS.C.hairlineSoft)
+                    }
+                    if let onManualFallback {
+                        Section {
+                            manualFallbackButton(onManualFallback)
+                        }
                     }
                 }
             }
@@ -72,5 +91,18 @@ struct SessionTemplatePickerView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func manualFallbackButton(_ action: @escaping () -> Void) -> some View {
+        Button {
+            dismiss()
+            action()
+        } label: {
+            Text(language.t(manualFallbackLabel?.zh ?? "找不到想要的？改為手動選擇動作", manualFallbackLabel?.en ?? "Can't find what you want? Pick exercises manually"))
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(DS.C.accent)
+        }
+        .listRowBackground(DS.C.surface)
     }
 }

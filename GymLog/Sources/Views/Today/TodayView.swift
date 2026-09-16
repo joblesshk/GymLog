@@ -54,10 +54,15 @@ struct TodayView: View {
     // 2026-09-16：「從歷史記錄選擇」——教練從自己完整的歷史課次列表裡挑一天
     // 複製，不限於最近一次。
     @State private var showingHistoryCopyPicker = false
-    // 2026-09-16：「從 Superset 模板添加」——復用 `SessionTemplatePickerView`，
-    // 篩成只顯示 `isSupersetOnly` 的模板，選中後直接把該模板的那個 superset
-    // block 加進目前這堂課（不是新建課次）。
+    // 2026-09-16：「添加 Superset」預設彈出這個 picker（復用
+    // `SessionTemplatePickerView`，篩成只顯示 `isSupersetOnly` 的模板），選中
+    // 後直接把該模板的那個 superset block 加進目前這堂課（不是新建課次）；
+    // 2026-09-17：picker 裡找不到想要的組合時，`onManualFallback` 改回原本
+    // 的手動選動作流程（`exercisePickerTarget = .newSuperset`）。
     @State private var showingSupersetTemplatePicker = false
+    // 同上，「添加 WOD」的預設路徑——篩成 `isWODOnly` 的模板（網上知名的
+    // CrossFit 基準 WOD），找不到時一樣能退回手動輸入。
+    @State private var showingWODTemplatePicker = false
     // P2 (2026-09-11)：「分享計劃」——生成的文件 URL 兼做 `.sheet` 觸發條件
     // （非 nil 就顯示），與 `SettingsView`/`HistoryListView` 既有的
     // `exportedBackupURL`/`exportedFileURL` 是同一個模式。
@@ -308,7 +313,26 @@ struct TodayView: View {
                 emptyStateOverride: (
                     title: (zh: "暫無 Superset 模板", en: "No Superset Templates"),
                     description: (zh: "請先在「動作庫」的「Superset 模板」分段中創建", en: "Please create one under \"Exercises\" › \"Superset Templates\" first")
-                )
+                ),
+                onManualFallback: { exercisePickerTarget = .newSuperset },
+                manualFallbackLabel: (zh: "找不到想要的組合？手動選擇動作", en: "Can't find the combo you want? Pick exercises manually")
+            )
+        }
+        .sheet(isPresented: $showingWODTemplatePicker) {
+            SessionTemplatePickerView(
+                onSelect: { template in
+                    if let client = currentClient {
+                        addWODFromTemplate(template, client: client)
+                    }
+                },
+                filter: { $0.isWODOnly },
+                titleOverride: (zh: "選擇 WOD 模板", en: "Select WOD Template"),
+                emptyStateOverride: (
+                    title: (zh: "暫無 WOD 模板", en: "No WOD Templates"),
+                    description: (zh: "知名的 CrossFit 基準 WOD 會顯示在這裡", en: "Well-known CrossFit benchmark WODs will appear here")
+                ),
+                onManualFallback: { exercisePickerTarget = .newWODBlock },
+                manualFallbackLabel: (zh: "找不到想要的 WOD？手動輸入", en: "Can't find the WOD you want? Enter one manually")
             )
         }
     }
@@ -375,8 +399,11 @@ struct TodayView: View {
                     .buttonStyle(.gymAdd)
                     .accessibilityIdentifier("add-exercise-button")
 
+                    // 2026-09-17：預設先從模板庫選，模板裡沒有想要的組合/WOD
+                    // 才手動一個個加動作（`SessionTemplatePickerView` 的
+                    // `onManualFallback` 接手既有的 `exercisePickerTarget` 流程）。
                     Button {
-                        exercisePickerTarget = .newSuperset
+                        showingSupersetTemplatePicker = true
                     } label: {
                         Label(language.t("添加 Superset", "Add Superset"), systemImage: "plus")
                     }
@@ -384,27 +411,14 @@ struct TodayView: View {
                     .accessibilityIdentifier("add-superset-button")
 
                     Button {
-                        exercisePickerTarget = .newWODBlock
+                        showingWODTemplatePicker = true
                     } label: {
                         Label(language.t("添加 WOD", "Add WOD"), systemImage: "plus")
                     }
                     .buttonStyle(.gymAdd)
+                    .accessibilityIdentifier("add-wod-button")
                 }
                 .padding(.top, 4)
-
-                // 2026-09-16：與「添加 Superset」（從動作庫一個個挑）並列的
-                // 另一條路徑——直接從「Superset 模板」庫挑一組現成組合，兩個
-                // 動作一次到位，不用再手動配對。
-                Button {
-                    showingSupersetTemplatePicker = true
-                } label: {
-                    Label(language.t("從 Superset 模板添加", "Add from Superset Template"), systemImage: "square.on.square")
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(DS.C.textMid)
-                .padding(.top, 2)
-                .accessibilityIdentifier("add-superset-from-template-button")
 
                 // P1 (2026-09-11)：把已經錄好的幾個獨立動作事後合併成一個
                 // Superset——只有存在 2 個以上符合條件的獨立動作時才有意義，
@@ -926,6 +940,18 @@ struct TodayView: View {
                 "\(word) exercise(s) in superset template \"\(template.name)\" couldn't be matched to the current exercise library (possibly merged or deleted) and were skipped."
             )
         }
+    }
+
+    /// 2026-09-17：跟 `addSupersetFromTemplate` 同一種「純新增、不 startNew」
+    /// 手法——一個 WOD 模板照定義只有一個 `sectionKind == .wod` 的 block，
+    /// `TemplateSessionBuilder.build` 既有的 WOD 分支（見該檔案）會把
+    /// `block.wodPrescription` 轉成一份全新的 `WODBlockDraft`（成績重置、
+    /// 處方原樣帶出，動作名稱走 `exerciseNameSnapshot` 快照，不像 strength
+    /// slot 需要重新解析 `exerciseID`，所以這裡沒有「部分動作未能匹配」的
+    /// 提示需要處理），這裡只需要把結果接到目前這堂課。
+    private func addWODFromTemplate(_ template: SessionTemplate, client: Client) {
+        let result = TemplateSessionBuilder.build(from: template, clientID: client.id, allExercises: allExercises, in: modelContext)
+        draft.blocks.append(contentsOf: result.blocks)
     }
 
     // MARK: - Save (CONTRACT-UI.md §3.6, 2026-09-09 拆成「暫存 / 結束」两步)

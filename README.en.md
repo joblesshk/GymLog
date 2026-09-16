@@ -30,7 +30,7 @@ Device builds require your own Apple team and unique bundle identifiers. Cloud v
 3. **Custom exercises**: Create your own exercises and choose how each is recorded (reps, time, distance or rounds) and how load is expressed (absolute weight, per side, resistance band, machine setting, assisted, and more).
 4. **Coach and athlete, together**: Both sides keep their own logs and exchange training plans and past results through share files, with no manual re-entry.
 5. **Import and export**: Import past training from Excel files ([format guide](docs/EXCEL_FORMAT.md), in Chinese). Export saved sessions as standard CSV, and back up or restore all data with a backup file. Select a photo of an InBody report and it is recognized and recorded on the device.
-6. **Exercise library and templates**: 240 built-in bilingual exercises. Save frequently used combinations as templates to set up sessions quickly.
+6. **Exercise library and templates**: about 300 built-in bilingual exercises. Session templates, superset templates and WOD templates live in three non-overlapping libraries; the WOD template library ships with several well-known public CrossFit benchmark WODs (e.g. Fran, Grace, Murph). Adding a superset or WOD in Today defaults to picking from the matching template library, with a manual fallback when nothing fits.
 7. **Energy estimates**: Estimates calories burned from activity categories and the recorded training.
 8. **AI feedback**: Get AI-generated reviews of your training with suggestions for improvement.
 

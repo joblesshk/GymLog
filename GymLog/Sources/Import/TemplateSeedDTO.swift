@@ -40,6 +40,17 @@ struct TemplateBlockDTO: Decodable {
     let order: Int
     let blockType: BlockType
     let restSeconds: Int
+    /// `nil` (absent from the JSON) means `.strength`, same default as
+    /// `TemplateBlock.init`'s `sectionKind` parameter -- only WOD template
+    /// blocks (2026-09-17「WOD 模板」) need to write this explicitly.
+    let sectionKind: SectionKind?
+    /// A WOD template block carries its prescription here instead of
+    /// `slots` (which stays `[]` for a WOD block in the JSON -- WOD
+    /// movements aren't `TemplateExerciseSlot`s). `WODPrescription` is
+    /// already a plain `Codable` struct with no custom `CodingKeys` (see
+    /// `Sources/Models/WOD/WODPrescription.swift`), so this decodes its
+    /// wire format directly with no separate DTO needed.
+    let wodPrescription: WODPrescription?
     let slots: [TemplateSlotDTO]
 }
 

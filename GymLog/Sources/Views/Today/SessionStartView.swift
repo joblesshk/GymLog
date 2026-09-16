@@ -105,10 +105,16 @@ struct SessionStartView: View {
             Spacer()
         }
         .sheet(isPresented: $showTemplatePicker) {
-            SessionTemplatePickerView { template in
-                showTemplatePicker = false
-                onSelectTemplate(template)
-            }
+            // 2026-09-17：Superset/WOD 模板各自有自己的分段，不該混進「從模板
+            // 新建一整堂課」的清單——單獨一個 superset 或一支 WOD 處方本來就
+            // 不構成一堂完整的課。
+            SessionTemplatePickerView(
+                onSelect: { template in
+                    showTemplatePicker = false
+                    onSelectTemplate(template)
+                },
+                filter: { !$0.isSupersetOnly && !$0.isWODOnly }
+            )
         }
     }
 }

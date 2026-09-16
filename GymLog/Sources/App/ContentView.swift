@@ -226,6 +226,7 @@ struct ContentView: View {
             applyExerciseLibraryAliasAdditions20260916IfNeeded()
             await importTemplateSeedIfNeeded()
             await applyTemplateLibraryAdditions20260916IfNeeded()
+            await applyTemplateLibraryAdditions20260917IfNeeded()
             exportExerciseLibraryIfRequested()
         }
     }
@@ -395,6 +396,26 @@ struct ContentView: View {
             UserDefaults.standard.set(true, forKey: flagKey)
         } catch {
             print("[GymLog] Template library additions (2026-09-16) pass failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// 2026-09-17：跟上面那支 20260916 heal 同一個理由的第二支——
+    /// `template_seed.json` 這次又長出 14 個 WOD 模板（網上最知名的
+    /// CrossFit 基準 WOD：Fran/Grace/Helen/…/Murph/DT/Jackie），
+    /// `importTemplateSeedIfNeeded` 的 guard 早就因為 20260916 那批而失效
+    /// 了，需要自己的 flag 再補跑一次 `importTemplateSeed`（一樣安全：見
+    /// `applyTemplateLibraryAdditions20260916IfNeeded` 的說明，唯一 id 讓
+    /// 重複匯入自然合併，不會產生重複列）。
+    private func applyTemplateLibraryAdditions20260917IfNeeded() async {
+        let flagKey = "appliedTemplateLibraryAdditions20260917"
+        guard !UserDefaults.standard.bool(forKey: flagKey) else { return }
+        guard let url = Bundle.main.url(forResource: "template_seed", withExtension: "json") else { return }
+        do {
+            let count = try SeedImporter.importTemplateSeed(from: url, into: modelContext)
+            print("[GymLog] Template library additions 2026-09-17: re-processed \(count) templates.")
+            UserDefaults.standard.set(true, forKey: flagKey)
+        } catch {
+            print("[GymLog] Template library additions (2026-09-17) pass failed: \(error.localizedDescription)")
         }
     }
 

@@ -942,6 +942,26 @@ public enum SeedImporter {
                 context.insert(template)
 
                 for blockDTO in templateDTO.blocks {
+                    // 2026-09-17「WOD 模板」：WOD block 沒有 slots 可解析（WOD
+                    // 動作不是 `TemplateExerciseSlot`），走獨立分支直接把已解碼
+                    // 好的 `WODPrescription` 塞進 block -- 跟
+                    // `TemplateSessionBuilder.build` 既有的
+                    // `sectionKind == .wod` 分支對稱，那邊消費這裡產出的
+                    // `TemplateBlock.wodPrescription`。
+                    if blockDTO.sectionKind == .wod, let prescription = blockDTO.wodPrescription {
+                        let block = TemplateBlock(
+                            id: "\(templateDTO.id)-block\(blockDTO.order)",
+                            order: blockDTO.order,
+                            blockType: blockDTO.blockType,
+                            restSeconds: blockDTO.restSeconds,
+                            sectionKind: .wod,
+                            wodPrescription: prescription
+                        )
+                        block.template = template
+                        context.insert(block)
+                        continue
+                    }
+
                     var resolvedSlots: [TemplateExerciseSlot] = []
                     for slotDTO in blockDTO.slots {
                         let key = slotDTO.exerciseName

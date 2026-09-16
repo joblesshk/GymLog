@@ -37,6 +37,14 @@ public final class SessionTemplate {
         orderedBlocks.count == 1 && orderedBlocks.first?.blockType == .superset
     }
 
+    /// 2026-09-17「WOD 模板」：同樣不新增模型，一個 WOD 模板就是「剛好只有
+    /// 一個 block、且那個 block 的 `sectionKind` 是 `.wod`」的
+    /// `SessionTemplate` -- 跟 `isSupersetOnly` 同一種資料形狀區分法，供三個
+    /// 模板庫（組合模板／Superset 模板／WOD 模板）互不重疊地篩選。
+    public var isWODOnly: Bool {
+        orderedBlocks.count == 1 && orderedBlocks.first?.sectionKind == .wod
+    }
+
     /// CONTRACT-M4.md §3's coarse duration heuristic: flat warmup/cooldown
     /// plus each block's (sets * assumed-40s-execution + sets * rest),
     /// rounded to the nearest 5 minutes. A rough fit-check, not a stopwatch.

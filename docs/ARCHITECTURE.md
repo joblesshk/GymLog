@@ -16,7 +16,7 @@ flowchart LR
     Relay --> LLM[Configured language model]
 ```
 
-核心关系：Client 拥有 WorkoutSession 和 BodyMetric；课次按 SessionBlock 编排，普通块含 ExerciseEntry 与 SetLog，WOD 保存版本化处方与结果。Exercise 是通用动作库，SessionTemplate 是可复用模板。
+核心关系：Client 拥有 WorkoutSession 和 BodyMetric；课次按 SessionBlock 编排，普通块含 ExerciseEntry 与 SetLog，WOD 保存版本化处方与结果。Exercise 是通用动作库，SessionTemplate 是可复用模板，不额外建模——一般训练模板、Superset 模板（唯一一个 `.superset` block）、WOD 模板（唯一一个 `sectionKind == .wod` 的 block）全部是 SessionTemplate，只按 block 形状区分（`isSupersetOnly`/`isWODOnly`），三个模板库在动作库界面里互不重叠展示。
 
 训练草稿与历史持久化分离。计划值、实际值、负重、单位必须分别维护；实际缺失不等于零。新建或复制计划不得制造完成记录。WOD 的器械 cal 是独立单位。
 

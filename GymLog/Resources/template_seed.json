@@ -1153,6 +1153,1520 @@
           ]
         }
       ]
+    },
+    {
+      "id": "tpl-wod-86ba049f",
+      "name": "Fran",
+      "templateNote": "經典 Girl WOD：21-15-9 Thruster + Pull-up，計時完成",
+      "order": 300,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 0,
+          "sectionKind": "wod",
+          "wodPrescription": {
+            "schemaVersion": 1,
+            "id": "tpl-wod-0e44ea0a",
+            "revision": 1,
+            "name": "Fran",
+            "format": "forTime",
+            "rounds": [
+              {
+                "roundIndex": 0,
+                "movements": [
+                  {
+                    "stepID": "step-1",
+                    "exerciseID": "ex-09d73ac6",
+                    "exerciseNameSnapshot": "Thruster",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 21,
+                      "raw": "21"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 42.5,
+                      "raw": "42.5kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-2",
+                    "exerciseID": "ex-5fa36308",
+                    "exerciseNameSnapshot": "Pull up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 21,
+                      "raw": "21"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 1,
+                "movements": [
+                  {
+                    "stepID": "step-3",
+                    "exerciseID": "ex-09d73ac6",
+                    "exerciseNameSnapshot": "Thruster",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 15,
+                      "raw": "15"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 42.5,
+                      "raw": "42.5kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-4",
+                    "exerciseID": "ex-5fa36308",
+                    "exerciseNameSnapshot": "Pull up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 15,
+                      "raw": "15"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 2,
+                "movements": [
+                  {
+                    "stepID": "step-5",
+                    "exerciseID": "ex-09d73ac6",
+                    "exerciseNameSnapshot": "Thruster",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 9,
+                      "raw": "9"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 42.5,
+                      "raw": "42.5kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-6",
+                    "exerciseID": "ex-5fa36308",
+                    "exerciseNameSnapshot": "Pull up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 9,
+                      "raw": "9"
+                    }
+                  }
+                ]
+              }
+            ],
+            "scoringRule": "completionTime",
+            "standardNotes": "Rx 男 42.5kg／女 30kg"
+          },
+          "slots": []
+        }
+      ]
+    },
+    {
+      "id": "tpl-wod-d89d910a",
+      "name": "Grace",
+      "templateNote": "30 下 Clean and Jerk，計時完成",
+      "order": 301,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 0,
+          "sectionKind": "wod",
+          "wodPrescription": {
+            "schemaVersion": 1,
+            "id": "tpl-wod-f1ebd627",
+            "revision": 1,
+            "name": "Grace",
+            "format": "forTime",
+            "rounds": [
+              {
+                "roundIndex": 0,
+                "movements": [
+                  {
+                    "stepID": "step-7",
+                    "exerciseID": "ex-a2697e16",
+                    "exerciseNameSnapshot": "Power Clean",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 30,
+                      "raw": "30"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 61,
+                      "raw": "61kg"
+                    },
+                    "standard": "clean and jerk"
+                  }
+                ]
+              }
+            ],
+            "scoringRule": "completionTime",
+            "standardNotes": "Rx 男 61kg／女 43kg"
+          },
+          "slots": []
+        }
+      ]
+    },
+    {
+      "id": "tpl-wod-bde624d9",
+      "name": "Helen",
+      "templateNote": "3 輪計時：400m 跑 + 21 KB Swing + 12 Pull-up",
+      "order": 302,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 0,
+          "sectionKind": "wod",
+          "wodPrescription": {
+            "schemaVersion": 1,
+            "id": "tpl-wod-75160218",
+            "revision": 1,
+            "name": "Helen",
+            "format": "forTime",
+            "rounds": [
+              {
+                "roundIndex": 0,
+                "movements": [
+                  {
+                    "stepID": "step-8",
+                    "exerciseID": "ex-df6ad190",
+                    "exerciseNameSnapshot": "Run",
+                    "quantity": {
+                      "kind": "meters",
+                      "value": 400,
+                      "raw": "400m"
+                    }
+                  },
+                  {
+                    "stepID": "step-9",
+                    "exerciseID": "ex-cebffc62",
+                    "exerciseNameSnapshot": "KB swing",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 21,
+                      "raw": "21"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 24,
+                      "raw": "24kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-10",
+                    "exerciseID": "ex-5fa36308",
+                    "exerciseNameSnapshot": "Pull up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 12,
+                      "raw": "12"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 1,
+                "movements": [
+                  {
+                    "stepID": "step-11",
+                    "exerciseID": "ex-df6ad190",
+                    "exerciseNameSnapshot": "Run",
+                    "quantity": {
+                      "kind": "meters",
+                      "value": 400,
+                      "raw": "400m"
+                    }
+                  },
+                  {
+                    "stepID": "step-12",
+                    "exerciseID": "ex-cebffc62",
+                    "exerciseNameSnapshot": "KB swing",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 21,
+                      "raw": "21"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 24,
+                      "raw": "24kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-13",
+                    "exerciseID": "ex-5fa36308",
+                    "exerciseNameSnapshot": "Pull up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 12,
+                      "raw": "12"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 2,
+                "movements": [
+                  {
+                    "stepID": "step-14",
+                    "exerciseID": "ex-df6ad190",
+                    "exerciseNameSnapshot": "Run",
+                    "quantity": {
+                      "kind": "meters",
+                      "value": 400,
+                      "raw": "400m"
+                    }
+                  },
+                  {
+                    "stepID": "step-15",
+                    "exerciseID": "ex-cebffc62",
+                    "exerciseNameSnapshot": "KB swing",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 21,
+                      "raw": "21"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 24,
+                      "raw": "24kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-16",
+                    "exerciseID": "ex-5fa36308",
+                    "exerciseNameSnapshot": "Pull up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 12,
+                      "raw": "12"
+                    }
+                  }
+                ]
+              }
+            ],
+            "scoringRule": "completionTime",
+            "standardNotes": "Rx KB 男 24kg／女 16kg"
+          },
+          "slots": []
+        }
+      ]
+    },
+    {
+      "id": "tpl-wod-7c53669f",
+      "name": "Diane",
+      "templateNote": "21-15-9 Deadlift + 手倒立伏地挺身，計時完成",
+      "order": 303,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 0,
+          "sectionKind": "wod",
+          "wodPrescription": {
+            "schemaVersion": 1,
+            "id": "tpl-wod-9ab75c1e",
+            "revision": 1,
+            "name": "Diane",
+            "format": "forTime",
+            "rounds": [
+              {
+                "roundIndex": 0,
+                "movements": [
+                  {
+                    "stepID": "step-17",
+                    "exerciseID": "ex-43564d3c",
+                    "exerciseNameSnapshot": "Deadlift",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 21,
+                      "raw": "21"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 102,
+                      "raw": "102kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-18",
+                    "exerciseID": "ex-47115df9",
+                    "exerciseNameSnapshot": "Strict Handstand Push-up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 21,
+                      "raw": "21"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 1,
+                "movements": [
+                  {
+                    "stepID": "step-19",
+                    "exerciseID": "ex-43564d3c",
+                    "exerciseNameSnapshot": "Deadlift",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 15,
+                      "raw": "15"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 102,
+                      "raw": "102kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-20",
+                    "exerciseID": "ex-47115df9",
+                    "exerciseNameSnapshot": "Strict Handstand Push-up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 15,
+                      "raw": "15"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 2,
+                "movements": [
+                  {
+                    "stepID": "step-21",
+                    "exerciseID": "ex-43564d3c",
+                    "exerciseNameSnapshot": "Deadlift",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 9,
+                      "raw": "9"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 102,
+                      "raw": "102kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-22",
+                    "exerciseID": "ex-47115df9",
+                    "exerciseNameSnapshot": "Strict Handstand Push-up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 9,
+                      "raw": "9"
+                    }
+                  }
+                ]
+              }
+            ],
+            "scoringRule": "completionTime",
+            "standardNotes": "Rx Deadlift 男 102kg／女 70kg"
+          },
+          "slots": []
+        }
+      ]
+    },
+    {
+      "id": "tpl-wod-a5ac45d9",
+      "name": "Cindy",
+      "templateNote": "AMRAP 20 分鐘：5 Pull-up + 10 Push-up + 15 Air Squat",
+      "order": 304,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 0,
+          "sectionKind": "wod",
+          "wodPrescription": {
+            "schemaVersion": 1,
+            "id": "tpl-wod-2953686e",
+            "revision": 1,
+            "name": "Cindy",
+            "format": "amrap",
+            "rounds": [
+              {
+                "roundIndex": 0,
+                "movements": [
+                  {
+                    "stepID": "step-23",
+                    "exerciseID": "ex-5fa36308",
+                    "exerciseNameSnapshot": "Pull up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 5,
+                      "raw": "5"
+                    }
+                  },
+                  {
+                    "stepID": "step-24",
+                    "exerciseID": "ex-f844f4d4",
+                    "exerciseNameSnapshot": "Push-up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 10,
+                      "raw": "10"
+                    }
+                  },
+                  {
+                    "stepID": "step-25",
+                    "exerciseID": "ex-5f108875",
+                    "exerciseNameSnapshot": "Air Squat",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 15,
+                      "raw": "15"
+                    }
+                  }
+                ]
+              }
+            ],
+            "scoringRule": "roundsAndReps",
+            "timeCapSeconds": 1200
+          },
+          "slots": []
+        }
+      ]
+    },
+    {
+      "id": "tpl-wod-818b0f35",
+      "name": "Annie",
+      "templateNote": "50-40-30-20-10 雙搖跳繩 + 仰臥起坐，計時完成",
+      "order": 305,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 0,
+          "sectionKind": "wod",
+          "wodPrescription": {
+            "schemaVersion": 1,
+            "id": "tpl-wod-0c5fdbb8",
+            "revision": 1,
+            "name": "Annie",
+            "format": "forTime",
+            "rounds": [
+              {
+                "roundIndex": 0,
+                "movements": [
+                  {
+                    "stepID": "step-26",
+                    "exerciseID": "ex-6265b272",
+                    "exerciseNameSnapshot": "Double-under",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 50,
+                      "raw": "50"
+                    }
+                  },
+                  {
+                    "stepID": "step-27",
+                    "exerciseID": "ex-8467ec01",
+                    "exerciseNameSnapshot": "AbMat Sit-up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 50,
+                      "raw": "50"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 1,
+                "movements": [
+                  {
+                    "stepID": "step-28",
+                    "exerciseID": "ex-6265b272",
+                    "exerciseNameSnapshot": "Double-under",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 40,
+                      "raw": "40"
+                    }
+                  },
+                  {
+                    "stepID": "step-29",
+                    "exerciseID": "ex-8467ec01",
+                    "exerciseNameSnapshot": "AbMat Sit-up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 40,
+                      "raw": "40"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 2,
+                "movements": [
+                  {
+                    "stepID": "step-30",
+                    "exerciseID": "ex-6265b272",
+                    "exerciseNameSnapshot": "Double-under",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 30,
+                      "raw": "30"
+                    }
+                  },
+                  {
+                    "stepID": "step-31",
+                    "exerciseID": "ex-8467ec01",
+                    "exerciseNameSnapshot": "AbMat Sit-up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 30,
+                      "raw": "30"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 3,
+                "movements": [
+                  {
+                    "stepID": "step-32",
+                    "exerciseID": "ex-6265b272",
+                    "exerciseNameSnapshot": "Double-under",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 20,
+                      "raw": "20"
+                    }
+                  },
+                  {
+                    "stepID": "step-33",
+                    "exerciseID": "ex-8467ec01",
+                    "exerciseNameSnapshot": "AbMat Sit-up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 20,
+                      "raw": "20"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 4,
+                "movements": [
+                  {
+                    "stepID": "step-34",
+                    "exerciseID": "ex-6265b272",
+                    "exerciseNameSnapshot": "Double-under",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 10,
+                      "raw": "10"
+                    }
+                  },
+                  {
+                    "stepID": "step-35",
+                    "exerciseID": "ex-8467ec01",
+                    "exerciseNameSnapshot": "AbMat Sit-up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 10,
+                      "raw": "10"
+                    }
+                  }
+                ]
+              }
+            ],
+            "scoringRule": "completionTime"
+          },
+          "slots": []
+        }
+      ]
+    },
+    {
+      "id": "tpl-wod-fa05497c",
+      "name": "Karen",
+      "templateNote": "150 下 Wall Ball，計時完成",
+      "order": 306,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 0,
+          "sectionKind": "wod",
+          "wodPrescription": {
+            "schemaVersion": 1,
+            "id": "tpl-wod-e39539bb",
+            "revision": 1,
+            "name": "Karen",
+            "format": "forTime",
+            "rounds": [
+              {
+                "roundIndex": 0,
+                "movements": [
+                  {
+                    "stepID": "step-36",
+                    "exerciseID": "ex-ee6dc4d0",
+                    "exerciseNameSnapshot": "Wall ball",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 150,
+                      "raw": "150"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 9,
+                      "raw": "9kg"
+                    },
+                    "standard": "靶高 男 3m／女 2.7m"
+                  }
+                ]
+              }
+            ],
+            "scoringRule": "completionTime",
+            "standardNotes": "Rx 男 9kg／女 6kg"
+          },
+          "slots": []
+        }
+      ]
+    },
+    {
+      "id": "tpl-wod-4e48efe9",
+      "name": "Isabel",
+      "templateNote": "30 下 Snatch，計時完成",
+      "order": 307,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 0,
+          "sectionKind": "wod",
+          "wodPrescription": {
+            "schemaVersion": 1,
+            "id": "tpl-wod-a76c49d9",
+            "revision": 1,
+            "name": "Isabel",
+            "format": "forTime",
+            "rounds": [
+              {
+                "roundIndex": 0,
+                "movements": [
+                  {
+                    "stepID": "step-37",
+                    "exerciseID": "ex-86b761a3",
+                    "exerciseNameSnapshot": "Snatch",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 30,
+                      "raw": "30"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 61,
+                      "raw": "61kg"
+                    }
+                  }
+                ]
+              }
+            ],
+            "scoringRule": "completionTime",
+            "standardNotes": "Rx 男 61kg／女 43kg"
+          },
+          "slots": []
+        }
+      ]
+    },
+    {
+      "id": "tpl-wod-b894fc63",
+      "name": "Elizabeth",
+      "templateNote": "21-15-9 Clean + 吊環撐體，計時完成",
+      "order": 308,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 0,
+          "sectionKind": "wod",
+          "wodPrescription": {
+            "schemaVersion": 1,
+            "id": "tpl-wod-92eddea3",
+            "revision": 1,
+            "name": "Elizabeth",
+            "format": "forTime",
+            "rounds": [
+              {
+                "roundIndex": 0,
+                "movements": [
+                  {
+                    "stepID": "step-38",
+                    "exerciseID": "ex-a2697e16",
+                    "exerciseNameSnapshot": "Power Clean",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 21,
+                      "raw": "21"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 61,
+                      "raw": "61kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-39",
+                    "exerciseID": "ex-7f1a460e",
+                    "exerciseNameSnapshot": "Ring Dip",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 21,
+                      "raw": "21"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 1,
+                "movements": [
+                  {
+                    "stepID": "step-40",
+                    "exerciseID": "ex-a2697e16",
+                    "exerciseNameSnapshot": "Power Clean",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 15,
+                      "raw": "15"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 61,
+                      "raw": "61kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-41",
+                    "exerciseID": "ex-7f1a460e",
+                    "exerciseNameSnapshot": "Ring Dip",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 15,
+                      "raw": "15"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 2,
+                "movements": [
+                  {
+                    "stepID": "step-42",
+                    "exerciseID": "ex-a2697e16",
+                    "exerciseNameSnapshot": "Power Clean",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 9,
+                      "raw": "9"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 61,
+                      "raw": "61kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-43",
+                    "exerciseID": "ex-7f1a460e",
+                    "exerciseNameSnapshot": "Ring Dip",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 9,
+                      "raw": "9"
+                    }
+                  }
+                ]
+              }
+            ],
+            "scoringRule": "completionTime",
+            "standardNotes": "Rx Clean 男 61kg／女 43kg"
+          },
+          "slots": []
+        }
+      ]
+    },
+    {
+      "id": "tpl-wod-06d461e7",
+      "name": "Nancy",
+      "templateNote": "5 輪計時：400m 跑 + 15 下過頭深蹲",
+      "order": 309,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 0,
+          "sectionKind": "wod",
+          "wodPrescription": {
+            "schemaVersion": 1,
+            "id": "tpl-wod-20865a20",
+            "revision": 1,
+            "name": "Nancy",
+            "format": "forTime",
+            "rounds": [
+              {
+                "roundIndex": 0,
+                "movements": [
+                  {
+                    "stepID": "step-44",
+                    "exerciseID": "ex-df6ad190",
+                    "exerciseNameSnapshot": "Run",
+                    "quantity": {
+                      "kind": "meters",
+                      "value": 400,
+                      "raw": "400m"
+                    }
+                  },
+                  {
+                    "stepID": "step-45",
+                    "exerciseID": "ex-984666a6",
+                    "exerciseNameSnapshot": "Overhead Squat",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 15,
+                      "raw": "15"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 43,
+                      "raw": "43kg"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 1,
+                "movements": [
+                  {
+                    "stepID": "step-46",
+                    "exerciseID": "ex-df6ad190",
+                    "exerciseNameSnapshot": "Run",
+                    "quantity": {
+                      "kind": "meters",
+                      "value": 400,
+                      "raw": "400m"
+                    }
+                  },
+                  {
+                    "stepID": "step-47",
+                    "exerciseID": "ex-984666a6",
+                    "exerciseNameSnapshot": "Overhead Squat",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 15,
+                      "raw": "15"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 43,
+                      "raw": "43kg"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 2,
+                "movements": [
+                  {
+                    "stepID": "step-48",
+                    "exerciseID": "ex-df6ad190",
+                    "exerciseNameSnapshot": "Run",
+                    "quantity": {
+                      "kind": "meters",
+                      "value": 400,
+                      "raw": "400m"
+                    }
+                  },
+                  {
+                    "stepID": "step-49",
+                    "exerciseID": "ex-984666a6",
+                    "exerciseNameSnapshot": "Overhead Squat",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 15,
+                      "raw": "15"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 43,
+                      "raw": "43kg"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 3,
+                "movements": [
+                  {
+                    "stepID": "step-50",
+                    "exerciseID": "ex-df6ad190",
+                    "exerciseNameSnapshot": "Run",
+                    "quantity": {
+                      "kind": "meters",
+                      "value": 400,
+                      "raw": "400m"
+                    }
+                  },
+                  {
+                    "stepID": "step-51",
+                    "exerciseID": "ex-984666a6",
+                    "exerciseNameSnapshot": "Overhead Squat",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 15,
+                      "raw": "15"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 43,
+                      "raw": "43kg"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 4,
+                "movements": [
+                  {
+                    "stepID": "step-52",
+                    "exerciseID": "ex-df6ad190",
+                    "exerciseNameSnapshot": "Run",
+                    "quantity": {
+                      "kind": "meters",
+                      "value": 400,
+                      "raw": "400m"
+                    }
+                  },
+                  {
+                    "stepID": "step-53",
+                    "exerciseID": "ex-984666a6",
+                    "exerciseNameSnapshot": "Overhead Squat",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 15,
+                      "raw": "15"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 43,
+                      "raw": "43kg"
+                    }
+                  }
+                ]
+              }
+            ],
+            "scoringRule": "completionTime",
+            "standardNotes": "Rx OHS 男 43kg／女 29kg"
+          },
+          "slots": []
+        }
+      ]
+    },
+    {
+      "id": "tpl-wod-00b04a18",
+      "name": "Angie",
+      "templateNote": "依序完成 100 Pull-up、100 Push-up、100 仰臥起坐、100 Air Squat，計時完成",
+      "order": 310,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 0,
+          "sectionKind": "wod",
+          "wodPrescription": {
+            "schemaVersion": 1,
+            "id": "tpl-wod-468a001b",
+            "revision": 1,
+            "name": "Angie",
+            "format": "forTime",
+            "rounds": [
+              {
+                "roundIndex": 0,
+                "movements": [
+                  {
+                    "stepID": "step-54",
+                    "exerciseID": "ex-5fa36308",
+                    "exerciseNameSnapshot": "Pull up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 100,
+                      "raw": "100"
+                    }
+                  },
+                  {
+                    "stepID": "step-55",
+                    "exerciseID": "ex-f844f4d4",
+                    "exerciseNameSnapshot": "Push-up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 100,
+                      "raw": "100"
+                    }
+                  },
+                  {
+                    "stepID": "step-56",
+                    "exerciseID": "ex-8467ec01",
+                    "exerciseNameSnapshot": "AbMat Sit-up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 100,
+                      "raw": "100"
+                    }
+                  },
+                  {
+                    "stepID": "step-57",
+                    "exerciseID": "ex-5f108875",
+                    "exerciseNameSnapshot": "Air Squat",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 100,
+                      "raw": "100"
+                    }
+                  }
+                ]
+              }
+            ],
+            "scoringRule": "completionTime"
+          },
+          "slots": []
+        }
+      ]
+    },
+    {
+      "id": "tpl-wod-ff17fa8b",
+      "name": "Murph",
+      "templateNote": "英雄 WOD：1 英里跑 + 100 Pull-up + 200 Push-up + 300 Air Squat + 1 英里跑",
+      "order": 311,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 0,
+          "sectionKind": "wod",
+          "wodPrescription": {
+            "schemaVersion": 1,
+            "id": "tpl-wod-f0b645b3",
+            "revision": 1,
+            "name": "Murph",
+            "format": "forTime",
+            "rounds": [
+              {
+                "roundIndex": 0,
+                "movements": [
+                  {
+                    "stepID": "step-58",
+                    "exerciseID": "ex-df6ad190",
+                    "exerciseNameSnapshot": "Run",
+                    "quantity": {
+                      "kind": "meters",
+                      "value": 1609,
+                      "raw": "1609m"
+                    }
+                  },
+                  {
+                    "stepID": "step-59",
+                    "exerciseID": "ex-5fa36308",
+                    "exerciseNameSnapshot": "Pull up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 100,
+                      "raw": "100"
+                    }
+                  },
+                  {
+                    "stepID": "step-60",
+                    "exerciseID": "ex-f844f4d4",
+                    "exerciseNameSnapshot": "Push-up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 200,
+                      "raw": "200"
+                    }
+                  },
+                  {
+                    "stepID": "step-61",
+                    "exerciseID": "ex-5f108875",
+                    "exerciseNameSnapshot": "Air Squat",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 300,
+                      "raw": "300"
+                    }
+                  },
+                  {
+                    "stepID": "step-62",
+                    "exerciseID": "ex-df6ad190",
+                    "exerciseNameSnapshot": "Run",
+                    "quantity": {
+                      "kind": "meters",
+                      "value": 1609,
+                      "raw": "1609m"
+                    }
+                  }
+                ]
+              }
+            ],
+            "scoringRule": "completionTime",
+            "standardNotes": "Rx 可穿 9kg／6kg 負重背心，動作可拆分分配完成"
+          },
+          "slots": []
+        }
+      ]
+    },
+    {
+      "id": "tpl-wod-a0d9f7d6",
+      "name": "DT",
+      "templateNote": "英雄 WOD：5 輪 12 Deadlift + 9 Hang Power Clean + 6 Push Jerk，同一根槓",
+      "order": 312,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 0,
+          "sectionKind": "wod",
+          "wodPrescription": {
+            "schemaVersion": 1,
+            "id": "tpl-wod-1eed6667",
+            "revision": 1,
+            "name": "DT",
+            "format": "forTime",
+            "rounds": [
+              {
+                "roundIndex": 0,
+                "movements": [
+                  {
+                    "stepID": "step-63",
+                    "exerciseID": "ex-43564d3c",
+                    "exerciseNameSnapshot": "Deadlift",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 12,
+                      "raw": "12"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 70,
+                      "raw": "70kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-64",
+                    "exerciseID": "ex-3a2d91c5",
+                    "exerciseNameSnapshot": "Hang Power Clean",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 9,
+                      "raw": "9"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 70,
+                      "raw": "70kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-65",
+                    "exerciseID": "ex-5c7943a6",
+                    "exerciseNameSnapshot": "Push Jerk",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 6,
+                      "raw": "6"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 70,
+                      "raw": "70kg"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 1,
+                "movements": [
+                  {
+                    "stepID": "step-66",
+                    "exerciseID": "ex-43564d3c",
+                    "exerciseNameSnapshot": "Deadlift",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 12,
+                      "raw": "12"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 70,
+                      "raw": "70kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-67",
+                    "exerciseID": "ex-3a2d91c5",
+                    "exerciseNameSnapshot": "Hang Power Clean",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 9,
+                      "raw": "9"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 70,
+                      "raw": "70kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-68",
+                    "exerciseID": "ex-5c7943a6",
+                    "exerciseNameSnapshot": "Push Jerk",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 6,
+                      "raw": "6"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 70,
+                      "raw": "70kg"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 2,
+                "movements": [
+                  {
+                    "stepID": "step-69",
+                    "exerciseID": "ex-43564d3c",
+                    "exerciseNameSnapshot": "Deadlift",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 12,
+                      "raw": "12"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 70,
+                      "raw": "70kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-70",
+                    "exerciseID": "ex-3a2d91c5",
+                    "exerciseNameSnapshot": "Hang Power Clean",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 9,
+                      "raw": "9"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 70,
+                      "raw": "70kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-71",
+                    "exerciseID": "ex-5c7943a6",
+                    "exerciseNameSnapshot": "Push Jerk",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 6,
+                      "raw": "6"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 70,
+                      "raw": "70kg"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 3,
+                "movements": [
+                  {
+                    "stepID": "step-72",
+                    "exerciseID": "ex-43564d3c",
+                    "exerciseNameSnapshot": "Deadlift",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 12,
+                      "raw": "12"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 70,
+                      "raw": "70kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-73",
+                    "exerciseID": "ex-3a2d91c5",
+                    "exerciseNameSnapshot": "Hang Power Clean",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 9,
+                      "raw": "9"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 70,
+                      "raw": "70kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-74",
+                    "exerciseID": "ex-5c7943a6",
+                    "exerciseNameSnapshot": "Push Jerk",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 6,
+                      "raw": "6"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 70,
+                      "raw": "70kg"
+                    }
+                  }
+                ]
+              },
+              {
+                "roundIndex": 4,
+                "movements": [
+                  {
+                    "stepID": "step-75",
+                    "exerciseID": "ex-43564d3c",
+                    "exerciseNameSnapshot": "Deadlift",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 12,
+                      "raw": "12"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 70,
+                      "raw": "70kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-76",
+                    "exerciseID": "ex-3a2d91c5",
+                    "exerciseNameSnapshot": "Hang Power Clean",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 9,
+                      "raw": "9"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 70,
+                      "raw": "70kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-77",
+                    "exerciseID": "ex-5c7943a6",
+                    "exerciseNameSnapshot": "Push Jerk",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 6,
+                      "raw": "6"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 70,
+                      "raw": "70kg"
+                    }
+                  }
+                ]
+              }
+            ],
+            "scoringRule": "completionTime",
+            "standardNotes": "Rx 男 70kg／女 47.5kg"
+          },
+          "slots": []
+        }
+      ]
+    },
+    {
+      "id": "tpl-wod-4ee9e7b1",
+      "name": "Jackie",
+      "templateNote": "1000m 划船 + 50 Thruster + 30 Pull-up，計時完成",
+      "order": 313,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 0,
+          "sectionKind": "wod",
+          "wodPrescription": {
+            "schemaVersion": 1,
+            "id": "tpl-wod-3457689b",
+            "revision": 1,
+            "name": "Jackie",
+            "format": "forTime",
+            "rounds": [
+              {
+                "roundIndex": 0,
+                "movements": [
+                  {
+                    "stepID": "step-78",
+                    "exerciseID": "ex-81c4e551",
+                    "exerciseNameSnapshot": "Rowing",
+                    "quantity": {
+                      "kind": "meters",
+                      "value": 1000,
+                      "raw": "1000m"
+                    }
+                  },
+                  {
+                    "stepID": "step-79",
+                    "exerciseID": "ex-09d73ac6",
+                    "exerciseNameSnapshot": "Thruster",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 50,
+                      "raw": "50"
+                    },
+                    "load": {
+                      "kind": "absolute",
+                      "kg": 20,
+                      "raw": "20kg"
+                    }
+                  },
+                  {
+                    "stepID": "step-80",
+                    "exerciseID": "ex-5fa36308",
+                    "exerciseNameSnapshot": "Pull up",
+                    "quantity": {
+                      "kind": "reps",
+                      "value": 30,
+                      "raw": "30"
+                    }
+                  }
+                ]
+              }
+            ],
+            "scoringRule": "completionTime",
+            "standardNotes": "Rx Thruster 男 20kg／女 15kg"
+          },
+          "slots": []
+        }
+      ]
     }
   ]
 }

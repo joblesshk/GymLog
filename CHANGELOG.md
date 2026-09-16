@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — 2026-09-17
+
+- Exercise name display in Today reverts to the pre-refresh inline "中文（English）" layout; heart rate screen gains a session trend chart and a Z1-Z5 zone band; InBody trend chart gets a proper date axis and tighter Y-axis scaling; body-composition bar renders as one continuous proportional bar; history list gains a training-intensity heatmap.
+- Today's "add from history" now copies any past day's full block/round/set detail, not just a simplified last-session template; any historical day can also be saved as a reusable session template.
+- Exercise library expanded from 240 to about 300 bilingual entries, sourced from real coach programming patterns.
+- Templates split into three non-overlapping libraries: session templates, superset templates, and a new WOD template library seeded with well-known public CrossFit benchmark WODs (Fran, Grace, Helen, Diane, Cindy, Annie, Karen, Isabel, Elizabeth, Nancy, Angie, Murph, DT, Jackie).
+- Adding a superset or WOD in Today now defaults to picking from the matching template library, falling back to manual entry when nothing fits.
+
 ## 1.0 source distribution — 2026-09-14
 
 - Initial clean source publication, based on application build 21.
