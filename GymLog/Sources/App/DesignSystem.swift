@@ -13,6 +13,10 @@ enum DS {
     enum C {
         static let canvas = Color("canvas")
         static let surface = Color("surface")
+        /// GymLog 改版設計 §問題二：Round 容器的「卡中卡」底色，比 `surface`
+        /// 更沉一階（淺色疊一層暖白、深色比 `surface` 更深），用來讓多輪 WOD
+        /// 的分組在視覺上從屬於外層卡片，而不是新開一種色階。
+        static let surfaceSunken = Color("surfaceSunken")
         static let inset = Color("inset")
         static let insetSegmented = Color("insetSegmented")
         static let hairline = Color("hairline")

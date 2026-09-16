@@ -224,8 +224,12 @@ struct WODBlockDraftCard: View {
                         .foregroundStyle(DS.C.textLow)
                 }
             }
-            ForEach(Array(wodDraft.rounds.enumerated()), id: \.element.id) { index, round in
-                roundSection(round, index: index)
+            // Round 容器之間 gap 16（卡片間距 10 的 1.6 倍）——組間明顯，跟組內
+            // 動作行只靠 hairline 分隔、無額外間距的緊湊感拉開對比。
+            VStack(alignment: .leading, spacing: 16) {
+                ForEach(Array(wodDraft.rounds.enumerated()), id: \.element.id) { index, round in
+                    roundSection(round, index: index)
+                }
             }
             Button {
                 wodDraft.addRound()
@@ -252,14 +256,24 @@ struct WODBlockDraftCard: View {
         }
     }
 
+    /// GymLog 改版設計 §問題二：多輪 WOD（21-15-9 等）用編號徽章＋獨立「卡中卡」
+    /// 容器分組，取代純文字「第 X 輪」，讓「組間明顯、組內緊湊」——組內動作行
+    /// 之間只用 hairline 分隔、無額外間距，組與組之間才有明顯的 gap（見
+    /// `movementsSection` 裡 `roundSection` 之間的 spacing）。簡單 WOD（單輪）
+    /// 維持原樣不套這層容器（反饋原文：簡單 WOD 保持簡潔）。
     @ViewBuilder
     private func roundSection(_ round: WODRoundDraft, index: Int) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if wodDraft.rounds.count > 1 {
+        let isMultiRound = wodDraft.rounds.count > 1
+        VStack(alignment: .leading, spacing: 0) {
+            if isMultiRound {
                 HStack(spacing: 8) {
-                    Text(language.t("第 \(index + 1) 輪", "Round \(index + 1)"))
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(DS.C.textMid)
+                    Text("\(index + 1)")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundStyle(DS.C.onAccent)
+                        .frame(width: 20, height: 20)
+                        .background(DS.C.accent, in: Circle())
+                    Text(language.t("第 \(index + 1) 輪", "ROUND \(index + 1)"))
+                        .sectionLabelStyle()
                     Spacer()
                     Button { wodDraft.moveRoundUp(id: round.id) } label: {
                         Image(systemName: "chevron.up").font(.system(size: 11, weight: .bold))
@@ -279,10 +293,16 @@ struct WODBlockDraftCard: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(DS.C.danger)
                 }
+                .padding(.bottom, 8)
             }
-            ForEach(round.movements) { movement in
-                WODMovementRow(movement: movement, allExercises: allExercises) {
-                    wodDraft.removeMovement(fromRoundAt: index, id: movement.id)
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(round.movements.enumerated()), id: \.element.id) { movementIndex, movement in
+                    if movementIndex > 0 {
+                        Rectangle().fill(DS.C.hairlineSoft).frame(height: 1)
+                    }
+                    WODMovementRow(movement: movement, allExercises: allExercises) {
+                        wodDraft.removeMovement(fromRoundAt: index, id: movement.id)
+                    }
                 }
             }
             Button {
@@ -294,10 +314,10 @@ struct WODBlockDraftCard: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(DS.C.accent)
+            .padding(.top, 8)
         }
-        .padding(.vertical, wodDraft.rounds.count > 1 ? 8 : 0)
-        .padding(.horizontal, wodDraft.rounds.count > 1 ? 8 : 0)
-        .background(wodDraft.rounds.count > 1 ? DS.C.inset.opacity(0.5) : Color.clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(isMultiRound ? 12 : 0)
+        .background(isMultiRound ? DS.C.surfaceSunken : Color.clear, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     // MARK: - Result (manual entry, no timer -- M3 adds live timing)
@@ -637,17 +657,16 @@ struct WODBlockDraftCard: View {
 
 /// WOD 里的一个动作行。
 ///
-/// 2026-09-09 按教练的两条反馈重做（原来是名称、单位、数量、删除四样挤在一行）：
+/// GymLog 改版設計 §問題二：主行合併成一行看完（動作名＋數量＋單位），「標準」
+/// 常駐可見（教练现场要看动作要求，不该藏在展开区），「負重」收成徽章——未
+/// 設置時是「＋ 負重」outline 膠囊、設置後換成實心徽章，兩種狀態都只是觸發
+/// 展開輸入框，不常駐佔位。
 ///
-/// 1. **单位选择器会被折行**——教练的截图里 `Reps` 被断成上下两行的 `Rep`/`s`。
-///    根因是 `Picker(.menu)` 的标签宽度由系统按可用空间压缩，一行 402pt 里排完
-///    名称输入框就没剩多少了。这里改成两行：名称独占第一行，数量／单位／选动作
-///    在第二行；单位换成自绘的胶囊 `Menu`，标签用 `WorkoutQuantityKind.shortName`
-///    并锁死 `lineLimit(1) + fixedSize()`，宽度由内容决定，不再被压。
-/// 2. **动作名只能手打**——选库里的动作原本只有最左边一个不起眼的列表图标。
-///    现在是一个写着「選動作」的按钮，而且打开的面板默认就落在 CrossFit 筛选上
-///    （`initialDiscipline:`），教练要的「主流 CrossFit movement 作为备选」在
-///    这里才真正够得着。名称仍然可以直接手打——库里没有的动作照样录得进去。
+/// 沿用 2026-09-09 的两条既有原则：
+/// 1. 单位选择器自绘胶囊 `Menu`，`lineLimit(1) + fixedSize()`，宽度由内容
+///    决定，不会被压到折行。
+/// 2. 动作名这一行整条就是选动作的入口（`ExercisePickerSheet`，预设
+///    CrossFit 筛选），自由文本仍然可用（`onUseRawName`）。
 private struct WODMovementRow: View {
     @Bindable var movement: WODMovementDraft
     let allExercises: [Exercise]
@@ -655,22 +674,28 @@ private struct WODMovementRow: View {
 
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
     @State private var showingExercisePicker = false
-    /// 负重/动作标准折进这个展开区——简单 WOD（大多数 bodyweight 动作）不需要
-    /// 天天看见这两个字段，要用的时候点开就有（反馈原文：简单 WOD 保持简洁，
-    /// 把负重和标准等附加字段放在适当的展开区域）。有值时自动展开一次，避免
-    /// 教练录了负重、切换视图再回来发现"看起来消失了"。
+    /// 負重／標準的編輯輸入框折進這個展開區——「標準」的顯示文字本身不受這個
+    /// 開關影響（見 body 裡的常駐 `standard` 文字），這裡只控制「負重 kg 輸入
+    /// 框＋標準文字輸入框」這組編輯 UI 的展開/收合。有負重時自動展開一次，
+    /// 避免教练录了负重、切换视图再回来发现"看起来消失了"。
     @State private var showingMore = false
 
     private var hasName: Bool {
         !movement.nameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private var hasLoadOrStandard: Bool {
-        movement.loadKg != nil || !movement.standard.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    private var trimmedStandard: String {
+        movement.standard.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var loadBadgeText: String? {
+        guard let kg = movement.loadKg else { return nil }
+        let raw = kg == kg.rounded() ? String(format: "%.0f", kg) : String(format: "%.1f", kg)
+        return "\(raw)kg"
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 8) {
                 // 2026-09-09 教练反馈：「默认的 Movement 点击后依然不可选，必须
                 // 点 Pick 才能选……这个 Pick 应该以合适的方式直接放在默认的
@@ -683,42 +708,27 @@ private struct WODMovementRow: View {
                 Button {
                     showingExercisePicker = true
                 } label: {
-                    HStack(spacing: 6) {
-                        Text(hasName ? movement.nameText : language.t("選擇動作", "Choose a movement"))
-                            .font(.system(size: 15, weight: hasName ? .semibold : .regular))
-                            .foregroundStyle(hasName ? DS.C.textHi : DS.C.textLow)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(DS.C.accent)
-                        Spacer(minLength: 0)
-                    }
-                    .contentShape(Rectangle())
+                    Text(hasName ? movement.nameText : language.t("選擇動作", "Choose a movement"))
+                        .font(.system(size: 15, weight: hasName ? .semibold : .regular))
+                        .foregroundStyle(hasName ? DS.C.textHi : DS.C.textLow)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(language.t("動作名稱", "Movement name"))
                 .accessibilityValue(hasName ? movement.nameText : language.t("未選擇", "Not chosen"))
 
-                Button(role: .destructive, action: onDelete) {
-                    Image(systemName: "minus.circle")
-                        .font(.system(size: 16))
-                        .foregroundStyle(DS.C.danger)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(language.t("刪除這個動作", "Delete movement"))
-            }
-
-            HStack(spacing: 8) {
+                // 數量＋單位與動作名合併在同一行「一眼看完」——移除原本的 inset
+                // 膠囊底色，讓它們讀起來像動作名之後接續的次要信息，而不是三個
+                // 各自獨立的控件。
                 TextField(language.t("數量", "Qty"), value: $movement.quantityValue, format: .number)
                     .keyboardType(.numberPad)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .monospacedDigit()
-                    .foregroundStyle(DS.C.textHi)
-                    .multilineTextAlignment(.center)
-                    .frame(width: 62)
-                    .padding(.vertical, 5)
-                    .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .foregroundStyle(DS.C.textMid)
+                    .multilineTextAlignment(.trailing)
+                    .fixedSize()
 
                 Menu {
                     ForEach(WorkoutQuantityKind.allCases) { kind in
@@ -733,41 +743,69 @@ private struct WODMovementRow: View {
                         }
                     }
                 } label: {
-                    HStack(spacing: 3) {
-                        Text(movement.quantityKind.shortName)
-                        Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
-                    }
-                    // 这两行是这次修版面的核心：宽度由内容决定，永远不折行。
-                    .lineLimit(1)
-                    .fixedSize()
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(DS.C.textMid)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(DS.C.inset, in: Capsule())
+                    Text(movement.quantityKind.shortName)
+                        // 这一行是这次修版面的核心：宽度由内容决定，永远不折行。
+                        .lineLimit(1)
+                        .fixedSize()
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(DS.C.textMid)
                 }
                 .accessibilityLabel(language.t("記錄單位", "Unit"))
                 .accessibilityValue(movement.quantityKind.displayName)
 
-                Spacer(minLength: 0)
+                Spacer(minLength: 4)
 
-                // 负重/动作标准折进展开区——大多数 bodyweight 动作用不到，天天
-                // 露在外面只会让最简单的 WOD 也显得复杂（反馈原文：简单 WOD 保持
-                // 简洁）。有值时圆点常亮，提醒教练"这里其实填了东西"。
-                Button {
-                    withAnimation(.easeInOut(duration: 0.15)) { showingMore.toggle() }
-                } label: {
-                    HStack(spacing: 3) {
-                        Text(language.t("負重／標準", "Load/Standard"))
-                        Image(systemName: showingMore ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 9, weight: .bold))
+                // 負重：未設置顯示 outline 膠囊觸發展開；已設置換成實心徽章，
+                // 兩者都只是「展開輸入框」的入口，不是負重本身的展示終點。
+                if let loadBadgeText {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) { showingMore.toggle() }
+                    } label: {
+                        HStack(spacing: 3) {
+                            Text(loadBadgeText)
+                            Image(systemName: showingMore ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 8, weight: .bold))
+                        }
+                        .lineLimit(1)
+                        .fixedSize()
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(DS.C.onAccent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(DS.C.accent, in: Capsule())
                     }
-                    .lineLimit(1)
-                    .fixedSize()
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(hasLoadOrStandard ? DS.C.accent : DS.C.textLow)
+                    .buttonStyle(.plain)
+                } else {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) { showingMore = true }
+                    } label: {
+                        Text(language.t("＋ 負重", "+ Load"))
+                            .lineLimit(1)
+                            .fixedSize()
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(DS.C.accent)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 3)
+                            .overlay(Capsule().stroke(DS.C.accent.opacity(0.5), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Button(role: .destructive, action: onDelete) {
+                    Image(systemName: "minus.circle")
+                        .font(.system(size: 14))
+                        .foregroundStyle(DS.C.danger)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(language.t("刪除這個動作", "Delete movement"))
+            }
+
+            // 「標準」常駐顯示——教练现场扫一眼就能看到动作要求，不再需要多點
+            // 一次展開（GymLog 改版設計 §問題二：标准不再藏进展开区）。
+            if !trimmedStandard.isEmpty {
+                Text(trimmedStandard)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(DS.C.textLow)
             }
 
             if showingMore {
@@ -801,14 +839,14 @@ private struct WODMovementRow: View {
                     }
                 }
                 .padding(8)
-                .background(DS.C.inset.opacity(0.4), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(DS.C.inset.opacity(0.4), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 7)
         .onAppear {
-            // 已经带负重/标准的既有记录（比如从历史打开继续编辑）默认展开，
+            // 已经带负重的既有记录（比如从历史打开继续编辑）默认展开输入框，
             // 不让教练以为数据不见了。
-            if hasLoadOrStandard { showingMore = true }
+            if movement.loadKg != nil { showingMore = true }
         }
         .sheet(isPresented: $showingExercisePicker) {
             ExercisePickerSheet(

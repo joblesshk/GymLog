@@ -160,9 +160,20 @@ struct TodayView: View {
             .navigationTitle(language.t("今天", "Today"))
             .toolbarBackground(DS.C.canvas, for: .navigationBar)
             .toolbar {
+                // GymLog 改版設計 §問題一：課次日期不再單獨佔一整行卡片，收進
+                // 這個導航行、與學員切換 pill 同一 HStack 靠右對齊。沒有進行中
+                // 課次時（例如「選擇動作」空狀態）不顯示日期，維持原本只有
+                // 切換器居中的樣子。
                 ToolbarItem(placement: .principal) {
                     if let client = currentClient {
-                        ClientSwitcherButton(currentClient: client, coordinator: switchCoordinator, tabSelection: tabSelection)
+                        HStack(spacing: 8) {
+                            ClientSwitcherButton(currentClient: client, coordinator: switchCoordinator, tabSelection: tabSelection)
+                            if draft.isActive {
+                                Spacer(minLength: 8)
+                                SessionDateChip(date: $draft.sessionDate)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                 }
             }
@@ -344,8 +355,6 @@ struct TodayView: View {
         let energy = EnergyLookup(report: TrainingInsights.draft(draft, client: client))
         ScrollView {
             VStack(spacing: DS.Space.cardGap) {
-                SessionDateBar(date: $draft.sessionDate)
-
                 ForEach(Array(draft.blocks.enumerated()), id: \.element.id) { blockIndex, block in
                     if block.sectionKind == .wod, let wodDraft = block.wodDraft {
                         WODBlockDraftCard(wodDraft: wodDraft, allExercises: allExercises, activeWODTimerOwnerID: $draft.activeWODTimerOwnerID, energyText: energy.block(blockIndex)) {
