@@ -2,7 +2,7 @@
 
 一款 AI 加持、支持语音控制的 iOS 训练记录应用：开口说出训练安排即可生成和修改计划，训练后由 AI 给出评价与建议。同时支持力量训练、CrossFit WOD、学员档案与历史分析，基于 SwiftUI + SwiftData 构建。
 
-**源码发行版，不附带 API Key、托管云端服务或任何真实学员数据。** 日常记录、历史分析及热量估算可在本机直接使用；AI 和语音功能需要自行配置 API。最低部署版本 iOS 17。
+日常记录、历史分析及热量估算可在本机直接使用；AI 和语音功能需要自行配置 API。最低部署版本 iOS 17。
 
 [English](README.en.md) · [构建与配置](docs/SETUP.md) · [架构](docs/ARCHITECTURE.md) · [隐私](PRIVACY.md) · [贡献](CONTRIBUTING.md) · [安全](SECURITY.md) · [MIT 许可证](LICENSE)
 
