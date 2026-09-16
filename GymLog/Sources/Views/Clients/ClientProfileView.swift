@@ -428,6 +428,43 @@ struct ClientProfileView: View {
         .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
+    /// 從真實資料點裡等距挑出最多 4 個日期當 X 軸刻度——不透過 Charts 的
+    /// `.automatic` 在 `Date` 定義域上自己找「好看的整數日期」，這批資料點數
+    /// 少、時間跨度窄（可能只是同一個月裡的幾次量測），教練實測 `.automatic`
+    /// 找出來的刻度會全部落在同一個（錯誤）日期上。永遠保證回傳的每個
+    /// `Date` 都真的來自 `points`，橫軸標籤就不可能顯示資料裡沒有的日期。
+    /// 從真實資料點裡等距挑出最多 4 個日期——依索引均勻抽樣。教練連續兩輪
+    /// 實測 `AxisMarks` 都定位不對（先是全部刻度顯示同一個日期，改成明確傳
+    /// 入這批日期後變成全部擠在最左邊），不管挑的日期值本身對不對，Charts
+    /// 把它們放到 x 軸「哪個像素位置」這一步在這張圖上就是不可靠。第三次不
+    /// 再信任 `chartXAxis`／`AxisMarks` 的定位——這批日期改成拿去手排一條
+    /// 普通 `HStack` + `Spacer` 的文字列（`sessionTrendChart` 那條「本次課走
+    /// 勢」列本來就是這樣做，一直沒被回報有問題），完全不經過 Charts 的座標
+    /// 系統。
+    private func axisTickDates(from points: [(id: String, date: Date, value: Double)]) -> [Date] {
+        guard points.count > 1 else { return points.map(\.date) }
+        let tickCount = min(4, points.count)
+        return (0..<tickCount).map { i in
+            let index = Int((Double(i) * Double(points.count - 1) / Double(tickCount - 1)).rounded())
+            return points[min(max(index, 0), points.count - 1)].date
+        }
+    }
+
+    /// 圖表下方手排的日期列——`Spacer()` 之間均勻分配寬度，不依賴 Charts 的
+    /// 座標系統，也不必是每個日期跟折線上對應資料點嚴格對齊的刻度，純粹是
+    /// 「這條線大致覆蓋哪段時間」的參考，跟 `sessionTrendChart` 的「本次課
+    /// 走勢」列同一個做法。
+    private func dateAxisLabelsRow(dates: [Date]) -> some View {
+        HStack {
+            ForEach(Array(dates.enumerated()), id: \.offset) { index, date in
+                Text(date.formatted(.dateTime.month(.defaultDigits).day()))
+                if index != dates.count - 1 { Spacer() }
+            }
+        }
+        .font(.system(size: 10))
+        .foregroundStyle(DS.C.textLow)
+    }
+
     private func trendCard(metrics: [BodyMetric]) -> some View {
         let ascending = metrics.sorted { $0.date < $1.date }
         let points = ascending.compactMap { m -> (id: String, date: Date, value: Double)? in
@@ -437,6 +474,15 @@ struct ClientProfileView: View {
             GymSegmentedControl(selection: $trendMetric, options: BodyMetricTrend.allCases, label: { $0.label })
 
             if points.count >= 2 {
+                // 2026-09-16：縱軸改成貼著實際數值範圍的緊湊區間，而不是任由
+                // Charts 的預設 domain（通常會把 0 也框進去）把幾公斤內的真實
+                // 波動壓成一條幾乎看不出變化的橫線；上下各留 15% 留白，至少
+                // 留白 0.5（同一指標多次量測完全相同時，domain 不能退化成一個
+                // 點）。橫軸改回顯示日期刻度，不再整條隱藏。
+                let values = points.map(\.value)
+                let minValue = values.min() ?? 0
+                let maxValue = values.max() ?? 0
+                let padding = Swift.max((maxValue - minValue) * 0.15, 0.5)
                 Chart {
                     ForEach(Array(points.enumerated()), id: \.element.id) { index, point in
                         LineMark(x: .value("date", point.date), y: .value("value", point.value))
@@ -447,6 +493,13 @@ struct ClientProfileView: View {
                             .foregroundStyle(DS.C.accent)
                     }
                 }
+                .chartYScale(domain: (minValue - padding)...(maxValue + padding))
+                // 2026-09-16 第三次修正：連續兩版 `chartXAxis`／`AxisMarks` 都
+                // 被教練實測定位錯誤（同一日期 → 全擠左邊），問題出在 Charts
+                // 把刻度值換算成 x 軸像素位置這一步，不是刻度值本身。整條
+                // `chartXAxis` 拿掉，日期改到圖表下方另起一條普通文字列自己
+                // 排版（見下面 `dateAxisLabelsRow`），不再經過 Charts 的座標
+                // 系統。
                 .chartXAxis(.hidden)
                 .chartYAxis {
                     AxisMarks(values: .automatic(desiredCount: 3)) { _ in
@@ -454,6 +507,8 @@ struct ClientProfileView: View {
                     }
                 }
                 .frame(height: 106)
+
+                dateAxisLabelsRow(dates: axisTickDates(from: points))
 
                 HStack {
                     Text(language.t("\(metrics.count) 次量測", "\(metrics.count) measurements"))
@@ -588,9 +643,10 @@ private struct BodyMetricRow: View {
                 if let bf = metric.bodyFatPercent { field(Self.fmt(bf), "%") }
                 if let smm = metric.skeletalMuscleKg { field(Self.fmt(smm), language.t("kg 肌", "kg muscle")) }
             }
-            if let notes = metric.notes, !notes.isEmpty {
-                Text(notes).font(.system(size: 12)).foregroundStyle(DS.C.textLow)
-            }
+            // 2026-09-16：備註、BMI、內臟脂肪、代謝等其餘欄位只在詳情頁顯示
+            // （GymLog 改版設計 §5：「小字網格改成三層資訊…歷史卡片」只留最
+            // 重要的體重／體脂率／骨骼肌，其餘「點進去再看」）——這裡不再把
+            // 備註原文整段排進列表卡片。
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)

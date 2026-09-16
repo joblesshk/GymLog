@@ -28,6 +28,15 @@ public final class SessionTemplate {
         (blocks ?? []).sorted { $0.order < $1.order }
     }
 
+    /// 2026-09-16「Superset 模板」：不新增模型，一個 superset 模板就是「剛好
+    /// 只有一個 block、且那個 block 是 `.superset`」的 `SessionTemplate` --
+    /// 跟一般多 block 的訓練模板共用同一張表，純粹用資料形狀區分，供
+    /// `ExerciseLibraryView`/`TemplateLibraryView` 分類顯示，以及「今天」挑選
+    /// superset 時只列出這種模板。
+    public var isSupersetOnly: Bool {
+        orderedBlocks.count == 1 && orderedBlocks.first?.blockType == .superset
+    }
+
     /// CONTRACT-M4.md §3's coarse duration heuristic: flat warmup/cooldown
     /// plus each block's (sets * assumed-40s-execution + sets * rest),
     /// rounded to the nearest 5 minutes. A rough fit-check, not a stopwatch.

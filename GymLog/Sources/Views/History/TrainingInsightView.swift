@@ -266,24 +266,16 @@ struct TrainingInsightView: View {
     @Environment(\.modelContext) private var context
     @State private var busy = false
     @State private var error: String?
-    @State private var attemptedKey: String?
     @State private var showLimitations = false
 
     private var report: EnergyReport { TrainingInsights.report(session) }
     private var cloudReady: Bool { CloudVoiceConfiguration.load().hasLLM }
 
+    // 2026-09-16：不再在卡片一出現就自動打雲端生成評價——教練翻歷史課次時
+    // 每次都要等 10–30 秒、也不是每次點進來都想花這次雲端額度看 AI 評價。
+    // 生成一律走 `footer` 裡「生成評價」按鈕，教練自己按。
     var body: some View {
-        VStack(spacing: DS.Space.cardGap) {
-            EnergyReportView(report: report)
-            reviewCard
-        }
-        .task(id: session.id) {
-            let key = TrainingInsights.reviewKey(session)
-            guard cloudReady, !session.isInProgress, TrainingInsights.decode(session)?.review == nil,
-                  attemptedKey != key, !report.lines.isEmpty else { return }
-            attemptedKey = key
-            await generate()
-        }
+        reviewCard
     }
 
     private var reviewCard: some View {

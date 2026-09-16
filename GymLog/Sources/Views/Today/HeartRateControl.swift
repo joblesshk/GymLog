@@ -1,4 +1,6 @@
 import SwiftUI
+import Charts
+import UIKit
 import GymLogKit
 
 /// 训练中的心率显示（2026-09-04，教练的"备选功能"；2026-09-15 设计改版）。
@@ -9,6 +11,10 @@ import GymLogKit
 /// 汇总 / 结束。真正的蓝牙逻辑全在 `HeartRateMonitor`（GymLogKit）里。
 struct HeartRateChip: View {
     @Bindable var monitor: HeartRateMonitor
+    /// 學員年齡——僅用來估算心率區間色帶的參考上限（`220 - age`，最粗略的
+    /// Fox 公式，非醫療級）。`nil`（學員沒填年齡）時面板不猜一個假上限，直
+    /// 接不顯示區間色帶，而不是拿一個沒人核實過的數字誤導教練。
+    var age: Int? = nil
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
     @State private var showSheet = false
     // `isCurrentReadingStale` is a plain computed property keyed off
@@ -40,7 +46,7 @@ struct HeartRateChip: View {
         .accessibilityLabel(accessibilityText)
         .task(id: monitor.status) { await pollStaleness() }
         .sheet(isPresented: $showSheet) {
-            HeartRateSheet(monitor: monitor)
+            HeartRateSheet(monitor: monitor, age: age)
         }
     }
 
@@ -266,6 +272,7 @@ private struct SignalBars: View {
 /// 本次課/平均/最低/最高/選擇裝置/心率裝置/完成/結束）。
 struct HeartRateSheet: View {
     @Bindable var monitor: HeartRateMonitor
+    var age: Int? = nil
     @Environment(\.dismiss) private var dismiss
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
     @State private var showingSetupGuide = false
@@ -402,6 +409,7 @@ struct HeartRateSheet: View {
                     }
                 }
                 connectionCaption
+                heartRateZoneBand(bpm: liveBPMForZone)
             }
             .padding(.vertical, 18)
             .padding(.horizontal, 14)
@@ -414,6 +422,138 @@ struct HeartRateSheet: View {
     private var bpmDisplayText: String {
         guard case .connected = monitor.status, !isStale else { return "--" }
         return monitor.currentBPM.map(String.init) ?? "--"
+    }
+
+    /// 只在「已連接、有實際樣本、且教練填過年齡」時才有一個站得住腳的
+    /// 即時 BPM 可以拿去定位區間——其餘狀態（未連、訊號中斷）色帶沒有
+    /// 意義，寧可不顯示。
+    private var liveBPMForZone: Int? {
+        guard case .connected = monitor.status, !isStale else { return nil }
+        return monitor.currentBPM
+    }
+
+    // MARK: - 心率區間色帶 (GymLog 改版設計 §2)
+
+    private enum HRZone: Int, CaseIterable {
+        case z1, z2, z3, z4, z5
+
+        /// 5 區間各佔的寬度比例（總和 = 1），對應設計稿的 1:1:1:1.2:1。
+        var widthWeight: Double { self == .z4 ? 1.2 : 1 }
+
+        /// 這個區間的下界，佔估算最大心率的比例；上界是下一區間的下界
+        /// （Z5 封頂到 1.0 以上，超過封頂一律算 Z5）。常見的 5 區間模型
+        /// （50/60/70/80/90% of HRmax），非醫療級、僅供訓練參考。
+        var lowerBound: Double {
+            switch self {
+            case .z1: return 0.5
+            case .z2: return 0.6
+            case .z3: return 0.7
+            case .z4: return 0.8
+            case .z5: return 0.9
+            }
+        }
+
+        var label: (zh: String, en: String) {
+            switch self {
+            case .z1: return ("Z1", "Z1")
+            case .z2: return ("Z2", "Z2")
+            case .z3: return ("Z3", "Z3")
+            case .z4: return ("Z4 · 無氧", "Z4 · Anaerobic")
+            case .z5: return ("Z5", "Z5")
+            }
+        }
+
+        var color: Color {
+            switch self {
+            case .z1: return Color(red: 0.863, green: 0.890, blue: 0.855) // #DCE3DA
+            case .z2: return Color(red: 0.749, green: 0.827, blue: 0.769) // #BFD3C4
+            case .z3: return Color(red: 0.910, green: 0.788, blue: 0.541) // #E8C98A
+            case .z4: return Color(red: 0.871, green: 0.604, blue: 0.416) // #DE9A6A
+            case .z5: return DS.C.heartRate
+            }
+        }
+    }
+
+    /// `220 - age`（Fox 公式）——最粗略的估算。教練填過學員年齡時用真實年齡；
+    /// 沒填時退回 30 歲（190）當預設參考值，而不是整條色帶都不顯示——
+    /// 2026-09-16：色帶本身是設計稿明確要求「常駐顯示」的區間對照表，跟今天
+    /// 是誰、連沒連上心率帶無關，不能因為學員檔案漏填一個欄位就完全消失。
+    private static let defaultAgeForZoneEstimate = 30
+    private var estimatedMaxHR: Double {
+        let effectiveAge = (age.map { $0 > 0 ? $0 : nil } ?? nil) ?? Self.defaultAgeForZoneEstimate
+        return Double(220 - effectiveAge)
+    }
+
+    private func zone(forRatio ratio: Double) -> HRZone {
+        HRZone.allCases.last { ratio >= $0.lowerBound } ?? .z1
+    }
+
+    /// `bpm` 為 `nil`（未連接/訊號中斷/教練還沒實測）時，色帶本身仍然顯示
+    /// 當作固定的區間對照表——只是不畫指針、也不特別加粗哪個區間文字。這樣
+    /// 教練沒接心率帶也能先看到「Z1–Z5 分別是什麼」，不必等真的連上裝置。
+    @ViewBuilder
+    private func heartRateZoneBand(bpm: Int?) -> some View {
+        let maxHR = estimatedMaxHR
+        let ratio = bpm.map { Double($0) / maxHR }
+        let currentZone = ratio.map(zone(forRatio:))
+        let totalWeight = HRZone.allCases.reduce(0) { $0 + $1.widthWeight }
+        // 2026-09-16 第二次修正：先前兩版（`GeometryReader`、自訂 `Layout`）
+        // 都靠 SwiftUI 的佈局協商去量這張卡片的實際寬度，教練這裡雖然沒回報
+        // 「還是不見了」，但跟身體組成那條比例條是同一個元件模式、同一個
+        // `List`/`.sheet` 情境——與其等下一輪才發現同樣的問題，直接一併換成
+        // 跟比例條一致的作法：`UIScreen.main.bounds.width` 扣掉已知的外層
+        // padding，在建構時就算出確定寬度，色段跟指針都用這個常數算絕對
+        // 位置，不再經過任何容器測量。
+        let bandWidth = UIScreen.main.bounds.width - 2 * DS.Space.pageMargin - 2 * 14
+        VStack(alignment: .leading, spacing: 7) {
+            ZStack(alignment: .leading) {
+                HStack(spacing: 2) {
+                    ForEach(HRZone.allCases, id: \.self) { z in
+                        Capsule().fill(z.color)
+                            .frame(width: Self.hrSegmentWidth(z.widthWeight, totalWeight: totalWeight, bandWidth: bandWidth))
+                    }
+                }
+                if let ratio {
+                    let fraction = pointerFraction(ratio: ratio, totalWeight: totalWeight)
+                    Capsule()
+                        .fill(DS.C.textHi)
+                        .frame(width: 4, height: 20)
+                        .offset(x: min(max(0, bandWidth * fraction - 2), bandWidth - 4), y: -5)
+                }
+            }
+            .frame(width: bandWidth, height: 10)
+            HStack {
+                ForEach(HRZone.allCases, id: \.self) { z in
+                    Text(language.t(z.label.zh, z.label.en))
+                        .font(.system(size: 10, weight: z == currentZone ? .semibold : .regular))
+                        .foregroundStyle(z == currentZone ? DS.C.textHi : DS.C.textLow)
+                    if z != .z5 { Spacer() }
+                }
+            }
+            .frame(width: bandWidth)
+        }
+        .padding(.top, 6)
+    }
+
+    private static func hrSegmentWidth(_ weight: Double, totalWeight: Double, bandWidth: CGFloat) -> CGFloat {
+        let spacing: CGFloat = 2
+        let usable = max(0, bandWidth - spacing * CGFloat(HRZone.allCases.count - 1))
+        return usable * (weight / totalWeight)
+    }
+
+    private func pointerFraction(ratio: Double, totalWeight: Double) -> Double {
+        let clamped = max(HRZone.z1.lowerBound, min(ratio, 1.15))
+        var accumulated: Double = 0
+        for z in HRZone.allCases {
+            let nextLower = HRZone(rawValue: z.rawValue + 1)?.lowerBound ?? 1.15
+            if clamped < nextLower || z == .z5 {
+                let span = nextLower - z.lowerBound
+                let within = span > 0 ? (clamped - z.lowerBound) / span : 0
+                return (accumulated + within * z.widthWeight) / totalWeight
+            }
+            accumulated += z.widthWeight
+        }
+        return 1
     }
 
     private var connectionCaption: some View {
@@ -453,12 +593,56 @@ struct HeartRateSheet: View {
     // MARK: - Summary (本次課)
 
     private var summaryCard: some View {
-        HStack(spacing: 8) {
-            summaryCell(language.t("平均", "Avg"), monitor.averageBPM)
-            summaryCell(language.t("最低", "Min"), monitor.minBPM)
-            summaryCell(language.t("最高", "Max"), monitor.maxBPM)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                summaryCell(language.t("平均", "Avg"), monitor.averageBPM)
+                summaryCell(language.t("最低", "Min"), monitor.minBPM)
+                summaryCell(language.t("最高", "Max"), monitor.maxBPM)
+            }
+            if monitor.samples.count >= 2 {
+                sessionTrendChart
+            }
         }
         .padding(.horizontal, DS.Space.pageMargin)
+    }
+
+    /// 本次課心率走勢（GymLog 改版設計 §2，標註為可選；現在有
+    /// `HeartRateMonitor.samples` 逐秒記錄可畫）。橫軸是經過秒數，不是絕對時
+    /// 鐘時間——教練關心的是「訓練到第幾分鐘心率怎麼變化」，不是幾點幾分。
+    private var sessionTrendChart: some View {
+        let bpmValues = monitor.samples.map { Double($0.bpm) }
+        let minV = bpmValues.min() ?? 0
+        let maxV = bpmValues.max() ?? 0
+        let padding = Swift.max((maxV - minV) * 0.15, 3)
+        return VStack(alignment: .leading, spacing: 2) {
+            Chart(monitor.samples, id: \.elapsedSeconds) { sample in
+                LineMark(
+                    x: .value("elapsed", sample.elapsedSeconds),
+                    y: .value("bpm", sample.bpm)
+                )
+                .foregroundStyle(DS.C.heartRate)
+                .lineStyle(StrokeStyle(lineWidth: 2, lineJoin: .round))
+                .interpolationMethod(.monotone)
+            }
+            .chartYScale(domain: (minV - padding)...(maxV + padding))
+            .chartXAxis(.hidden)
+            .chartYAxis(.hidden)
+            .frame(height: 60)
+            HStack {
+                Text(Self.formatElapsed(monitor.samples.first?.elapsedSeconds ?? 0))
+                Spacer()
+                Text(language.t("本次課走勢", "This session's trend"))
+                    .foregroundStyle(DS.C.textMid)
+                Spacer()
+                Text(Self.formatElapsed(monitor.samples.last?.elapsedSeconds ?? 0))
+            }
+            .font(.system(size: 10))
+            .foregroundStyle(DS.C.textLow)
+        }
+    }
+
+    private static func formatElapsed(_ seconds: Int) -> String {
+        String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 
     private func summaryCell(_ title: String, _ value: Int?) -> some View {
@@ -535,3 +719,4 @@ struct HeartRateSheet: View {
         )
     }
 }
+

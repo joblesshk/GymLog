@@ -94,6 +94,93 @@ struct HistoryListView: View {
             .sorted { ($0.sessions.first?.date ?? .distantPast) > ($1.sessions.first?.date ?? .distantPast) }
     }
 
+    // MARK: - 訓練強度概覽 (GymLog 改版設計 §6：「頂部加入…本週／本月訓練頻率
+    // 概覽」)
+
+    /// 本月至今每一天的訓練量（kg），沒有練的日子是 0——顏色深淺直接映射這個
+    /// 數字，同一天多節課次疊加。復用 `SessionSummaryMetrics`（與課次卡片、
+    /// 課次詳情同一套口徑），WOD-only 的日子沒有力量訓練量會是 0，跟真的沒練
+    /// 目前無法區分，屬於這個概覽本身的已知限制，不影響下方逐堂課次列表。
+    private var monthlyIntensity: [(day: Date, volumeKg: Double)] {
+        let calendar = Calendar.current
+        let today = Date()
+        guard let monthStart = calendar.dateInterval(of: .month, for: today)?.start else { return [] }
+        let dayCount = (calendar.dateComponents([.day], from: monthStart, to: today).day ?? 0) + 1
+        var volumeByDay: [Date: Double] = [:]
+        for session in sessions {
+            let day = calendar.startOfDay(for: session.date)
+            guard day >= monthStart, day <= today else { continue }
+            let volume = SessionSummaryMetrics.compute(for: session).totalVolumeKg ?? 0
+            volumeByDay[day, default: 0] += volume
+        }
+        return (0..<max(dayCount, 1)).compactMap { offset in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: monthStart) else { return nil }
+            return (day, volumeByDay[calendar.startOfDay(for: day)] ?? 0)
+        }
+    }
+
+    private var thisMonthSessionCount: Int {
+        let calendar = Calendar.current
+        guard let monthStart = calendar.dateInterval(of: .month, for: Date())?.start else { return 0 }
+        return sessions.filter { $0.date >= monthStart }.count
+    }
+
+    private var monthLabel: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: language == .zhHant ? "zh_Hant" : "en_US")
+        formatter.setLocalizedDateFormatFromTemplate(language == .zhHant ? "yyyyMMMM" : "MMMM yyyy")
+        return formatter.string(from: Date())
+    }
+
+    @ViewBuilder
+    private var trainingIntensityStrip: some View {
+        let days = monthlyIntensity
+        if !days.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .lastTextBaseline) {
+                    Text(language.t("\(monthLabel) · \(thisMonthSessionCount) 堂", "\(monthLabel) · \(thisMonthSessionCount) sessions"))
+                        .sectionLabelStyle()
+                    Spacer()
+                    Text(language.t("共 \(sessions.count) 堂", "\(sessions.count) total"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.C.textLow)
+                }
+                HStack(spacing: 4) {
+                    ForEach(Array(days.enumerated()), id: \.offset) { _, entry in
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(intensityColor(volumeKg: entry.volumeKg, maxVolumeKg: days.map(\.volumeKg).max() ?? 0))
+                            .frame(height: 30)
+                    }
+                }
+                HStack {
+                    Text(SessionDateFormat.display.string(from: days.first?.day ?? Date()))
+                    Spacer()
+                    Text(language.t("頻率概覽 · 顏色深淺 = 訓練量", "Frequency · color depth = volume"))
+                    Spacer()
+                    Text(SessionDateFormat.display.string(from: days.last?.day ?? Date()))
+                }
+                .font(.system(size: 10))
+                .foregroundStyle(DS.C.textLow)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .gymCard()
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+        }
+    }
+
+    /// 沒練＝`inset` 底色；有練的日子按當月最高單日訓練量分四階漸深，最高的
+    /// 那天（或那幾天並列）直接用實心 `accent`，呼應設計稿 §6 的漸層深淺。
+    private func intensityColor(volumeKg: Double, maxVolumeKg: Double) -> Color {
+        guard volumeKg > 0, maxVolumeKg > 0 else { return DS.C.inset }
+        let ratio = volumeKg / maxVolumeKg
+        if ratio >= 0.999 { return DS.C.accent }
+        if ratio >= 0.66 { return DS.C.accent.opacity(0.85) }
+        if ratio >= 0.33 { return DS.C.accent.opacity(0.55) }
+        return DS.C.accent.opacity(0.28)
+    }
+
     private func weekHeader(_ group: WeekGroup) -> some View {
         HStack(spacing: 8) {
             Text(language.t("第 \(group.weekNumber) 週", "Week \(group.weekNumber)"))
@@ -127,6 +214,8 @@ struct HistoryListView: View {
                     )
                 } else {
                     List {
+                        trainingIntensityStrip
+
                         ForEach(weekGroups) { group in
                             Section {
                                 ForEach(group.sessions) { session in

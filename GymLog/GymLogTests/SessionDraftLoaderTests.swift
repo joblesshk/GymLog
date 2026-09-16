@@ -281,4 +281,113 @@ final class SessionDraftLoaderTests: XCTestCase {
         )
         XCTAssertEqual(SessionDraftLoader.load(from: session, exercises: [exercise]).blocks.first?.sectionKind, .skill)
     }
+
+    // MARK: - copy（2026-09-16「從歷史記錄複製」）
+
+    /// `copy` 保留跟 `load` 完全一樣的多輪結構（3 個 Round，2/3/2 組），
+    /// 不是退回「只帶第一組」的簡化版——這正是這個功能存在的理由：教練複製
+    /// 歷史某一天，要能看到當天完整的組數/重量細節去微調，不是只看到一組。
+    func testCopyPreservesFullMultiRoundStructure() throws {
+        let container = try TestSupport.makeInMemoryContainer()
+        let context = ModelContext(container)
+        let exercise = makeExercise()
+        let entry = EntryDraft(exercise: exercise, rounds: [
+            RoundDraft(setsCount: 2, load: .absolute(kg: 30, raw: "30"), targetQuantity: 10, actualQuantity: 10, metric: .reps),
+            RoundDraft(setsCount: 3, load: .absolute(kg: 45, raw: "45"), targetQuantity: 8, actualQuantity: 7, metric: .reps),
+            RoundDraft(setsCount: 2, load: .absolute(kg: 40, raw: "40"), targetQuantity: 8, actualQuantity: 8, metric: .reps),
+        ])
+        let session = try persist(blocks: [BlockDraft(entries: [entry])], exercise: exercise, in: context)
+
+        let copied = SessionDraftLoader.copy(from: session, exercises: [exercise])
+        XCTAssertEqual(copied.droppedEntryCount, 0)
+        let rounds = try XCTUnwrap(copied.blocks.first?.entries.first?.rounds)
+        XCTAssertEqual(rounds.map(\.setsCount), [2, 3, 2], "複製必須帶出全部三個 Round，不能只剩第一組")
+        XCTAssertEqual(rounds.map(\.load), [
+            LoadValue.absolute(kg: 30, raw: "30"), .absolute(kg: 45, raw: "45"), .absolute(kg: 40, raw: "40"),
+        ])
+    }
+
+    /// 複製到新的一天，每一輪的「實際」都必須重置成未確認——不能讓歷史上
+    /// 已經做完的成績，在教練都還沒訓練的今天就顯示成「已完成」。但數值本
+    /// 身要保留（當成教練調整的參考起點），不是清空成一個預設值。
+    func testCopyResetsActualRecordedButKeepsTheOldValueAsReference() throws {
+        let container = try TestSupport.makeInMemoryContainer()
+        let context = ModelContext(container)
+        let exercise = makeExercise()
+        let entry = EntryDraft(exercise: exercise, setsCount: 3, load: .absolute(kg: 60, raw: "60"), targetQuantity: 8, actualQuantity: 8)
+        let session = try persist(blocks: [BlockDraft(entries: [entry])], exercise: exercise, in: context)
+
+        // sanity: 歷史記錄本身「實際」是已確認的。
+        XCTAssertTrue(SessionDraftLoader.load(from: session, exercises: [exercise]).blocks.first?.entries.first?.rounds.first?.actualRecorded ?? false)
+
+        let copied = SessionDraftLoader.copy(from: session, exercises: [exercise])
+        let round = try XCTUnwrap(copied.blocks.first?.entries.first?.rounds.first)
+        XCTAssertFalse(round.actualRecorded, "複製到新的一天，實際必須是未確認狀態")
+        XCTAssertEqual(round.actual, .fixed(value: 8, raw: "8"), "數值本身仍帶過去當參考，不是被清空或改成預設值")
+    }
+
+    /// 區間/每側成績複製到新的一天也不能被折成中點整數——跟 R01「打開→不改
+    /// →保存」無損往返同一個標準，複製同樣不能丟資訊。
+    func testCopyPreservesRangeAndPerSideActualsLosslessly() throws {
+        let container = try TestSupport.makeInMemoryContainer()
+        let context = ModelContext(container)
+        let exercise = makeExercise()
+        let session = try persist(blocks: [], exercise: exercise, in: context)
+        let block = SessionBlock(order: 0, blockType: .single, restSeconds: nil, sourceRow: 0, sectionKind: .strength)
+        block.session = session
+        context.insert(block)
+        let entry = ExerciseEntry(order: 0, exerciseIdRef: exercise.id, exerciseRaw: exercise.canonicalName, plannedSets: 1, exercise: exercise)
+        entry.block = block
+        context.insert(entry)
+        let setLog = SetLog(
+            setIndex: 0, load: .absolute(kg: 40, raw: "40"),
+            target: .range(low: 8, high: 12, raw: "8-12"), actual: .perSide(left: 8, right: 12, raw: "L8/R12"),
+            isInferred: false
+        )
+        setLog.entry = entry
+        context.insert(setLog)
+        try context.save()
+
+        let copiedRound = try XCTUnwrap(SessionDraftLoader.copy(from: session, exercises: [exercise]).blocks.first?.entries.first?.rounds.first)
+        XCTAssertEqual(copiedRound.target, .range(low: 8, high: 12, raw: "8-12"))
+        XCTAssertEqual(copiedRound.actual, .perSide(left: 8, right: 12, raw: "L8/R12"))
+        XCTAssertFalse(copiedRound.actualRecorded)
+    }
+
+    /// WOD 複製到新的一天沿用既有「複測」規則：只帶處方，成績從零開始
+    /// （跟原本 `TodayView.copyLastSession` 對 WOD 的處理完全一致）。
+    func testCopyResetsWODResultToFresh() throws {
+        let container = try TestSupport.makeInMemoryContainer()
+        let context = ModelContext(container)
+        let exercise = makeExercise(id: "ex-wallball", name: "Wall ball", metric: .reps, equipment: .ball)
+        let wodDraft = WODBlockDraft(
+            name: "Karen", format: .forTime, timeCapSeconds: 900,
+            movements: [WODMovementDraft(nameText: "Wall ball", quantityKind: .reps, quantityValue: 150)],
+            status: .completed, elapsedSeconds: 431, notes: "20lb 球"
+        )
+        let session = try persist(
+            blocks: [BlockDraft(sectionKind: .wod, wodDraft: wodDraft)], exercise: exercise, in: context
+        )
+
+        let copiedWOD = try XCTUnwrap(SessionDraftLoader.copy(from: session, exercises: [exercise]).blocks.first?.wodDraft)
+        XCTAssertEqual(copiedWOD.name, "Karen", "處方（名稱/格式/動作）要帶過去")
+        XCTAssertEqual(copiedWOD.status, .notRecorded, "成績必須從零開始，不能帶著上次的完成狀態")
+    }
+
+    /// 跟 `load` 一樣，動作已從動作庫刪除的條目要被跳過並計數，不能悄悄
+    /// 讓這節被複製的課次少了幾個動作卻沒有任何提示。
+    func testCopyCountsEntriesWhoseExerciseIsGone() throws {
+        let container = try TestSupport.makeInMemoryContainer()
+        let context = ModelContext(container)
+        let exercise = makeExercise()
+        let entry = EntryDraft(exercise: exercise, setsCount: 3, load: .absolute(kg: 40, raw: "40"), targetQuantity: 10, actualQuantity: 10)
+        let session = try persist(blocks: [BlockDraft(entries: [entry])], exercise: exercise, in: context)
+
+        context.delete(exercise)
+        try context.save()
+
+        let copied = SessionDraftLoader.copy(from: session, exercises: [])
+        XCTAssertEqual(copied.droppedEntryCount, 1)
+        XCTAssertTrue(copied.blocks.isEmpty)
+    }
 }

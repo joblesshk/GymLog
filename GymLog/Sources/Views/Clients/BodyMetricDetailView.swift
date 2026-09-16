@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 import GymLogKit
 
 /// One InBody record, opened from the list on `ClientProfileView`.
@@ -211,20 +212,25 @@ struct BodyMetricDetailView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(DS.C.textLow)
             }
-            GeometryReader { geo in
-                let total = max(0.001, muscle + fat + other)
-                let spacing: CGFloat = 2
-                let usable = max(0, geo.size.width - spacing * 2)
-                HStack(spacing: spacing) {
-                    compositionSegment(language.t("肌 \(Self.format(muscle))", "Muscle \(Self.format(muscle))"), bg: DS.C.accent, fg: DS.C.onAccent)
-                        .frame(width: usable * (muscle / total))
-                    compositionSegment(language.t("脂 \(Self.format(fat))", "Fat \(Self.format(fat))"), bg: DS.C.pr.opacity(0.5), fg: DS.C.textHi)
-                        .frame(width: usable * (fat / total))
-                    compositionSegment(language.t("其他 \(Self.format(other))", "Other \(Self.format(other))"), bg: DS.C.inset, fg: DS.C.textLow)
-                        .frame(width: usable * (other / total))
-                }
+            // 2026-09-16 第二次修正：`GeometryReader` 和後來換上的自訂
+            // `Layout` 這兩版都被教練實機確認過還是太窄——都是「讓 SwiftUI
+            // 的佈局協商自己去量出容器寬度」這條路本身在這個 `List` row 情境
+            // 裡不可靠。這次不再信任任何動態量測：直接用
+            // `UIScreen.main.bounds.width` 減掉已知的外層 `.padding(.horizontal,
+            // pageMargin)` 和這張卡片自己的 `.padding(14)`，在建構時就算出一
+            // 個確定的寬度，三段用普通 `HStack` + 明確 `.frame(width:)`，不
+            // 經過任何「詢問容器多寬」的環節。
+            let barWidth = UIScreen.main.bounds.width - 2 * DS.Space.pageMargin - 2 * 14
+            let total = max(0.001, muscle + fat + other)
+            HStack(spacing: 2) {
+                compositionSegment(language.t("肌 \(Self.format(muscle))", "Muscle \(Self.format(muscle))"), bg: DS.C.accent, fg: DS.C.onAccent)
+                    .frame(width: Self.segmentWidth(muscle, total: total, barWidth: barWidth))
+                compositionSegment(language.t("脂 \(Self.format(fat))", "Fat \(Self.format(fat))"), bg: DS.C.pr.opacity(0.5), fg: DS.C.textHi)
+                    .frame(width: Self.segmentWidth(fat, total: total, barWidth: barWidth))
+                compositionSegment(language.t("其他 \(Self.format(other))", "Other \(Self.format(other))"), bg: DS.C.inset, fg: DS.C.textLow)
+                    .frame(width: Self.segmentWidth(other, total: total, barWidth: barWidth))
             }
-            .frame(height: 34)
+            .frame(width: barWidth, height: 34)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             HStack(spacing: 14) {
                 metricChip(metric.bodyFatPercent.map { (language.t("體脂率", "Body Fat"), Self.format($0), "%") })
@@ -244,8 +250,16 @@ struct BodyMetricDetailView: View {
             .foregroundStyle(fg)
             .lineLimit(1)
             .minimumScaleFactor(0.6)
-            .frame(maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(bg)
+    }
+
+    /// `weight` 佔 `total` 的比例，乘上扣掉段間距後的可用寬度。`total` 保證
+    /// 由呼叫端傳入時已經是至少 0.001（不會是 0），這裡不用再防一次除以零。
+    private static func segmentWidth(_ weight: Double, total: Double, barWidth: CGFloat) -> CGFloat {
+        let spacing: CGFloat = 2
+        let usable = max(0, barWidth - spacing * 2)
+        return usable * (max(0, weight) / total)
     }
 
     @ViewBuilder
@@ -315,6 +329,7 @@ struct BodyMetricDetailView: View {
         }
     }
 }
+
 
 /// 區間條——BMI／內臟脂肪等級共用的視覺語彙（GymLog 改版設計 §5）：分段寬度
 /// 對應各級距的實際數值跨度、指針依真實數值定位；沒有官方分級來源，門檻取

@@ -696,6 +696,74 @@ public enum SeedImporter {
         return changed
     }
 
+    /// 2026-09-16：從兩位學員（Example Athlete A、Example Athlete B）的教練 Excel
+    /// 訓練紀錄中萃取出的 58 個常見動作，之前完全不在庫裡（用別名比對過，
+    /// 排除了純標點/大小寫差異的假陽性，例如 "High row unilateral" 其實就是
+    /// 已存在的 "High row (unilateral)"）。同上，ids 與
+    /// `Resources/exercise_library_seed.json` 對應。
+    public static let libraryAdditionIDs20260916: [String] = [
+        "ex-663266e4", "ex-dd58671c", "ex-be94615b", "ex-7ba18d46", "ex-f09deb9a",
+        "ex-6668b450", "ex-aeec5aa1", "ex-6a60e964", "ex-9bf2a3cd", "ex-ab63a873",
+        "ex-ce5d154a", "ex-4e322498", "ex-286dd122", "ex-85a2151e", "ex-87b3686f",
+        "ex-e8ecdf38", "ex-a59fa6e0", "ex-8415812b", "ex-47770467", "ex-a2582a4c",
+        "ex-91269c92", "ex-0ecd8c9d", "ex-2b91d5dd", "ex-8d54a8ef", "ex-5fa36308",
+        "ex-966fe2f5", "ex-0dec11c8", "ex-beb86180", "ex-dd3e882f", "ex-b6eaac46",
+        "ex-2eda03c8", "ex-a62d454c", "ex-f9685a70", "ex-4b82d1f1", "ex-d6949a32",
+        "ex-f77f92bc", "ex-700e182b", "ex-eae66146", "ex-6760bf3d", "ex-954df3ee",
+        "ex-67b42521", "ex-ac4527f4", "ex-22c5bcf9", "ex-451eaee4", "ex-2d047587",
+        "ex-48094ad3", "ex-899b2eb5", "ex-b184c857", "ex-86436867", "ex-49181262",
+        "ex-0ee4de89", "ex-6dba0069", "ex-fcfe8f08", "ex-614bd2e6", "ex-ff368f42",
+        "ex-675a7e5b", "ex-c4b3dfe5", "ex-5d119fa7",
+    ]
+
+    /// One-time heal for devices whose library predates the 2026-09-16
+    /// Excel-derived additions. Same shape and same reasoning as
+    /// `applyExerciseLibraryAdditions20260907` -- see
+    /// `applyLibraryAdditions(ids:seedURL:context:)`.
+    @discardableResult
+    public static func applyExerciseLibraryAdditions20260916(seedURL: URL, context: ModelContext) throws -> Int {
+        try applyLibraryAdditions(ids: libraryAdditionIDs20260916, seedURL: seedURL, context: context)
+    }
+
+    /// 同一批 2026-09-16 萃取裡，另外 8 個動作原本就在庫裡、只是這兩位學員的
+    /// Excel 用了不同措辭（例如 "Barbell squat" 其實就是已有的 "Back Squat"）
+    /// —— 這裡不新增行，只把這些措辭補進既有行的 `aliases`，這樣之後語音指令
+    /// 或匯入比對才認得出來。跟 `applyExerciseDisciplineClassification20260909`
+    /// 同一種「只動一個欄位、只加不減」的安全heal手法，不會覆蓋教練自己在
+    /// 動作庫裡改過的名稱或分類。冪等：已經有的別名不會重複加。
+    private static let aliasAdditions20260916: [String: [String]] = [
+        "ex-e9ef8fb3": ["Barbell squat"],           // Back Squat
+        "ex-d7ed000f": ["Hip abduction superset"],  // Hip abduction
+        "ex-4f57f3d5": ["Seated row narrow grip"],  // Seated row narrow
+        "ex-fcf79b0c": ["Side extension"],          // Back extension (side)
+        "ex-5600ec08": ["Machine row reardelt"],    // Machine rear row
+        "ex-1c6724ff": ["Spider curl reverse eccentric"], // Spider curl
+        "ex-f0582022": ["Split squat 1.5"],         // DB split squat 1.5
+        "ex-90a95057": ["Chest support row"],       // Chest support DB row
+    ]
+
+    @discardableResult
+    public static func applyExerciseLibraryAliasAdditions20260916(context: ModelContext) throws -> Int {
+        let exercises = try context.fetch(FetchDescriptor<Exercise>())
+        let byId = Dictionary(uniqueKeysWithValues: exercises.map { ($0.id, $0) })
+        var changed = 0
+        for (id, aliasesToAdd) in aliasAdditions20260916 {
+            guard let exercise = byId[id] else { continue }
+            for alias in aliasesToAdd where !exercise.aliases.contains(alias) {
+                exercise.aliases.append(alias)
+                changed += 1
+            }
+        }
+        guard changed > 0 else { return 0 }
+        do {
+            try context.save()
+        } catch {
+            context.rollback()
+            throw error
+        }
+        return changed
+    }
+
     /// Shared implementation behind every dated "add N new rows to an
     /// already-populated library" heal.
     ///

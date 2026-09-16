@@ -14,6 +14,9 @@ struct SessionStartView: View {
     var unfinishedSession: WorkoutSession? = nil
     var onStartEmpty: () -> Void
     var onCopyLast: () -> Void
+    /// 2026-09-16：「從歷史記錄選擇」——不限最近一次，教練從完整歷史裡挑
+    /// 任何一天複製（包含當天完整的區塊、動作與逐輪細節，不是只帶第一組）。
+    var onCopyFromHistory: () -> Void = {}
     var onSelectTemplate: (SessionTemplate) -> Void
     var onContinueUnfinished: (WorkoutSession) -> Void = { _ in }
 
@@ -73,6 +76,16 @@ struct SessionStartView: View {
                 .buttonStyle(.gymSecondary)
                 .disabled(!hasPriorSession)
                 .opacity(hasPriorSession ? 1 : 0.4)
+
+                Button {
+                    onCopyFromHistory()
+                } label: {
+                    Text(language.t("從歷史記錄選擇", "Choose from History"))
+                }
+                .buttonStyle(.gymSecondary)
+                .disabled(!hasPriorSession)
+                .opacity(hasPriorSession ? 1 : 0.4)
+                .accessibilityIdentifier("copy-from-history-button")
 
                 Button {
                     showTemplatePicker = true

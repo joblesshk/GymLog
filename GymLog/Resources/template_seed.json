@@ -43,6 +43,1116 @@
           ]
         }
       ]
+    },
+    {
+      "id": "tpl-eed8a3f6",
+      "name": "推系訓練 / Push day",
+      "templateNote": "取自客戶歷史紀錄中最常見的推系動作組合",
+      "order": 100,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Shoulder Press",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "range",
+                "low": 8,
+                "high": 12,
+                "raw": "8-12"
+              }
+            }
+          ]
+        },
+        {
+          "order": 1,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Incline bench press",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "range",
+                "low": 8,
+                "high": 12,
+                "raw": "8-12"
+              }
+            }
+          ]
+        },
+        {
+          "order": 2,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Bench press",
+              "defaultSets": 4,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 8,
+                "raw": "8"
+              }
+            }
+          ]
+        },
+        {
+          "order": 3,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Chest dips",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 12,
+                "raw": "12"
+              }
+            }
+          ]
+        },
+        {
+          "order": 4,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Machine chest fly",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 15,
+                "raw": "15"
+              }
+            }
+          ]
+        },
+        {
+          "order": 5,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Cable triceps pressdown",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 12,
+                "raw": "12"
+              }
+            }
+          ]
+        },
+        {
+          "order": 6,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Bosu straight arm plank",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "time",
+                "seconds": 30,
+                "raw": "30s"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-47873a92",
+      "name": "拉系訓練 / Pull day",
+      "templateNote": "取自客戶歷史紀錄中最常見的拉系動作組合",
+      "order": 101,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Deadlift",
+              "defaultSets": 4,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 6,
+                "raw": "6"
+              }
+            }
+          ]
+        },
+        {
+          "order": 1,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Seated row narrow",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 10,
+                "raw": "10"
+              }
+            }
+          ]
+        },
+        {
+          "order": 2,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "High row",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 10,
+                "raw": "10"
+              }
+            }
+          ]
+        },
+        {
+          "order": 3,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Pull up w/assist",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 8,
+                "raw": "8"
+              }
+            }
+          ]
+        },
+        {
+          "order": 4,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "DB pullover",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 12,
+                "raw": "12"
+              }
+            }
+          ]
+        },
+        {
+          "order": 5,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Back extension",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 15,
+                "raw": "15"
+              }
+            }
+          ]
+        },
+        {
+          "order": 6,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Cable core rotation",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "perSide",
+                "left": 10,
+                "right": 10,
+                "raw": "10,10"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-c565eedc",
+      "name": "腿系訓練 / Leg day",
+      "templateNote": "取自客戶歷史紀錄中最常見的腿系動作組合",
+      "order": 102,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Back Squat",
+              "defaultSets": 4,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 6,
+                "raw": "6"
+              }
+            }
+          ]
+        },
+        {
+          "order": 1,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "SL RDL",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "perSide",
+                "left": 10,
+                "right": 10,
+                "raw": "10,10"
+              }
+            }
+          ]
+        },
+        {
+          "order": 2,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Bulgarian split squat",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "perSide",
+                "left": 10,
+                "right": 10,
+                "raw": "10,10"
+              }
+            }
+          ]
+        },
+        {
+          "order": 3,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Leg press",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 12,
+                "raw": "12"
+              }
+            }
+          ]
+        },
+        {
+          "order": 4,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Leg extension",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 15,
+                "raw": "15"
+              }
+            }
+          ]
+        },
+        {
+          "order": 5,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Leg curl",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 15,
+                "raw": "15"
+              }
+            }
+          ]
+        },
+        {
+          "order": 6,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Machine hip thrust",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 12,
+                "raw": "12"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-1369f2d3",
+      "name": "全身訓練 / Full body day",
+      "templateNote": "取自客戶歷史紀錄中最常見的全身訓練動作組合",
+      "order": 103,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Hack squat",
+              "defaultSets": 4,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 8,
+                "raw": "8"
+              }
+            }
+          ]
+        },
+        {
+          "order": 1,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Bench press",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 8,
+                "raw": "8"
+              }
+            }
+          ]
+        },
+        {
+          "order": 2,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "DB row",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 10,
+                "raw": "10"
+              }
+            }
+          ]
+        },
+        {
+          "order": 3,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Walking lunges",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "range",
+                "low": 10,
+                "high": 10,
+                "raw": "10-10"
+              }
+            }
+          ]
+        },
+        {
+          "order": 4,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Box step to press",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 10,
+                "raw": "10"
+              }
+            }
+          ]
+        },
+        {
+          "order": 5,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "KB swing",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 15,
+                "raw": "15"
+              }
+            }
+          ]
+        },
+        {
+          "order": 6,
+          "blockType": "single",
+          "restSeconds": 60,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Plank tuck in",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 15,
+                "raw": "15"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-2e8688d3",
+      "name": "推拉雪橇 Superset",
+      "templateNote": "推拉交替雪橇，全身爆發力與心肺",
+      "order": 200,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Sled push",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "time",
+                "seconds": 30,
+                "raw": "30s"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "Sled pull",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "time",
+                "seconds": 30,
+                "raw": "30s"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-4963373e",
+      "name": "背伸展+側背伸展 Superset",
+      "templateNote": "",
+      "order": 201,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Back extension",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 15,
+                "raw": "15"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "Back extension (side)",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 12,
+                "raw": "12"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-11248af5",
+      "name": "高翻+肩推 Superset",
+      "templateNote": "",
+      "order": 202,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Clean",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 6,
+                "raw": "6"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "Shoulder Press",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 8,
+                "raw": "8"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-eeb90c15",
+      "name": "髖外展內收 Superset",
+      "templateNote": "",
+      "order": 203,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Hip abduction",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 15,
+                "raw": "15"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "Hip adduction",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 15,
+                "raw": "15"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-970921f6",
+      "name": "單臂高位划船 Superset",
+      "templateNote": "",
+      "order": 204,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "High row",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 10,
+                "raw": "10"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "High row (unilateral)",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "perSide",
+                "left": 10,
+                "right": 10,
+                "raw": "10,10"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-0dd1af33",
+      "name": "器械臀推+爬行 Superset",
+      "templateNote": "",
+      "order": 205,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Machine hip thrust",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 12,
+                "raw": "12"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "Plank tuck in",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 15,
+                "raw": "15"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-81bbe465",
+      "name": "坐姿划船雙握距 Superset",
+      "templateNote": "",
+      "order": 206,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Seated row narrow",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 10,
+                "raw": "10"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "Seated row wide",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 10,
+                "raw": "10"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-5640eba9",
+      "name": "腿彎舉+伸展 Superset",
+      "templateNote": "",
+      "order": 207,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Leg curl",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 15,
+                "raw": "15"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "Leg extension",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 15,
+                "raw": "15"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-82c5d9c9",
+      "name": "啞鈴划船+直臂上拉 Superset",
+      "templateNote": "",
+      "order": 208,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "DB row",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 10,
+                "raw": "10"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "DB pullover",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 12,
+                "raw": "12"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-ad96810f",
+      "name": "壺鈴擺盪+爬行 Superset",
+      "templateNote": "",
+      "order": 209,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "KB swing",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 15,
+                "raw": "15"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "Plank tuck in",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 15,
+                "raw": "15"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-0601a70f",
+      "name": "阿諾德推舉+過頭三頭伸展 Superset",
+      "templateNote": "",
+      "order": 210,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Arnold press",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 10,
+                "raw": "10"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "DB OH triceps extension",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 12,
+                "raw": "12"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-d6a7e9d2",
+      "name": "啞鈴胸推+飛鳥 Superset",
+      "templateNote": "",
+      "order": 211,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "DB chest press",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 10,
+                "raw": "10"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "Machine chest fly",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 12,
+                "raw": "12"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-56d3b67f",
+      "name": "箱步接深蹲 Superset",
+      "templateNote": "",
+      "order": 212,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Box step to press",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 10,
+                "raw": "10"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "Narrow squat",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 10,
+                "raw": "10"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-1488c3a7",
+      "name": "腿彎舉+臀部保持 Superset",
+      "templateNote": "",
+      "order": 213,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Leg curl",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 12,
+                "raw": "12"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "Machine hip thrust",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "time",
+                "seconds": 20,
+                "raw": "20s"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-44fddff6",
+      "name": "坐姿划船+壺鈴擺盪 Superset",
+      "templateNote": "",
+      "order": 214,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Seated row wide",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 10,
+                "raw": "10"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "KB swing",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 15,
+                "raw": "15"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-f0ab7589",
+      "name": "窄握下拉+繩索直臂下拉 Superset",
+      "templateNote": "",
+      "order": 215,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Latpull narrow",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 10,
+                "raw": "10"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "Cable pullover",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 12,
+                "raw": "12"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tpl-ss-9bbaa068",
+      "name": "引體向上+輔助撐體 Superset",
+      "templateNote": "",
+      "order": 216,
+      "blocks": [
+        {
+          "order": 0,
+          "blockType": "superset",
+          "restSeconds": 75,
+          "slots": [
+            {
+              "order": 0,
+              "exerciseName": "Chin up w/assist",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 8,
+                "raw": "8"
+              }
+            },
+            {
+              "order": 1,
+              "exerciseName": "Dips w/legs",
+              "defaultSets": 3,
+              "defaultRepTarget": {
+                "kind": "fixed",
+                "value": 10,
+                "raw": "10"
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }

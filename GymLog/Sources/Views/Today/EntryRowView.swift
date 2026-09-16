@@ -102,19 +102,14 @@ struct EntryRowView: View {
                 Button {
                     exercisePickerPresentation = .wheel
                 } label: {
-                    // 中文為主行、英文降一級不再與中文擠同一行（GymLog 改版設計
-                    // §3）。`accessibilityLabel` 固定用原本合併字串，行為與改版
-                    // 前完全一致，不影響既有 UI 測試對這顆按鈕 `.label` 的判斷。
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(draft.exercise.nameZh.isEmpty ? draft.exercise.canonicalName : draft.exercise.nameZh)
-                            .font(DS.F.cardTitle)
-                            .foregroundStyle(DS.C.textHi)
-                        if !draft.exercise.nameZh.isEmpty {
-                            Text(draft.exercise.canonicalName)
-                                .font(.system(size: 11))
-                                .foregroundStyle(DS.C.textLow)
-                        }
-                    }
+                    // 2026-09-16 改回原版樣式：中文名 + 括號英文名同一行、同字
+                    // 級（`Exercise.displayName`，已經按 appLanguage 決定誰在
+                    // 前面），不再是「中文主行、英文降級副行」的堆疊版型。
+                    Text(draft.exercise.displayName)
+                        .font(DS.F.cardTitle)
+                        .foregroundStyle(DS.C.textHi)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("entry-exercise-name")

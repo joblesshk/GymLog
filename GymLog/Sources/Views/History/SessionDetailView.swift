@@ -15,6 +15,12 @@ struct SessionDetailView: View {
 
     // 历史课次编辑及补录日期（2026-09-06 审查报告"适合当前范围的功能"第二批）。
     @State private var showingEditSheet = false
+    // 2026-09-16「把某一天的運動組合設計成範本」：命名 → `TemplateFromSessionBuilder`
+    // 建立並插入模板 → 提示結果。
+    @State private var showingSaveAsTemplateSheet = false
+    @State private var saveAsTemplateResultMessage: String?
+    @State private var saveAsTemplateErrorMessage: String?
+    @Environment(\.modelContext) private var modelContext
 
     // 课后摘要（同批次）：判断本次课里哪些动作创造了新 PR，需要该学员这个动作的
     // 完整跨课次历史，所以在这里查询，而不是在纯格式化的
@@ -52,7 +58,7 @@ struct SessionDetailView: View {
                     .listRowBackground(Color.clear)
             }
             Section {
-                TrainingInsightView(session: session)
+                EnergyReportView(report: TrainingInsights.report(session))
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
             }
@@ -123,6 +129,15 @@ struct SessionDetailView: View {
             .font(.system(size: 14, weight: .medium))
             .foregroundStyle(DS.C.textHi)
             .tint(DS.C.textLow)
+
+            // 2026-09-16：AI 訓練評價移到整頁最下面，且不再自動生成
+            // （`TrainingInsightView` 已經拿掉那個 `.task` 自動觸發）——教練
+            // 翻歷史課次的第一眼要看到的是這節課本身的數據，不是等雲端評價。
+            Section {
+                TrainingInsightView(session: session)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
         }
         .scrollContentBackground(.hidden)
         .background(DS.C.canvas)
@@ -158,6 +173,14 @@ struct SessionDetailView: View {
                     } label: {
                         Label(L("分享摘要", "Share Summary"), systemImage: "square.and.arrow.up")
                     }
+                    // 2026-09-16：「從歷史記錄的某天生成模板」——把這節課的區塊／
+                    // 動作組合存成一份可重複使用的組合模板（不含重量，模板本
+                    // 來就不帶重量，見 `TemplateFromSessionBuilder`）。
+                    Button {
+                        showingSaveAsTemplateSheet = true
+                    } label: {
+                        Label(L("存為組合模板", "Save as Template"), systemImage: "square.stack.3d.up")
+                    }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
@@ -165,6 +188,22 @@ struct SessionDetailView: View {
         }
         .sheet(isPresented: $showingEditSheet) {
             SessionEditSheet(session: session)
+        }
+        .sheet(isPresented: $showingSaveAsTemplateSheet) {
+            SaveSessionAsTemplateSheet(session: session) { name in
+                showingSaveAsTemplateSheet = false
+                saveSessionAsTemplate(name: name)
+            }
+        }
+        .alert(L("已存為組合模板", "Saved as Template"), isPresented: Binding(get: { saveAsTemplateResultMessage != nil }, set: { if !$0 { saveAsTemplateResultMessage = nil } })) {
+            Button(L("好", "OK"), role: .cancel) {}
+        } message: {
+            Text(saveAsTemplateResultMessage ?? "")
+        }
+        .alert(L("存為組合模板失敗", "Couldn't Save as Template"), isPresented: Binding(get: { saveAsTemplateErrorMessage != nil }, set: { if !$0 { saveAsTemplateErrorMessage = nil } })) {
+            Button(L("好", "OK"), role: .cancel) {}
+        } message: {
+            Text(saveAsTemplateErrorMessage ?? "")
         }
         .sheet(isPresented: Binding(get: { summaryText != nil }, set: { if !$0 { summaryText = nil } })) {
             if let summaryText {
@@ -193,6 +232,25 @@ struct SessionDetailView: View {
             }
         }
         return result
+    }
+
+    private func saveSessionAsTemplate(name: String) {
+        do {
+            let result = try TemplateFromSessionBuilder.build(from: session, name: name, in: modelContext)
+            if result.droppedEntryCount > 0 {
+                saveAsTemplateResultMessage = L(
+                    "已存為組合模板「\(result.template.name)」，其中 \(result.droppedEntryCount) 個動作已從動作庫刪除或合併，未能加入模板。",
+                    "Saved as template \"\(result.template.name)\" — \(result.droppedEntryCount) exercise(s) had been deleted or merged from the library and couldn't be included."
+                )
+            } else {
+                saveAsTemplateResultMessage = L(
+                    "已存為組合模板「\(result.template.name)」，可以在「動作庫」的「組合模板」裡找到。",
+                    "Saved as template \"\(result.template.name)\" — find it under \"Exercises\" › \"Templates\"."
+                )
+            }
+        } catch {
+            saveAsTemplateErrorMessage = error.localizedDescription
+        }
     }
 
     /// "\(session.id)#\(block.order)" -> `WODPRAnalyzer.RecordStatus` for
@@ -551,20 +609,44 @@ private struct SetRow: View {
 
             loadValue
 
-            Text(L("目標 \(set.target.displayText) · 完成 \(set.actual.displayText)", "Target \(set.target.displayText) · Actual \(set.actual.displayText)"))
-                .font(.system(size: 12, weight: .regular))
-                .foregroundStyle(DS.C.textMid)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            // 2026-09-16（GymLog 改版設計 §6 逐組行規格）：實際完成單獨用
+            // 「× 8」這種緊湊、加粗的記法當主角，跟目標（小字、靠右、次要）
+            // 拉開視覺層級——原本「目標 X · 完成 Y」擠在同一行同樣的灰字裡，
+            // 掃一眼分不出教練真正做了多少。
+            Text(compactActualText)
+                .font(.system(size: 15, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(DS.C.textHi)
+
+            Spacer(minLength: 4)
 
             if isPR {
                 DataTagView(kind: .pr)
+            } else {
+                Text(L("目標 \(set.target.displayText)", "Target \(set.target.displayText)"))
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(DS.C.textLow)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
         }
         .padding(.vertical, 9)
         .padding(.horizontal, isPR ? 10 : 0)
         .background(isPR ? DS.C.prBg : Color.clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    /// 「× 8」這種緊湊記法只對「次數型」量化（固定/區間/每側/輪次）有意義；
+    /// 時間、距離這類量化本身已經是自然的度量單位，不需要、也不該加「×」
+    /// 前綴（沒有人會說「×0:30」），直接沿用 `displayText`。
+    private var compactActualText: String {
+        switch set.actual {
+        case .fixed(let value, _): return "× \(value)"
+        case .range(let low, let high, _): return "× \(low)-\(high)"
+        case .rounds(let count, _): return "× \(count)"
+        case .perSide(let left, let right, _): return left == right ? "× \(left)" : "× \(left)/\(right)"
+        case .time, .distance: return set.actual.displayText
+        case .unknown: return "—"
+        }
     }
 
     @ViewBuilder
@@ -587,6 +669,64 @@ private struct SetRow: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .frame(width: 62, alignment: .leading)
+        }
+    }
+}
+
+/// 「存為組合模板」的命名頁（2026-09-16）——同一套樣式跟 `TemplateLibraryView`
+/// 的 `NewTemplateNameSheet`一致，但獨立一份而不是共用：那邊是「新建空模
+/// 板」，這邊預先帶入根據這節課日期猜的名稱，兩邊未來各自調整文案不需要
+/// 互相牽動。
+private struct SaveSessionAsTemplateSheet: View {
+    let session: WorkoutSession
+    let onSave: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
+
+    init(session: WorkoutSession, onSave: @escaping (String) -> Void) {
+        self.session = session
+        self.onSave = onSave
+        _name = State(initialValue: L(
+            "\(SessionDateFormat.display.string(from: session.date)) 的訓練",
+            "Session from \(SessionDateFormat.display.string(from: session.date))"
+        ))
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField(language.t("範本名稱", "Template name"), text: $name)
+                } footer: {
+                    Text(language.t(
+                        "會把這節課的區塊與動作組合存成範本，供以後的課次直接套用；重量不會存進範本，套用時一律按當時的最近記錄自動帶入。",
+                        "This saves the blocks and exercises in this session as a reusable template for future sessions; weights aren't stored — a session started from this template always prefills weight from the most recent record at the time."
+                    ))
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(DS.C.canvas)
+            .font(DS.F.listRow)
+            .foregroundStyle(DS.C.textHi)
+            .navigationTitle(language.t("存為組合模板", "Save as Template"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(language.t("取消", "Cancel")) { dismiss() }
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(DS.C.textHi)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(language.t("儲存", "Save")) {
+                        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        onSave(trimmed.isEmpty ? name : trimmed)
+                    }
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(DS.C.accent)
+                }
+            }
         }
     }
 }
