@@ -23,6 +23,14 @@ enum BodyMetricTrend: CaseIterable, Hashable {
         case .muscle: return metric.skeletalMuscleKg
         }
     }
+
+    func value(of point: BodyMetricTrendPoint) -> Double? {
+        switch self {
+        case .weight: return point.weightKg
+        case .bodyFat: return point.bodyFatPercent
+        case .muscle: return point.skeletalMuscleKg
+        }
+    }
 }
 
 /// 学员 tab (CONTRACT-M4.md §4.3), replacing the switcher-list role
@@ -271,7 +279,7 @@ struct ClientProfileView: View {
     @ViewBuilder
     private func inBodySection(for client: Client) -> some View {
         Section {
-            let metrics = (client.bodyMetrics ?? []).sorted { $0.date > $1.date }
+            let metrics = Array(BodyMetricTrendSeries.sorted(client.bodyMetrics ?? []).reversed())
             if !metrics.isEmpty {
                 overviewCard(metrics: metrics)
                     .listRowInsets(EdgeInsets())
@@ -428,92 +436,76 @@ struct ClientProfileView: View {
         .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    /// 從真實資料點裡等距挑出最多 4 個日期當 X 軸刻度——不透過 Charts 的
-    /// `.automatic` 在 `Date` 定義域上自己找「好看的整數日期」，這批資料點數
-    /// 少、時間跨度窄（可能只是同一個月裡的幾次量測），教練實測 `.automatic`
-    /// 找出來的刻度會全部落在同一個（錯誤）日期上。永遠保證回傳的每個
-    /// `Date` 都真的來自 `points`，橫軸標籤就不可能顯示資料裡沒有的日期。
-    /// 從真實資料點裡等距挑出最多 4 個日期——依索引均勻抽樣。教練連續兩輪
-    /// 實測 `AxisMarks` 都定位不對（先是全部刻度顯示同一個日期，改成明確傳
-    /// 入這批日期後變成全部擠在最左邊），不管挑的日期值本身對不對，Charts
-    /// 把它們放到 x 軸「哪個像素位置」這一步在這張圖上就是不可靠。第三次不
-    /// 再信任 `chartXAxis`／`AxisMarks` 的定位——這批日期改成拿去手排一條
-    /// 普通 `HStack` + `Spacer` 的文字列（`sessionTrendChart` 那條「本次課走
-    /// 勢」列本來就是這樣做，一直沒被回報有問題），完全不經過 Charts 的座標
-    /// 系統。
-    private func axisTickDates(from points: [(id: String, date: Date, value: Double)]) -> [Date] {
-        guard points.count > 1 else { return points.map(\.date) }
-        let tickCount = min(4, points.count)
-        return (0..<tickCount).map { i in
-            let index = Int((Double(i) * Double(points.count - 1) / Double(tickCount - 1)).rounded())
-            return points[min(max(index, 0), points.count - 1)].date
-        }
-    }
-
-    /// 圖表下方手排的日期列——`Spacer()` 之間均勻分配寬度，不依賴 Charts 的
-    /// 座標系統，也不必是每個日期跟折線上對應資料點嚴格對齊的刻度，純粹是
-    /// 「這條線大致覆蓋哪段時間」的參考，跟 `sessionTrendChart` 的「本次課
-    /// 走勢」列同一個做法。
-    private func dateAxisLabelsRow(dates: [Date]) -> some View {
-        HStack {
-            ForEach(Array(dates.enumerated()), id: \.offset) { index, date in
-                Text(date.formatted(.dateTime.month(.defaultDigits).day()))
-                if index != dates.count - 1 { Spacer() }
-            }
-        }
-        .font(.system(size: 10))
-        .foregroundStyle(DS.C.textLow)
-    }
-
     private func trendCard(metrics: [BodyMetric]) -> some View {
-        let ascending = metrics.sorted { $0.date < $1.date }
-        let points = ascending.compactMap { m -> (id: String, date: Date, value: Double)? in
-            trendMetric.value(of: m).map { (m.id, m.date, $0) }
+        // Select the shared recent-record window before looking at the
+        // selected metric. A nil body-fat value therefore remains a slot in
+        // the body-fat chart and cannot cause an older seventh record to be
+        // pulled into that one metric.
+        let series = BodyMetricTrendSeries.points(from: metrics)
+        let valuedPoints = series.compactMap { point -> (point: BodyMetricTrendPoint, value: Double)? in
+            guard let value = trendMetric.value(of: point), value.isFinite else { return nil }
+            return (point, value)
         }
+        let lastValuedIndex = valuedPoints.last?.point.index
+        let segmentByIndex = trendSegments(for: series)
         return VStack(alignment: .leading, spacing: 12) {
+            Text(language.t("最近 \(series.count) 次量測", "Latest \(series.count) measurements"))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(DS.C.textHi)
             GymSegmentedControl(selection: $trendMetric, options: BodyMetricTrend.allCases, label: { $0.label })
 
-            if points.count >= 2 {
-                // 2026-09-16：縱軸改成貼著實際數值範圍的緊湊區間，而不是任由
-                // Charts 的預設 domain（通常會把 0 也框進去）把幾公斤內的真實
-                // 波動壓成一條幾乎看不出變化的橫線；上下各留 15% 留白，至少
-                // 留白 0.5（同一指標多次量測完全相同時，domain 不能退化成一個
-                // 點）。橫軸改回顯示日期刻度，不再整條隱藏。
-                let values = points.map(\.value)
+            if !series.isEmpty && !valuedPoints.isEmpty {
+                let values = valuedPoints.map(\.value)
                 let minValue = values.min() ?? 0
                 let maxValue = values.max() ?? 0
+                // Keep the Y domain compact while remaining valid when every
+                // selected record has the same value.
                 let padding = Swift.max((maxValue - minValue) * 0.15, 0.5)
                 Chart {
-                    ForEach(Array(points.enumerated()), id: \.element.id) { index, point in
-                        LineMark(x: .value("date", point.date), y: .value("value", point.value))
-                            .foregroundStyle(DS.C.accent)
-                            .lineStyle(StrokeStyle(lineWidth: 2.5, lineJoin: .round))
-                        PointMark(x: .value("date", point.date), y: .value("value", point.value))
-                            .symbolSize(index == points.count - 1 ? 60 : 20)
+                    ForEach(valuedPoints, id: \.point.id) { item in
+                        LineMark(
+                            x: .value("measurement", Double(item.point.index)),
+                            y: .value("value", item.value),
+                            series: .value("segment", segmentByIndex[item.point.index] ?? item.point.index)
+                        )
+                        .foregroundStyle(DS.C.accent)
+                        .lineStyle(StrokeStyle(lineWidth: 2.5, lineJoin: .round))
+                        PointMark(x: .value("measurement", Double(item.point.index)), y: .value("value", item.value))
+                            .symbolSize(item.point.index == lastValuedIndex ? 60 : 20)
                             .foregroundStyle(DS.C.accent)
                     }
                 }
                 .chartYScale(domain: (minValue - padding)...(maxValue + padding))
-                // 2026-09-16 第三次修正：連續兩版 `chartXAxis`／`AxisMarks` 都
-                // 被教練實測定位錯誤（同一日期 → 全擠左邊），問題出在 Charts
-                // 把刻度值換算成 x 軸像素位置這一步，不是刻度值本身。整條
-                // `chartXAxis` 拿掉，日期改到圖表下方另起一條普通文字列自己
-                // 排版（見下面 `dateAxisLabelsRow`），不再經過 Charts 的座標
-                // 系統。
-                .chartXAxis(.hidden)
+                // Date labels use the exact same discrete index as each mark,
+                // so uneven elapsed dates and same-day measurements cannot
+                // drift away from their points.
+                .chartXScale(domain: -0.5...max(0.5, Double(series.count - 1) + 0.5))
+                .chartXAxis {
+                    AxisMarks(values: series.map { Double($0.index) }) { _ in
+                        AxisGridLine().foregroundStyle(DS.C.inset)
+                    }
+                }
                 .chartYAxis {
                     AxisMarks(values: .automatic(desiredCount: 3)) { _ in
                         AxisGridLine().foregroundStyle(DS.C.inset)
                     }
                 }
                 .frame(height: 106)
+                .accessibilityIdentifier("body-metric-trend-chart")
 
-                dateAxisLabelsRow(dates: axisTickDates(from: points))
+                HStack(spacing: 0) {
+                    ForEach(series) { point in
+                        Text(point.date.formatted(.dateTime.month(.defaultDigits).day()))
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .font(.system(size: 10))
+                .foregroundStyle(DS.C.textLow)
 
                 HStack {
-                    Text(language.t("\(metrics.count) 次量測", "\(metrics.count) measurements"))
+                    Text(language.t("共 \(series.count) 次量測", "\(series.count) measurements"))
                     Spacer()
-                    if let first = points.first?.value, let last = points.last?.value {
+                    if let first = valuedPoints.first?.value, let last = valuedPoints.last?.value {
                         let diff = last - first
                         Text("\(diff >= 0 ? "+" : "")\(Self.fmt(diff))")
                             .font(.system(size: 12, weight: .semibold))
@@ -522,23 +514,45 @@ struct ClientProfileView: View {
                 }
                 .font(.system(size: 11))
                 .foregroundStyle(DS.C.textLow)
+            } else if series.isEmpty {
+                trendEmptyState("新增量測即可看到趨勢", "Add a measurement to see a trend")
             } else {
-                VStack(spacing: 6) {
-                    Circle().fill(DS.C.accent).frame(width: 10, height: 10)
-                    Text(language.t("再量一次就能看到趨勢", "Add one more to see a trend"))
-                        .font(.system(size: 12))
-                        .foregroundStyle(DS.C.textMid)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 20)
-                .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                trendEmptyState("此指標暫無數據", "No data for this metric yet")
             }
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .gymCard()
         .padding(.horizontal, DS.Space.pageMargin)
+    }
+
+    /// Assign a separate Charts series to each run of finite values. A nil
+    /// slot advances the series number, which makes the line visibly break
+    /// instead of joining measurements on either side of a missing value.
+    private func trendSegments(for series: [BodyMetricTrendPoint]) -> [Int: Int] {
+        var result: [Int: Int] = [:]
+        var segment = 0
+        for point in series {
+            if trendMetric.value(of: point)?.isFinite == true {
+                result[point.index] = segment
+            } else {
+                segment += 1
+            }
+        }
+        return result
+    }
+
+    private func trendEmptyState(_ zh: String, _ en: String) -> some View {
+        VStack(spacing: 6) {
+            Circle().fill(DS.C.accent).frame(width: 10, height: 10)
+            Text(language.t(zh, en))
+                .font(.system(size: 12))
+                .foregroundStyle(DS.C.textMid)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
+        .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     fileprivate static func fmt(_ d: Double) -> String {

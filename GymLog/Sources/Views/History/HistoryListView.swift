@@ -57,6 +57,7 @@ struct HistoryListView: View {
     // 后生成 Exchange 包文件，`sharedResultsURL` 同样兼做 `.sheet` 触发条件。
     @State private var showingShareResults = false
     @State private var sharedResultsURL: URL?
+    @State private var sharedResultsText = ""
     @State private var shareResultsErrorMessage: String?
     // 「今天」里还开着另一份没暫存/結束的草稿时，不能直接把这节课载进去覆盖它。
     @State private var showingOpenDraftConflict = false
@@ -330,7 +331,7 @@ struct HistoryListView: View {
             }
             .sheet(isPresented: Binding(get: { sharedResultsURL != nil }, set: { if !$0 { sharedResultsURL = nil } })) {
                 if let sharedResultsURL {
-                    ActivityShareSheet(activityItems: [sharedResultsURL, ExchangeExporter.shareReminderText(payloadKind: .results, language: language)])
+                    ExchangeShareChoiceSheet(fileURL: sharedResultsURL, text: sharedResultsText)
                 }
             }
             .alert(language.t("分享失敗", "Share Failed"), isPresented: Binding(get: { shareResultsErrorMessage != nil }, set: { if !$0 { shareResultsErrorMessage = nil } })) {
@@ -441,6 +442,7 @@ struct HistoryListView: View {
         let package = ExchangeExporter.buildResultsPackage(sessions: selected, client: client)
         do {
             sharedResultsURL = try ExchangeExporter.writeTempFile(package, suggestedFileName: ExchangeExporter.suggestedFileName(clientName: client.displayName, payloadKind: .results))
+            sharedResultsText = try ExchangeExporter.chatText(for: package)
         } catch {
             shareResultsErrorMessage = error.localizedDescription
         }

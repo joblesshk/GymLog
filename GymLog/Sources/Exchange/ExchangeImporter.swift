@@ -73,6 +73,9 @@ public enum ExchangeImporter {
     // MARK: - Parse / validate
 
     public static func parse(_ data: Data) throws -> ExchangePackage {
+        guard data.count <= maxFileSize else {
+            throw ImportError.invalidData("file is larger than \(maxFileSize) bytes")
+        }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let package = try decoder.decode(ExchangePackage.self, from: data)
@@ -106,6 +109,9 @@ public enum ExchangeImporter {
         let exerciseIDs = Set(package.exercises.map(\.id))
         var recordIDs = Set<String>()
         for session in package.sessions {
+            if !isValidLocalDate(session.trainingLocalDate) {
+                issues.append("session \(session.recordID): invalid trainingLocalDate '\(session.trainingLocalDate)' (expected yyyy-MM-dd)")
+            }
             guard recordIDs.insert(session.recordID).inserted else {
                 issues.append("duplicate recordID in package: \(session.recordID)")
                 continue
@@ -143,6 +149,17 @@ public enum ExchangeImporter {
             }
         }
         return issues
+    }
+
+    private static func isValidLocalDate(_ value: String) -> Bool {
+        guard value.range(of: "^\\d{4}-\\d{2}-\\d{2}$", options: .regularExpression) != nil else { return false }
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let date = formatter.date(from: value) else { return false }
+        return formatter.string(from: date) == value
     }
 
     // MARK: - Preview
@@ -311,13 +328,17 @@ public enum ExchangeImporter {
                 entry.block = block
                 context.insert(entry)
                 for setDTO in entryDTO.sets {
-                    // A `.plan` package's `actual` is always `nil` by
-                    // construction (`ExchangeExporter.buildPlanPackage`) --
-                    // falls back to `target`, the same "actual defaults to
-                    // target until edited" convention every other
-                    // freshly-created entry in this app already follows
-                    // (see `EntryDraft`'s own initializer).
-                    let actual = setDTO.actual ?? setDTO.target
+                    // A plan carries a prescription, not a performance. Keep
+                    // that distinction in the existing RepTarget enum: an
+                    // unknown actual makes SessionDraftLoader expose it as
+                    // `actualRecorded == false`, and analytics correctly
+                    // exclude it. Never turn a missing result into the target.
+                    let actual: RepTarget
+                    if package.payloadKind == .plan {
+                        actual = .unknown(raw: "not recorded in shared package")
+                    } else {
+                        actual = setDTO.actual ?? .unknown(raw: "not recorded in shared package")
+                    }
                     let setLog = SetLog(setIndex: setDTO.setIndex, load: setDTO.load, target: setDTO.target, actual: actual, isInferred: false)
                     setLog.entry = entry
                     context.insert(setLog)

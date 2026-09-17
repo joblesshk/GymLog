@@ -71,6 +71,9 @@ struct GymLogApp: App {
             let context = ModelContext(container)
             let client = Client(id: "ui-test-client", name: "UI Test Client", startWeightKg: 70)
             context.insert(client)
+            if ProcessInfo.processInfo.arguments.contains("-uiTestingBodyMetrics") {
+                Self.seedBodyMetrics(for: client, in: context)
+            }
             if ProcessInfo.processInfo.arguments.contains("-uiTestingReviewedSession") {
                 Self.seedReviewedSession(for: client, in: context)
             }
@@ -118,6 +121,39 @@ struct GymLogApp: App {
             evidenceIDs: report.lines.map(\.id)
         )
         session.insightJSON = TrainingInsights.encode(InsightArchive(fingerprint: TrainingInsights.fingerprint(report), energy: report, review: review, reviewFingerprint: TrainingInsights.reviewKey(session), generatedAt: Date().addingTimeInterval(-3600), model: "deepseek-flash"))
+    }
+
+    /// UI-only body-composition fixture. It intentionally contains eight
+    /// records with uneven dates, two same-day records, and metric-specific
+    /// gaps so the profile trend can be checked against the shared latest-six
+    /// window without touching user data.
+    private static func seedBodyMetrics(for client: Client, in context: ModelContext) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        func date(_ day: Int, hour: Int = 0) -> Date {
+            calendar.date(from: DateComponents(year: 2026, month: 9, day: day, hour: hour))!
+        }
+        let records: [(id: String, date: Date, weight: Double?, fat: Double?, muscle: Double?)] = [
+            ("ui-bm-01", date(1), 70.0, 22.0, 30.0),
+            ("ui-bm-02", date(4), 69.7, 21.8, 30.2),
+            ("ui-bm-03", date(10), 69.0, 21.5, nil),
+            ("ui-bm-04", date(12, hour: 8), 68.8, 21.0, 31.0),
+            ("ui-bm-05", date(12, hour: 18), 68.6, nil, 31.1),
+            ("ui-bm-06", date(15), 68.0, 20.5, 31.2),
+            ("ui-bm-07", date(20), 67.5, 20.0, 31.4),
+            ("ui-bm-08", date(25), 67.0, 19.5, 31.6)
+        ]
+        for record in records {
+            let metric = BodyMetric(
+                id: record.id,
+                date: record.date,
+                weightKg: record.weight,
+                bodyFatPercent: record.fat,
+                skeletalMuscleKg: record.muscle
+            )
+            metric.client = client
+            context.insert(metric)
+        }
     }
 
     var body: some Scene {

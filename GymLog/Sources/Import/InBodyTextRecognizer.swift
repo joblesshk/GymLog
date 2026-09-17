@@ -36,7 +36,10 @@ public enum InBodyTextRecognizer {
         // there is no scenario in this feature where "helpfully" correcting
         // a digit is wanted.
         request.usesLanguageCorrection = false
-        request.recognitionLanguages = ["en-US"]
+        // Keep both English and the two Chinese report label variants in the
+        // OCR vocabulary. Language correction remains disabled so digits are
+        // not rewritten while adding Chinese labels.
+        request.recognitionLanguages = ["en-US", "zh-Hans", "zh-Hant"]
         request.automaticallyDetectsLanguage = false
         request.revision = VNRecognizeTextRequestRevision3
         // `minimumTextHeight` intentionally left at its default: the
@@ -53,7 +56,15 @@ public enum InBodyTextRecognizer {
         }
 
         guard let observations = request.results else { return [] }
-        let imageSize = CGSize(width: image.width, height: image.height)
+        // Vision applies `orientation` while producing normalized boxes. For
+        // left/right EXIF orientations the logical image dimensions are
+        // transposed even though the decoded CGImage's raw pixel dimensions
+        // are not. Use the oriented dimensions for the normalized-to-pixel
+        // conversion, otherwise every box is scaled against the wrong axis.
+        let imageSize = Self.orientedImageSize(
+            raw: CGSize(width: image.width, height: image.height),
+            orientation: orientation
+        )
 
         var tokens: [RecognizedToken] = []
         for observation in observations {
@@ -81,5 +92,14 @@ public enum InBodyTextRecognizer {
             }
         }
         return tokens
+    }
+
+    static func orientedImageSize(raw: CGSize, orientation: CGImagePropertyOrientation) -> CGSize {
+        switch orientation {
+        case .left, .right, .leftMirrored, .rightMirrored:
+            return CGSize(width: raw.height, height: raw.width)
+        default:
+            return raw
+        }
     }
 }

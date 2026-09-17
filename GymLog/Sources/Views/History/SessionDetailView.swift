@@ -28,7 +28,9 @@ struct SessionDetailView: View {
     @Query private var allEntries: [ExerciseEntry]
     // 2026-09-08 M3: WOD PR 判定同理需要该学员全部历史课次的 WOD 段。
     @Query private var allSessions: [WorkoutSession]
-    @State private var summaryText: String?
+    @State private var sharedResultURL: URL?
+    @State private var sharedResultText = ""
+    @State private var shareResultErrorMessage: String?
 
     /// 首屏 = 課次摘要（GymLog 改版設計 §6）：總量／最大／時長 + PR 個數 +
     /// 練了什麼的模式色標，全部沿用既有的 `SessionSummaryMetrics`／
@@ -165,13 +167,9 @@ struct SessionDetailView: View {
                         Label(L("快速修正數字／日期", "Quick Fix Numbers / Date"), systemImage: "pencil")
                     }
                     Button {
-                        summaryText = SessionSummaryGenerator.summary(
-                            for: session,
-                            clientName: session.client?.displayName ?? L("學員", "Client"),
-                            prPointIDs: prPointIDs()
-                        )
+                        shareSessionResult()
                     } label: {
-                        Label(L("分享摘要", "Share Summary"), systemImage: "square.and.arrow.up")
+                        Label(L("分享結果", "Share Results"), systemImage: "square.and.arrow.up")
                     }
                     // 2026-09-16：「從歷史記錄的某天生成模板」——把這節課的區塊／
                     // 動作組合存成一份可重複使用的組合模板（不含重量，模板本
@@ -205,10 +203,15 @@ struct SessionDetailView: View {
         } message: {
             Text(saveAsTemplateErrorMessage ?? "")
         }
-        .sheet(isPresented: Binding(get: { summaryText != nil }, set: { if !$0 { summaryText = nil } })) {
-            if let summaryText {
-                ActivityShareSheet(activityItems: [summaryText])
+        .sheet(isPresented: Binding(get: { sharedResultURL != nil }, set: { if !$0 { sharedResultURL = nil } })) {
+            if let sharedResultURL {
+                ExchangeShareChoiceSheet(fileURL: sharedResultURL, text: sharedResultText)
             }
+        }
+        .alert(L("分享失敗", "Share Failed"), isPresented: Binding(get: { shareResultErrorMessage != nil }, set: { if !$0 { shareResultErrorMessage = nil } })) {
+            Button(L("好", "OK"), role: .cancel) {}
+        } message: {
+            Text(shareResultErrorMessage ?? "")
         }
     }
 
@@ -250,6 +253,24 @@ struct SessionDetailView: View {
             }
         } catch {
             saveAsTemplateErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func shareSessionResult() {
+        guard let client = session.client else {
+            shareResultErrorMessage = L("找不到學員，無法分享。", "The client for this session could not be found.")
+            return
+        }
+        let package = ExchangeExporter.buildResultsPackage(sessions: [session], client: client)
+        let summary = SessionSummaryGenerator.summary(for: session, clientName: client.displayName, prPointIDs: prPointIDs())
+        do {
+            sharedResultURL = try ExchangeExporter.writeTempFile(package, suggestedFileName: ExchangeExporter.suggestedFileName(clientName: client.displayName, payloadKind: .results))
+            sharedResultText = try ExchangeExporter.chatText(for: package, readableSummary: summary)
+            if session.orderedBlocks.contains(where: { $0.note != nil }) || session.warmup != nil || session.cooldown != nil {
+                sharedResultText += "\n\n" + L("備註：熱身、放鬆及訓練塊備註只保留在上面的可讀摘要；機器資料包不包含這些欄位。", "Note: warm-up, cooldown, and block notes are retained only in the readable summary above; the machine package does not contain these fields.")
+            }
+        } catch {
+            shareResultErrorMessage = error.localizedDescription
         }
     }
 

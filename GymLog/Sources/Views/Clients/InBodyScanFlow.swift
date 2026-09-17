@@ -1,6 +1,6 @@
 import SwiftUI
 import PhotosUI
-import ImageIO
+import UIKit
 import GymLogKit
 
 /// CONTRACT-M7.md §2.1: `PhotosPicker` → decode → on-device OCR
@@ -25,6 +25,8 @@ struct InBodyScanFlow: View {
     @State private var showingReviewForm = false
     @State private var errorMessage: String?
     @State private var showingManualFallback = false
+    @State private var scanDiagnostics: InBodyScanDiagnostics?
+    @State private var showingDiagnostics = false
 
     var body: some View {
         NavigationStack {
@@ -42,7 +44,7 @@ struct InBodyScanFlow: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
-                PhotosPicker(selection: $photoItem, matching: .images) {
+                PhotosPicker(selection: $photoItem, matching: .images, preferredItemEncoding: .current) {
                     Text(language.t("選擇照片", "Choose Photo"))
                         .font(.system(size: 15, weight: .semibold))
                 }
@@ -71,6 +73,16 @@ struct InBodyScanFlow: View {
                     Button(language.t("取消", "Cancel")) { dismiss() }
                         .foregroundStyle(DS.C.textHi)
                 }
+                if scanDiagnostics != nil {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showingDiagnostics = true
+                        } label: {
+                            Image(systemName: "info.circle")
+                        }
+                        .accessibilityLabel(language.t("查看本機診斷", "View local diagnostics"))
+                    }
+                }
             }
             .overlay {
                 if isProcessing {
@@ -88,10 +100,17 @@ struct InBodyScanFlow: View {
             handleSelection(newItem)
         }
         .sheet(isPresented: $showingReviewForm, onDismiss: { dismiss() }) {
-            AddBodyMetricSheet(client: client, prefill: scanResult)
+            if let scanResult, let diagnostics = scanDiagnostics {
+                InBodyReviewContainer(client: client, scanResult: scanResult, diagnostics: diagnostics)
+            }
         }
         .sheet(isPresented: $showingManualFallback, onDismiss: { dismiss() }) {
             AddBodyMetricSheet(client: client)
+        }
+        .sheet(isPresented: $showingDiagnostics) {
+            if let diagnostics = scanDiagnostics {
+                InBodyDiagnosticsSheet(diagnostics: diagnostics)
+            }
         }
         .alert(
             language.t("無法識別", "Couldn't Recognize"),
@@ -138,21 +157,9 @@ struct InBodyScanFlow: View {
     }
 
     private func recognizeAndParse(_ data: Data) async throws {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-            await MainActor.run {
-                isProcessing = false
-                errorMessage = language.t("無法讀取這張照片。", "Couldn't read that photo.")
-            }
-            return
-        }
-        let orientation = Self.cgImageOrientation(from: source)
-
-        let result = await Task.detached(priority: .userInitiated) { () -> Result<(tokenCount: Int, scan: InBodyScanResult), Error> in
+        let result = await Task.detached(priority: .userInitiated) { () -> Result<InBodyScanOutput, Error> in
             do {
-                let tokens = try InBodyTextRecognizer.recognizeTokens(in: cgImage, orientation: orientation)
-                guard !tokens.isEmpty else { return .success((0, InBodyScanResult())) }
-                return .success((tokens.count, InBodyReportParser.parse(tokens: tokens)))
+                return .success(try InBodyScanService.scan(data: data))
             } catch {
                 return .failure(error)
             }
@@ -163,7 +170,10 @@ struct InBodyScanFlow: View {
             switch result {
             case .failure(let error):
                 errorMessage = error.localizedDescription
-            case .success(let (tokenCount, scan)):
+            case .success(let output):
+                scanDiagnostics = output.diagnostics
+                let tokenCount = output.diagnostics.tokenCount
+                let scan = output.scan
                 if scan.passedThreshold {
                     scanResult = scan
                     showingReviewForm = true
@@ -175,17 +185,65 @@ struct InBodyScanFlow: View {
             }
         }
     }
+}
 
-    /// Vision needs the photo's ORIGINAL orientation, not the pixel buffer
-    /// pre-rotated -- `CGImageSourceCreateImageAtIndex` does not auto-apply
-    /// EXIF orientation, so this has to be read and passed through
-    /// explicitly or every non-`.up` photo gets nonsensical bounding boxes.
-    private static func cgImageOrientation(from source: CGImageSource) -> CGImagePropertyOrientation {
-        guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-              let rawValue = properties[kCGImagePropertyOrientation] as? UInt32,
-              let orientation = CGImagePropertyOrientation(rawValue: rawValue) else {
-            return .up
+/// Keeps the local diagnostic affordance reachable while the review form is
+/// presented. The scanner's underlying toolbar is covered by this sheet, so
+/// the action is passed into the form itself after a successful scan.
+private struct InBodyReviewContainer: View {
+    let client: Client
+    let scanResult: InBodyScanResult
+    let diagnostics: InBodyScanDiagnostics
+
+    @State private var showingDiagnostics = false
+
+    var body: some View {
+        AddBodyMetricSheet(
+            client: client,
+            prefill: scanResult,
+            diagnosticsAction: { showingDiagnostics = true }
+        )
+            .sheet(isPresented: $showingDiagnostics) {
+                InBodyDiagnosticsSheet(diagnostics: diagnostics)
+            }
+    }
+}
+
+private struct InBodyDiagnosticsSheet: View {
+    let diagnostics: InBodyScanDiagnostics
+
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(language.t(
+                        "複製詳細診斷會包含報告文字與數值，僅按下複製時寫入剪貼簿。",
+                        "Copying details includes report text and values; they are written to the clipboard only when you press Copy Details."
+                    ))
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.C.textLow)
+                    Text(diagnostics.summary)
+                        .font(.system(size: 11, design: .monospaced))
+                        .textSelection(.enabled)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+            }
+            .navigationTitle(language.t("本機診斷", "Local Diagnostics"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(language.t("關閉", "Close")) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(language.t("複製詳細診斷", "Copy Details")) {
+                        UIPasteboard.general.string = diagnostics.detailedSummary
+                    }
+                }
+            }
         }
-        return orientation
     }
 }

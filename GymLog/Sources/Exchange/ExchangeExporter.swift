@@ -112,9 +112,19 @@ public enum ExchangeExporter {
             payloadKind == .plan ? "training plan" : "training results"
         )
         return language.t(
-            "這是來自 GymLog 的\(kindLabel)分享檔案（.gymlogshare）。請用 GymLog App 打開——如果還沒有安裝，請先到 App Store 搜尋「GymLog」安裝後再打開這個檔案。",
-            "This is a GymLog \(kindLabel) share file (.gymlogshare). Open it with the GymLog app — if you don't have it yet, search \u{201C}GymLog\u{201D} on the App Store first, then open this file."
+            "這是來自 GymLog 的\(kindLabel)分享檔案（.gymlogshare）。請在 GymLog App 中打開。",
+            "This is a GymLog \(kindLabel) share file (.gymlogshare). Open it in GymLog."
         )
+    }
+
+    /// Importable message for chat applications. The package JSON is complete
+    /// and version-bounded; the prose is only a readable preview.
+    public static func chatText(for package: ExchangePackage) throws -> String {
+        try ExchangeTextCodec.encode(package)
+    }
+
+    public static func chatText(for package: ExchangePackage, readableSummary: String) throws -> String {
+        try ExchangeTextCodec.encode(package, readablePrefix: readableSummary)
     }
 
     // MARK: - Client identity
@@ -157,7 +167,7 @@ public enum ExchangeExporter {
         return ExchangeEntryDTO(
             order: order, exerciseRef: ref, plannedSets: entry.plannedSets,
             sets: entry.orderedSets.map { set in
-                ExchangeSetDTO(setIndex: set.setIndex, load: set.load, target: set.target, actual: includeActual ? set.actual : nil)
+                ExchangeSetDTO(setIndex: set.setIndex, load: set.load, target: set.target, actual: includeActual ? recordedActual(set.actual) : nil)
             }
         )
     }
@@ -190,7 +200,7 @@ public enum ExchangeExporter {
         return ExchangeEntryDTO(
             order: order, exerciseRef: ref, plannedSets: entry.plannedSets,
             sets: resolved.enumerated().map { index, set in
-                ExchangeSetDTO(setIndex: index, load: set.load, target: set.target, actual: includeActual ? set.actual : nil)
+                ExchangeSetDTO(setIndex: index, load: set.load, target: set.target, actual: includeActual ? recordedActual(set.actual) : nil)
             }
         )
     }
@@ -201,6 +211,14 @@ public enum ExchangeExporter {
             movementPattern: exercise.movementPattern, equipment: exercise.equipment, recordingMetric: exercise.recordingMetric,
             discipline: exercise.discipline, loadDirection: exercise.loadDirection, isUnilateral: exercise.isUnilateral
         )
+    }
+
+    /// `RepTarget.unknown` is the existing model's representation of an
+    /// unrecorded actual. It must stay absent on a results wire package too;
+    /// otherwise a receiver could mistake a plan default for performance.
+    private static func recordedActual(_ actual: RepTarget) -> RepTarget? {
+        if case .unknown = actual { return nil }
+        return actual
     }
 
     private static func wodPayloadRawJSON(from wodDraft: WODBlockDraft, includeResult: Bool) -> String? {

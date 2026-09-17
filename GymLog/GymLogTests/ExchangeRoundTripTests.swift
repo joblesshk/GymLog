@@ -70,7 +70,7 @@ final class ExchangeRoundTripTests: XCTestCase {
         XCTAssertTrue(imported.isInProgress, "計劃匯入必須落成 isInProgress=true，才能被既有的「繼續未完成課次」機制撿到")
         let setLog = try XCTUnwrap(imported.orderedBlocks.first?.orderedEntries.first?.orderedSets.first)
         XCTAssertEqual(setLog.target, .fixed(value: 10, raw: "10"))
-        XCTAssertEqual(setLog.actual, setLog.target, "沒有實際成績時，actual 應該落回跟 target 相同的預設值（跟普通新建 entry 的既有慣例一致），不是憑空造一個假成績")
+        XCTAssertEqual(setLog.actual, .unknown(raw: "not recorded in shared package"), "計劃匯入不得把 target 伪装成 actual；未記錄實績必須保留 unknown")
     }
 
     // MARK: - 結果匯出→匯入：完整往返

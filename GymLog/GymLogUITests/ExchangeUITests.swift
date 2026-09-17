@@ -91,4 +91,60 @@ final class ExchangeUITests: XCTestCase {
             }
         }
     }
+
+    func testPastePreviewShowsContentsCancelDoesNotWriteAndRepeatIsIdempotent() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting"]
+        app.launch()
+        let settingsTab = app.buttons["設置"]
+        XCTAssertTrue(settingsTab.waitForExistence(timeout: 10))
+        settingsTab.tap()
+
+        let summary = "Ada — Session Summary · 2026-09-17 · Week 3\n\nSingle:\n• Bench Press：60kg×8 reps"
+        func openPreview() {
+            let paste = app.buttons["exchange-paste-button"]
+            for _ in 0..<5 where !paste.exists {
+                app.swipeUp()
+            }
+            XCTAssertTrue(paste.waitForExistence(timeout: 8))
+            paste.tap()
+            let editor = app.textViews["exchange-paste-text-editor"]
+            XCTAssertTrue(editor.waitForExistence(timeout: 5))
+            if (editor.value as? String ?? "").isEmpty {
+                editor.tap()
+                editor.typeText(summary)
+            }
+            app.buttons["exchange-paste-parse-button"].tap()
+            XCTAssertTrue(app.buttons["exchange-preview-confirm-button"].waitForExistence(timeout: 8))
+            XCTAssertTrue(app.staticTexts["Bench Press"].waitForExistence(timeout: 5))
+        }
+
+        openPreview()
+        app.buttons["exchange-preview-cancel-button"].tap()
+        XCTAssertFalse(app.buttons["exchange-preview-confirm-button"].waitForExistence(timeout: 3))
+
+        openPreview()
+        let newClientButton = app.buttons["exchange-preview-new-client-button"]
+        for _ in 0..<6 where !newClientButton.exists || !newClientButton.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(newClientButton.waitForExistence(timeout: 3))
+        XCTAssertTrue(newClientButton.isHittable)
+        newClientButton.tap()
+        let clientField = app.textFields["exchange-preview-client-name-field"]
+        XCTAssertTrue(clientField.waitForExistence(timeout: 3))
+        clientField.tap()
+        clientField.typeText("UI Client")
+        app.buttons["exchange-preview-confirm-button"].tap()
+        XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 8))
+        app.alerts.firstMatch.buttons.firstMatch.tap()
+
+        openPreview()
+        let idempotentCount = app.descendants(matching: .any)["exchange-preview-idempotent-count"]
+        for _ in 0..<6 where !idempotentCount.exists {
+            app.swipeUp()
+        }
+        XCTAssertTrue(idempotentCount.waitForExistence(timeout: 3))
+        app.buttons["exchange-preview-cancel-button"].tap()
+    }
 }

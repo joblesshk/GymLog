@@ -51,10 +51,68 @@ struct ExchangeImportPreviewView: View {
                     Text(language.t("這個檔案裡有什麼", "What's in this file"))
                 }
 
+                if package.originInstallationID == "gymlog-legacy-summary" {
+                    Section {
+                        Label(language.t(
+                            "這是舊版課後摘要。只按明確顯示的單位讀取實績；計劃、熱身／放鬆、訓練塊備註及其他缺失欄位不會補造，目標會保留為待核對。請核對後再匯入。",
+                            "This is an older session summary. Only explicitly unit-labeled results are read; missing plans, notes, and other fields are not invented, and targets remain marked for review. Check the preview before importing."
+                        ), systemImage: "exclamationmark.triangle")
+                        .font(.footnote)
+                        .foregroundStyle(DS.C.review)
+                    }
+                }
+
+                Section {
+                    ForEach(package.sessions, id: \.recordID) { session in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(language.t("訓練日 \(session.trainingLocalDate)", "Training date \(session.trainingLocalDate)"))
+                                    .font(.system(size: 15, weight: .semibold))
+                                Spacer()
+                                Text(language.t("第 \(session.weekNumber) 週", "Week \(session.weekNumber)"))
+                                    .font(.caption)
+                                    .foregroundStyle(DS.C.textLow)
+                            }
+                            ForEach(session.blocks.sorted(by: { $0.order < $1.order }), id: \.order) { block in
+                                if block.sectionKind == .wod {
+                                    wodPreview(block)
+                                }
+                                ForEach(block.entries.sorted(by: { $0.order < $1.order }), id: \.order) { entry in
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(entry.exerciseRef.canonicalName)
+                                            .font(.system(size: 14, weight: .medium))
+                                            .accessibilityIdentifier("exchange-preview-exercise-\(entry.exerciseRef.canonicalName)")
+                                        ForEach(entry.sets.sorted(by: { $0.setIndex < $1.setIndex }), id: \.setIndex) { set in
+                                            valueRow(set: set, label: language.t("目標", "Target"), quantity: set.target)
+                                            if package.payloadKind == .results {
+                                                valueRow(
+                                                    set: set,
+                                                    label: language.t("實績", "Actual"),
+                                                    quantity: set.actual ?? .unknown(raw: language.t("未記錄", "Not recorded"))
+                                                )
+                                            }
+                                        }
+                                    }
+                                    .padding(.vertical, 2)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                        .accessibilityIdentifier("exchange-preview-session-\(session.recordID)")
+                    }
+                } header: {
+                    Text(language.t("內容核對", "Review Contents"))
+                } footer: {
+                    Text(language.t("這裡只讀顯示即將匯入的日期、動作和數值。", "Read-only preview of the dates, exercises, and values that will be imported."))
+                        .font(.caption)
+                        .foregroundStyle(DS.C.textLow)
+                }
+
                 Section {
                     previewCountRow(language.t("新增課次", "New sessions"), count: preview.newCount)
                     if preview.idempotentCount > 0 {
                         previewCountRow(language.t("已匯入過，將跳過", "Already imported, will skip"), count: preview.idempotentCount)
+                            .accessibilityIdentifier("exchange-preview-idempotent-count")
                     }
                     if preview.contentChangedCount > 0 {
                         previewCountRow(language.t("內容有更新，保留本地版本", "Content updated, local version kept"), count: preview.contentChangedCount)
@@ -78,6 +136,7 @@ struct ExchangeImportPreviewView: View {
                 Section {
                     if showingNewClientField {
                         TextField(language.t("學員姓名", "Client name"), text: $newClientName)
+                            .accessibilityIdentifier("exchange-preview-client-name-field")
                         Button(language.t("改為選擇既有學員", "Choose an existing client instead")) {
                             showingNewClientField = false
                         }
@@ -93,6 +152,7 @@ struct ExchangeImportPreviewView: View {
                             showingNewClientField = true
                         }
                         .font(.system(size: 13))
+                        .accessibilityIdentifier("exchange-preview-new-client-button")
                     }
                 } header: {
                     Text(language.t("歸屬學員", "Assign to client"))
@@ -114,11 +174,13 @@ struct ExchangeImportPreviewView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(language.t("取消", "Cancel"), action: onCancel)
+                        .accessibilityIdentifier("exchange-preview-cancel-button")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(language.t("匯入", "Import"), action: confirm)
                         .font(.system(size: 15, weight: .semibold))
                         .disabled(!canConfirm)
+                        .accessibilityIdentifier("exchange-preview-confirm-button")
                 }
             }
             .alert(language.t("無法建立學員", "Couldn't Create Client"), isPresented: Binding(
@@ -142,6 +204,43 @@ struct ExchangeImportPreviewView: View {
             Text("\(count)")
                 .foregroundStyle(DS.C.textLow)
                 .font(.system(size: 13, weight: .medium))
+        }
+    }
+
+    private func valueRow(set: ExchangeSetDTO, label: String, quantity: RepTarget) -> some View {
+        HStack(spacing: 5) {
+            Text(set.load.displayText)
+            Text("×")
+                .foregroundStyle(DS.C.textLow)
+            Text(quantity.displayText)
+            Spacer()
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(DS.C.textLow)
+        }
+        .font(.system(size: 13))
+    }
+
+    @ViewBuilder
+    private func wodPreview(_ block: ExchangeBlockDTO) -> some View {
+        if let raw = block.wodPayloadRawJSON,
+           let data = raw.data(using: .utf8),
+           let payload = try? JSONDecoder().decode(WODPayload.self, from: data) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(language.t("WOD", "WOD"))
+                    .font(.caption)
+                    .foregroundStyle(DS.C.review)
+                let lines = WODSummaryFormatter.detailLines(payload)
+                ForEach(lines.indices, id: \.self) { index in
+                    Text(lines[index])
+                        .font(.caption)
+                        .foregroundStyle(DS.C.textHi)
+                }
+            }
+        } else {
+            Text(language.t("WOD（處方內容無法在此版本核對）", "WOD (prescription cannot be previewed by this version)"))
+                .font(.caption)
+                .foregroundStyle(DS.C.review)
         }
     }
 

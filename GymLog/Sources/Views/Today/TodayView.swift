@@ -67,6 +67,7 @@ struct TodayView: View {
     // （非 nil 就顯示），與 `SettingsView`/`HistoryListView` 既有的
     // `exportedBackupURL`/`exportedFileURL` 是同一個模式。
     @State private var sharedPlanURL: URL?
+    @State private var sharedPlanText = ""
     @State private var sharePlanErrorMessage: String?
     // 2026-09-13 全局語音改造：語音服務/錄音 session 已升級成
     // `ContentView` 持有的全局 `VoiceCommandCoordinator`（見該檔案說明），
@@ -530,7 +531,7 @@ struct TodayView: View {
         }
         .sheet(isPresented: Binding(get: { sharedPlanURL != nil }, set: { if !$0 { sharedPlanURL = nil } })) {
             if let sharedPlanURL {
-                ActivityShareSheet(activityItems: [sharedPlanURL, ExchangeExporter.shareReminderText(payloadKind: .plan, language: language)])
+                ExchangeShareChoiceSheet(fileURL: sharedPlanURL, text: sharedPlanText)
             }
         }
         .alert(language.t("分享失敗", "Share Failed"), isPresented: Binding(get: { sharePlanErrorMessage != nil }, set: { if !$0 { sharePlanErrorMessage = nil } })) {
@@ -1086,6 +1087,7 @@ struct TodayView: View {
         )
         do {
             sharedPlanURL = try ExchangeExporter.writeTempFile(package, suggestedFileName: ExchangeExporter.suggestedFileName(clientName: client.displayName, payloadKind: .plan))
+            sharedPlanText = try ExchangeExporter.chatText(for: package)
         } catch {
             sharePlanErrorMessage = error.localizedDescription
         }

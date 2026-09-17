@@ -23,6 +23,7 @@ struct SettingsView: View {
     // P2 (2026-09-11)：教练学员互传的「從文件匯入」兜底入口——某个第三方
     // 渠道不能直接打开附件（触发 `.onOpenURL`）时仍可用。
     @State private var showingExchangeImportFlow = false
+    @State private var exchangePasteRequest: ExchangePasteSheetRequest?
     @State private var exchangeImportResultMessage: String?
     @State private var exchangeImportErrorMessage: String?
 
@@ -117,13 +118,20 @@ struct SettingsView: View {
                     }
                     .listRowBackground(DS.C.surface)
                     .accessibilityIdentifier("exchange-import-from-file-button")
+                    Button {
+                        exchangePasteRequest = ExchangePasteSheetRequest()
+                    } label: {
+                        Label(language.t("貼上分享文字", "Paste Shared Text"), systemImage: "doc.on.clipboard")
+                    }
+                    .listRowBackground(DS.C.surface)
+                    .accessibilityIdentifier("exchange-paste-button")
                 } header: {
                     Text(language.t("教練學員互傳", "Coach/Student Exchange"))
                         .sectionLabelStyle()
                 } footer: {
                     Text(language.t(
-                        "打開對方 AirDrop 或訊息傳來的 .gymlogshare 檔案通常會直接彈出匯入預覽；這裡是手動選擇該檔案的備用入口。",
-                        "Opening a .gymlogshare file someone AirDropped or messaged you usually opens the import preview directly — this is a manual fallback for picking that file yourself."
+                        "打開對方 AirDrop 或訊息傳來的 .gymlogshare、JSON 或純文字檔案通常會直接彈出匯入預覽；這裡是手動選擇檔案的備用入口。",
+                        "Opening a .gymlogshare, JSON, or plain-text file someone AirDropped or messaged you usually opens the import preview directly — this is a manual fallback for picking a file yourself."
                     ))
                     .foregroundStyle(DS.C.textLow)
                 }
@@ -227,7 +235,7 @@ struct SettingsView: View {
                 Text(backupRestoreErrorMessage ?? "")
             }
             .sheet(isPresented: $showingExchangeImportFlow) {
-                ExchangeImportFlow { status in
+                ExchangeImportFlow(allowsTextFiles: true) { status in
                     switch status {
                     case .success(let result):
                         var message = language.t(
@@ -251,6 +259,11 @@ struct SettingsView: View {
                     }
                 }
             }
+            .sheet(item: $exchangePasteRequest) { _ in
+                ExchangePasteSheet { status in
+                    handleExchangeStatus(status)
+                }
+            }
             .alert(language.t("匯入完成", "Import Complete"), isPresented: Binding(get: { exchangeImportResultMessage != nil }, set: { if !$0 { exchangeImportResultMessage = nil } })) {
                 Button(language.t("好", "OK"), role: .cancel) {}
             } message: {
@@ -269,6 +282,81 @@ struct SettingsView: View {
             exportedBackupURL = try BackupExporter.writeTempFile(from: modelContext)
         } catch {
             backupExportErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func handleExchangeStatus(_ status: ExchangeImportFlow.Status) {
+        switch status {
+        case .success(let result):
+            var message = language.t("已匯入 \(result.sessionsWritten) 個課次", "Imported \(result.sessionsWritten) session(s)")
+            if result.exercisesCreated > 0 { message += language.t("，新建 \(result.exercisesCreated) 個動作", ", created \(result.exercisesCreated) exercise(s)") }
+            if result.sessionsSkippedIdempotent > 0 { message += language.t("\n\(result.sessionsSkippedIdempotent) 個課次已匯入過，已跳過", "\n\(result.sessionsSkippedIdempotent) session(s) already imported, skipped") }
+            if result.sessionsSkippedContentChanged > 0 { message += language.t("\n\(result.sessionsSkippedContentChanged) 個課次內容有更新，保留本機版本", "\n\(result.sessionsSkippedContentChanged) session(s) had updated content — local version kept") }
+            exchangeImportResultMessage = message
+        case .failure(let message): exchangeImportErrorMessage = message
+        case .cancelled: break
+        }
+    }
+}
+
+private struct ExchangePasteSheetRequest: Identifiable {
+    let id = UUID()
+}
+
+private struct ExchangePasteSheet: View {
+    private enum Stage {
+        case editing
+        case importing(String)
+    }
+
+    let onComplete: (ExchangeImportFlow.Status) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
+    @State private var text = ""
+    @State private var stage: Stage = .editing
+
+    var body: some View {
+        Group {
+            switch stage {
+            case .editing:
+                NavigationStack {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(language.t(
+                            "可貼上 GymLog 聊天分享文字，或直接貼上舊版摘要。系統會先解析並顯示預覽，確認後才寫入。",
+                            "Paste a GymLog chat message or a supported older summary. GymLog will preview it before anything is saved."
+                        ))
+                        .font(.footnote)
+                        .foregroundStyle(DS.C.textLow)
+                        TextEditor(text: $text)
+                            .font(.system(.body, design: .monospaced))
+                            .padding(8)
+                            .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .accessibilityIdentifier("exchange-paste-text-editor")
+                        Button {
+                            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !trimmed.isEmpty else { return }
+                            stage = .importing(trimmed)
+                        } label: {
+                            Label(language.t("解析並預覽", "Parse and Preview"), systemImage: "checkmark.circle")
+                        }
+                        .buttonStyle(.gymPrimary)
+                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .accessibilityIdentifier("exchange-paste-parse-button")
+                        Spacer()
+                    }
+                    .padding(16)
+                    .background(DS.C.canvas)
+                    .navigationTitle(language.t("貼上分享文字", "Paste Shared Text"))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(language.t("取消", "Cancel")) { dismiss() }
+                        }
+                    }
+                }
+            case .importing(let text):
+                ExchangeImportFlow(initialText: text, onComplete: onComplete)
+            }
         }
     }
 }

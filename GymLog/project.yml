@@ -76,6 +76,12 @@ targets:
               - org.example.gymlog.share
             LSHandlerRank: Owner
             CFBundleTypeRole: Editor
+          - CFBundleTypeName: "GymLog Share Text"
+            LSItemContentTypes:
+              - public.json
+              - public.plain-text
+            LSHandlerRank: Alternate
+            CFBundleTypeRole: Editor
         LSSupportsOpeningDocumentsInPlace: true
     settings:
       base:

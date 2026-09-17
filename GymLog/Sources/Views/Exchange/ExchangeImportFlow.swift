@@ -10,9 +10,11 @@ import GymLogKit
 /// `ExchangeImporter`（不是 `BackupImporter`）。
 struct ExchangeImportFlow: View {
     /// 非 nil 時直接用這個 URL（`.onOpenURL`/「從文件匯入」的隊列處理入口），
-    /// 不再彈系統文件選擇器；nil 時走 `.fileImporter`（設置頁「從文件匯入」
-    /// 的常規入口）。
+    /// 不再彈系統文件選擇器；nil 時走 `.fileImporter`。Settings 明確開啟
+    /// JSON/純文字選項，系統接收到的文件則按副檔名和實際 bytes 驗證。
     var pendingURL: URL?
+    var initialText: String?
+    var allowsTextFiles: Bool
     let onComplete: (Status) -> Void
 
     enum Status {
@@ -28,61 +30,80 @@ struct ExchangeImportFlow: View {
 
     @State private var showingFilePicker: Bool
     @State private var isProcessing = false
-    @State private var errorMessage: String?
     @State private var parsedPackage: ExchangePackage?
     @State private var previewResult: ExchangeImporter.PreviewResult?
-    @State private var showingPreview = false
+    @State private var didComplete = false
+    @State private var didStartInput = false
 
     /// §5.3 first-pass limit: files past this size are refused before ever
     /// being fully read into memory.
     private static let maxFileSize = ExchangeImporter.maxFileSize
 
-    init(pendingURL: URL? = nil, onComplete: @escaping (Status) -> Void) {
+    init(pendingURL: URL? = nil, initialText: String? = nil, allowsTextFiles: Bool = false, onComplete: @escaping (Status) -> Void) {
         self.pendingURL = pendingURL
+        self.initialText = initialText
+        self.allowsTextFiles = allowsTextFiles
         self.onComplete = onComplete
-        _showingFilePicker = State(initialValue: pendingURL == nil)
+        _showingFilePicker = State(initialValue: pendingURL == nil && initialText == nil)
     }
 
     var body: some View {
-        Color.clear
-            .fileImporter(isPresented: $showingFilePicker, allowedContentTypes: [ExchangeUTType.gymlogShare]) { result in
+        Group {
+            if let parsedPackage, let previewResult {
+                ExchangeImportPreviewView(
+                    package: parsedPackage, preview: previewResult, clients: clients,
+                    onConfirm: { targetClientID in commitImport(parsedPackage, targetClientID: targetClientID) },
+                    onCancel: {
+                        self.parsedPackage = nil
+                        self.previewResult = nil
+                        complete(.cancelled)
+                        dismiss()
+                    }
+                )
+            } else {
+                NavigationStack {
+                    VStack(spacing: 16) {
+                        if isProcessing {
+                            ProgressView(language.t("解析中…", "Parsing…"))
+                        } else {
+                            Text(language.t("尚未載入分享資料。", "No share data has been loaded yet."))
+                                .foregroundStyle(DS.C.textLow)
+                        }
+                        Button(language.t("取消", "Cancel")) {
+                            complete(.cancelled)
+                            dismiss()
+                        }
+                        .buttonStyle(.gymSecondary)
+                    }
+                    .padding(24)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(DS.C.canvas)
+                    .navigationTitle(language.t("匯入分享", "Import Share"))
+                    .navigationBarTitleDisplayMode(.inline)
+                }
+            }
+        }
+            .fileImporter(isPresented: $showingFilePicker, allowedContentTypes: allowsTextFiles ? [ExchangeUTType.gymlogShare, .json, .plainText] : [ExchangeUTType.gymlogShare]) { result in
                 handleFileSelection(result)
             }
             .onAppear {
-                if let pendingURL {
+                guard !didStartInput else { return }
+                didStartInput = true
+                if let initialText {
+                    handleText(initialText)
+                } else if let pendingURL {
                     handleSelectedURL(pendingURL, needsSecurityScope: true)
                 }
             }
-            .overlay {
-                if isProcessing {
-                    ProgressView(language.t("解析中…", "Parsing…"))
-                        .padding(16)
-                        .background(DS.C.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
-            }
-            .sheet(isPresented: $showingPreview, onDismiss: { onComplete(.cancelled); dismiss() }) {
-                if let parsedPackage, let previewResult {
-                    ExchangeImportPreviewView(
-                        package: parsedPackage, preview: previewResult, clients: clients,
-                        onConfirm: { targetClientID in commitImport(parsedPackage, targetClientID: targetClientID) },
-                        onCancel: { showingPreview = false }
-                    )
-                }
-            }
-            .alert(language.t("匯入失敗", "Import Failed"), isPresented: Binding(
-                get: { errorMessage != nil },
-                set: { if !$0 { let wasShowing = errorMessage != nil; errorMessage = nil; if wasShowing { onComplete(.cancelled); dismiss() } } }
-            )) {
-                Button(language.t("好", "OK"), role: .cancel) {}
-            } message: {
-                Text(errorMessage ?? "")
+            .onDisappear {
+                if !didComplete { complete(.cancelled) }
             }
     }
 
     private func handleFileSelection(_ result: Result<URL, Error>) {
         switch result {
         case .failure:
-            onComplete(.cancelled)
+            complete(.cancelled)
             dismiss()
         case .success(let url):
             handleSelectedURL(url, needsSecurityScope: true)
@@ -96,8 +117,9 @@ struct ExchangeImportFlow: View {
     /// before that scope closes, since parsing/preview can outlive a
     /// single synchronous read.
     private func handleSelectedURL(_ url: URL, needsSecurityScope: Bool) {
-        guard url.pathExtension.lowercased() == "gymlogshare" || url.pathExtension.lowercased() == "json" else {
-            errorMessage = language.t("請選擇 .gymlogshare 分享檔案。", "Please choose a .gymlogshare file.")
+        let ext = url.pathExtension.lowercased()
+        guard ext == "gymlogshare" || ext == "json" || ext == "txt" else {
+            fail("請選擇 .gymlogshare、JSON 或純文字分享檔案。", "Choose a .gymlogshare, JSON, or plain-text GymLog share file.")
             return
         }
         let didStartScope = needsSecurityScope && url.startAccessingSecurityScopedResource()
@@ -106,15 +128,16 @@ struct ExchangeImportFlow: View {
             defer { if didStartScope { url.stopAccessingSecurityScopedResource() } }
             do {
                 let fileSizeValues = try? url.resourceValues(forKeys: [.fileSizeKey])
-                guard let fileSize = fileSizeValues?.fileSize, fileSize < ExchangeImportFlow.maxFileSize else {
+                if let fileSize = fileSizeValues?.fileSize, fileSize > ExchangeImportFlow.maxFileSize {
                     await MainActor.run {
                         isProcessing = false
-                        errorMessage = language.t("檔案過大，請確認選擇的是正確的分享檔案。", "File too large — please check you selected the right share file.")
+                        fail("檔案過大，請確認選擇的是正確的分享檔案。", "File too large — please check you selected the right share file.")
                     }
                     return
                 }
                 let data = try Data(contentsOf: url)
-                let package = try ExchangeImporter.parse(data)
+                guard data.count <= ExchangeImportFlow.maxFileSize else { throw ExchangeImporter.ImportError.invalidData("file is larger than \(ExchangeImportFlow.maxFileSize) bytes") }
+                let package = try ExchangeTextCodec.decode(data: data)
                 await MainActor.run {
                     isProcessing = false
                     computePreview(package)
@@ -122,8 +145,22 @@ struct ExchangeImportFlow: View {
             } catch {
                 await MainActor.run {
                     isProcessing = false
-                    errorMessage = Self.describe(error, language: language)
+                        fail(Self.describe(error, language: language))
                 }
+            }
+        }
+    }
+
+    private func handleText(_ text: String) {
+        isProcessing = true
+        Task { @MainActor in
+            do {
+                let package = try ExchangeTextCodec.decode(text)
+                isProcessing = false
+                computePreview(package)
+            } catch {
+                isProcessing = false
+                fail(Self.describe(error, language: language))
             }
         }
     }
@@ -133,19 +170,29 @@ struct ExchangeImportFlow: View {
             let preview = try ExchangeImporter.preview(package, in: modelContext)
             parsedPackage = package
             previewResult = preview
-            showingPreview = true
         } catch {
-            errorMessage = Self.describe(error, language: language)
+            fail(Self.describe(error, language: language))
         }
     }
 
     private func commitImport(_ package: ExchangePackage, targetClientID: String) {
         do {
             let result = try ExchangeImporter.commit(package, targetClientID: targetClientID, in: modelContext)
-            onComplete(.success(result))
+            complete(.success(result))
         } catch {
-            onComplete(.failure(Self.describe(error, language: language)))
+            complete(.failure(Self.describe(error, language: language)))
         }
+        dismiss()
+    }
+
+    private func complete(_ status: Status) {
+        guard !didComplete else { return }
+        didComplete = true
+        onComplete(status)
+    }
+
+    private func fail(_ zh: String, _ en: String? = nil) {
+        complete(.failure(language == .zhHant ? zh : (en ?? zh)))
         dismiss()
     }
 

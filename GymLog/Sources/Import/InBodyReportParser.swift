@@ -321,6 +321,47 @@ public enum InBodyReportParser {
             || ["m", "m2", "mz", "m²", "cm2", "cmz", "cm²", "kgm", "kgm2"].contains(token.text.lowercased())
     }
 
+    /// Only a known *different* field label can protect a below-anchor
+    /// candidate. Generic text is deliberately ignored: on the chart row,
+    /// the first tick (`55`) may sit immediately after `SMM`, while a
+    /// descriptive label split over rows may leave `Mass 30.9` below
+    /// `Skeletal Muscle`. Both are valid same-field layouts and must remain
+    /// available to the field's own search.
+    private static let crossFieldLabelPatterns = [
+        #"\bbmi\b"#, #"body\s*mass\s*index"#,
+        #"\bpbf\b"#, #"percent\s*body\s*fat"#, #"body\s*fat\s*(?:percent(?:age)?|%)"#,
+        #"\bweight(?:\s*\(\s*kg\s*\))?\b"#
+    ]
+
+    private static func hasAdjacentDifferentFieldLabel(
+        before token: RecognizedToken,
+        allTokens: [RecognizedToken],
+        lineHeight: CGFloat,
+        excluding ownPatterns: [String]
+    ) -> Bool {
+        let labels = allTokens
+            .filter {
+                !isNumericToken($0) && !isBareUnitToken($0)
+                    && $0.rect.maxX <= token.rect.minX
+                    && abs($0.rect.midY - token.rect.midY) <= 0.3 * lineHeight
+            }
+            .sorted { ($0.rect.minX, $0.rect.maxX) < ($1.rect.minX, $1.rect.maxX) }
+        guard var suffix = labels.last.map({ [$0] }) else { return false }
+        for label in labels.dropLast().reversed() {
+            guard let next = suffix.first,
+                  next.rect.minX - label.rect.maxX <= 1.5 * lineHeight else { break }
+            suffix.insert(label, at: 0)
+        }
+        let prefix = suffix.map(\.text).joined(separator: " ")
+
+        return crossFieldLabelPatterns.contains { otherPattern in
+            RegexSearch.contains(otherPattern, in: prefix, caseInsensitive: true)
+                && !ownPatterns.contains { ownPattern in
+                    RegexSearch.contains(ownPattern, in: prefix, caseInsensitive: true)
+                }
+        }
+    }
+
     /// §2.3's reference-range exclusion: a token must not be read as a
     /// value if it's part of a "(36.6~44.7)"-style normal-range annotation.
     ///
@@ -631,7 +672,7 @@ public enum InBodyReportParser {
     /// the tilt happened to place closer. If nothing in range is found the
     /// nearest candidate is still returned, so an out-of-range reading is
     /// surfaced as `.uncertain` rather than silently dropped.
-    private static func findValue(near anchor: AnchorHit, rows: [Line], allTokens: [RecognizedToken], excludedKeys: Set<TokenKey>, plausible: ClosedRange<Double>?, lineHeight: CGFloat) -> RecognizedToken? {
+    private static func findValue(near anchor: AnchorHit, rows: [Line], allTokens: [RecognizedToken], excludedKeys: Set<TokenKey>, plausible: ClosedRange<Double>?, lineHeight: CGFloat, ownPatterns: [String]) -> RecognizedToken? {
         let pageWidth = allTokens.map(\.rect.maxX).max() ?? 0
         // A label/unit/value table row (e.g. "Percent Body Fat ... 28.7")
         // can legitimately span close to a third of the page width at real
@@ -692,6 +733,7 @@ public enum InBodyReportParser {
                       token.rect.minY - anchor.rect.maxY <= maxGapY,
                       abs(token.rect.midX - anchor.rect.midX) <= 0.5 * anchor.rect.width + lineHeight,
                       isNumericToken(token),
+                      !hasAdjacentDifferentFieldLabel(before: token, allTokens: allTokens, lineHeight: lineHeight, excluding: ownPatterns),
                       !isExcludedByReferenceRange(token, in: line, tokenIndex: index, searchFrom: 0)
                 else { continue }
                 belowCandidates.append(token)
@@ -755,7 +797,7 @@ public enum InBodyReportParser {
     ) -> RecognizedToken? {
         var fallback: RecognizedToken?
         for anchor in findAnchors(patterns: patterns, excludeLine: excludeLine, rows: rows) {
-            guard let token = findValue(near: anchor, rows: rows, allTokens: allTokens, excludedKeys: excludedKeys, plausible: plausible, lineHeight: lineHeight) else { continue }
+            guard let token = findValue(near: anchor, rows: rows, allTokens: allTokens, excludedKeys: excludedKeys, plausible: plausible, lineHeight: lineHeight, ownPatterns: patterns) else { continue }
             guard let plausible else { return token }
             if let value = numericValue(token), plausible.contains(value) { return token }
             if fallback == nil { fallback = token }
@@ -797,7 +839,7 @@ public enum InBodyReportParser {
         // The descriptive-name row just below it ("Skeletal Muscle
         // Mass"/"Percent Body Fat"/"Body Mass Index") isn't on the axis's
         // row and has the real value immediately next to it.
-        if let token = extractField(rows: rows, allTokens: allTokens, excludedKeys: excludedKeys, lineHeight: lineHeight, patterns: [#"skeletal\s*muscle\s*mass"#, #"skeletal\s*muscle\s*ma\w*"#, #"\bsmm\b"#, dottedCode("SMM")], plausible: 5...80) {
+        if let token = extractField(rows: rows, allTokens: allTokens, excludedKeys: excludedKeys, lineHeight: lineHeight, patterns: [#"skeletal\s*muscle\s*mass"#, #"skeletal\s*muscle\s*ma\w*"#, #"skeletal\s*muscle$"#, #"骨骼\s*肌(?:量|重)?"#, #"\bsmm\b"#, dottedCode("SMM")], plausible: 5...80) {
             applyReasonabilityGated(numericValue(token), range: 5...80, confidence: token.confidence, to: &result.skeletalMuscleKg, confidenceOut: &result.skeletalMuscleConfidence)
             if let smm = result.skeletalMuscleKg, let weight = result.weightKg, smm >= weight {
                 result.skeletalMuscleConfidence = .uncertain

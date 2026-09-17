@@ -11,6 +11,9 @@ import GymLogKit
 struct AddBodyMetricSheet: View {
     let client: Client
     let prefill: InBodyScanResult?
+    /// Optional only for the scan review flow. Manual add/edit forms keep
+    /// their original fields and toolbar unchanged.
+    private let diagnosticsAction: (() -> Void)?
     /// Non-nil when this sheet is editing an EXISTING record rather than
     /// creating one. Kept as the model object (not a copy) so `save()` can
     /// write straight back to it; the staged `@State` strings below are
@@ -35,10 +38,11 @@ struct AddBodyMetricSheet: View {
     @State private var saveErrorMessage: String?
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
-    init(client: Client, prefill: InBodyScanResult? = nil) {
+    init(client: Client, prefill: InBodyScanResult? = nil, diagnosticsAction: (() -> Void)? = nil) {
         self.client = client
         self.prefill = prefill
         self.editing = nil
+        self.diagnosticsAction = diagnosticsAction
         if let prefill {
             _date = State(initialValue: prefill.date ?? Date())
             _weightKg = State(initialValue: Self.format(prefill.weightKg))
@@ -57,6 +61,7 @@ struct AddBodyMetricSheet: View {
         self.client = client
         self.prefill = nil
         self.editing = metric
+        self.diagnosticsAction = nil
         _date = State(initialValue: metric.date)
         _weightKg = State(initialValue: Self.format(metric.weightKg))
         _bodyFatPercent = State(initialValue: Self.format(metric.bodyFatPercent))
@@ -88,6 +93,19 @@ struct AddBodyMetricSheet: View {
                         .foregroundStyle(DS.C.textLow)
                     }
                     .listRowBackground(DS.C.canvas)
+                }
+
+                if let diagnosticsAction {
+                    Section {
+                        Button {
+                            diagnosticsAction()
+                        } label: {
+                            Label(
+                                language.t("查看本機診斷", "View Local Diagnostics"),
+                                systemImage: "info.circle"
+                            )
+                        }
+                    }
                 }
 
                 DatePicker(language.t("日期", "Date"), selection: $date, displayedComponents: .date)
