@@ -1,0 +1,7 @@
+// Safe defaults for GitHub checkouts. Local.xcconfig remains on this computer.
+// $() prevents // in HTTPS URLs from being parsed as an xcconfig comment.
+GYMLOG_RELAY_BASE_URL = https:/$()/relay.example.invalid
+GYMLOG_APP_BUNDLE_IDENTIFIER = org.example.gymlog
+GYMLOG_KIT_BUNDLE_IDENTIFIER = org.example.gymlog.kit
+DEVELOPMENT_TEAM =
+#include? "Local.xcconfig"

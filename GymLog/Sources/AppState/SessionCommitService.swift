@@ -86,6 +86,9 @@ public enum SessionCommitService {
 
         let session: WorkoutSession
         if let existing = input.existingSessionID.flatMap({ fetchSession(id: $0, in: context) }) {
+            // A restored/stale session ID must not bypass the draft-owner
+            // check above. Reject before deleting any persisted content.
+            guard existing.client?.id == input.client.id else { return .failure(.clientMismatch) }
             for block in existing.blocks ?? [] {
                 context.delete(block)
             }

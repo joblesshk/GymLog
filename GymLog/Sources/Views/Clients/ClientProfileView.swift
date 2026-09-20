@@ -69,8 +69,6 @@ struct ClientProfileView: View {
     @State private var showInBodyScan = false
     @State private var saveErrorMessage: String?
     @State private var showSavedConfirmation = false
-    /// GymLog 改版設計 §5：趨勢圖的指標切換，純 UI 狀態。
-    @State private var trendMetric: BodyMetricTrend = .weight
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
     private var currentClient: Client? {
@@ -284,7 +282,8 @@ struct ClientProfileView: View {
                 overviewCard(metrics: metrics)
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
-                trendCard(metrics: metrics)
+                BodyMetricTrendCard(metrics: metrics)
+                    .id(client.id)
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
             }
@@ -414,6 +413,7 @@ struct ClientProfileView: View {
                 HStack(alignment: .lastTextBaseline, spacing: 2) {
                     Text(Self.fmt(value))
                         .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                        .lineLimit(1).minimumScaleFactor(0.6)
                         .foregroundStyle(DS.C.textHi)
                     Text(unit).font(.system(size: 11)).foregroundStyle(DS.C.textLow)
                 }
@@ -434,125 +434,6 @@ struct ClientProfileView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
-    private func trendCard(metrics: [BodyMetric]) -> some View {
-        // Select the shared recent-record window before looking at the
-        // selected metric. A nil body-fat value therefore remains a slot in
-        // the body-fat chart and cannot cause an older seventh record to be
-        // pulled into that one metric.
-        let series = BodyMetricTrendSeries.points(from: metrics)
-        let valuedPoints = series.compactMap { point -> (point: BodyMetricTrendPoint, value: Double)? in
-            guard let value = trendMetric.value(of: point), value.isFinite else { return nil }
-            return (point, value)
-        }
-        let lastValuedIndex = valuedPoints.last?.point.index
-        let segmentByIndex = trendSegments(for: series)
-        return VStack(alignment: .leading, spacing: 12) {
-            Text(language.t("最近 \(series.count) 次量測", "Latest \(series.count) measurements"))
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(DS.C.textHi)
-            GymSegmentedControl(selection: $trendMetric, options: BodyMetricTrend.allCases, label: { $0.label })
-
-            if !series.isEmpty && !valuedPoints.isEmpty {
-                let values = valuedPoints.map(\.value)
-                let minValue = values.min() ?? 0
-                let maxValue = values.max() ?? 0
-                // Keep the Y domain compact while remaining valid when every
-                // selected record has the same value.
-                let padding = Swift.max((maxValue - minValue) * 0.15, 0.5)
-                Chart {
-                    ForEach(valuedPoints, id: \.point.id) { item in
-                        LineMark(
-                            x: .value("measurement", Double(item.point.index)),
-                            y: .value("value", item.value),
-                            series: .value("segment", segmentByIndex[item.point.index] ?? item.point.index)
-                        )
-                        .foregroundStyle(DS.C.accent)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5, lineJoin: .round))
-                        PointMark(x: .value("measurement", Double(item.point.index)), y: .value("value", item.value))
-                            .symbolSize(item.point.index == lastValuedIndex ? 60 : 20)
-                            .foregroundStyle(DS.C.accent)
-                    }
-                }
-                .chartYScale(domain: (minValue - padding)...(maxValue + padding))
-                // Date labels use the exact same discrete index as each mark,
-                // so uneven elapsed dates and same-day measurements cannot
-                // drift away from their points.
-                .chartXScale(domain: -0.5...max(0.5, Double(series.count - 1) + 0.5))
-                .chartXAxis {
-                    AxisMarks(values: series.map { Double($0.index) }) { _ in
-                        AxisGridLine().foregroundStyle(DS.C.inset)
-                    }
-                }
-                .chartYAxis {
-                    AxisMarks(values: .automatic(desiredCount: 3)) { _ in
-                        AxisGridLine().foregroundStyle(DS.C.inset)
-                    }
-                }
-                .frame(height: 106)
-                .accessibilityIdentifier("body-metric-trend-chart")
-
-                HStack(spacing: 0) {
-                    ForEach(series) { point in
-                        Text(point.date.formatted(.dateTime.month(.defaultDigits).day()))
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .font(.system(size: 10))
-                .foregroundStyle(DS.C.textLow)
-
-                HStack {
-                    Text(language.t("共 \(series.count) 次量測", "\(series.count) measurements"))
-                    Spacer()
-                    if let first = valuedPoints.first?.value, let last = valuedPoints.last?.value {
-                        let diff = last - first
-                        Text("\(diff >= 0 ? "+" : "")\(Self.fmt(diff))")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(DS.C.textHi)
-                    }
-                }
-                .font(.system(size: 11))
-                .foregroundStyle(DS.C.textLow)
-            } else if series.isEmpty {
-                trendEmptyState("新增量測即可看到趨勢", "Add a measurement to see a trend")
-            } else {
-                trendEmptyState("此指標暫無數據", "No data for this metric yet")
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .gymCard()
-        .padding(.horizontal, DS.Space.pageMargin)
-    }
-
-    /// Assign a separate Charts series to each run of finite values. A nil
-    /// slot advances the series number, which makes the line visibly break
-    /// instead of joining measurements on either side of a missing value.
-    private func trendSegments(for series: [BodyMetricTrendPoint]) -> [Int: Int] {
-        var result: [Int: Int] = [:]
-        var segment = 0
-        for point in series {
-            if trendMetric.value(of: point)?.isFinite == true {
-                result[point.index] = segment
-            } else {
-                segment += 1
-            }
-        }
-        return result
-    }
-
-    private func trendEmptyState(_ zh: String, _ en: String) -> some View {
-        VStack(spacing: 6) {
-            Circle().fill(DS.C.accent).frame(width: 10, height: 10)
-            Text(language.t(zh, en))
-                .font(.system(size: 12))
-                .foregroundStyle(DS.C.textMid)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
-        .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     fileprivate static func fmt(_ d: Double) -> String {

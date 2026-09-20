@@ -10,6 +10,7 @@ import GymLogKit
 /// wheel but needs the exact same chrome (title, 完成 button, compact detent).
 struct PickerSheet<Content: View>: View {
     let title: String
+    var contentHeight: CGFloat = 150
     @ViewBuilder let content: () -> Content
     @Environment(\.dismiss) private var dismiss
 
@@ -18,7 +19,7 @@ struct PickerSheet<Content: View>: View {
             VStack {
                 Spacer(minLength: 4)
                 content()
-                    .frame(height: 150)
+                    .frame(height: contentHeight)
                 Spacer(minLength: 4)
             }
             .padding()
@@ -34,6 +35,6 @@ struct PickerSheet<Content: View>: View {
                 }
             }
         }
-        .presentationDetents([.height(260)])
+        .presentationDetents([.height(contentHeight + 110)])
     }
 }

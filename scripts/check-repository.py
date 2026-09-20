@@ -16,6 +16,8 @@ except subprocess.CalledProcessError:
 issues = []
 for name in sorted(set(filter(None, paths))):
     p = root / name
+    if name in {"GymLog/Config/Local.xcconfig", "GymLog/project.local.yml", "GymLog/project 2.yml"}:
+        issues.append((name, "local deployment configuration must not be published"))
     if not p.is_file():
         continue
     if any(part in {"output", "migration", "Screenshots", "screenshots", "private", "backups", "node_modules"} for part in p.relative_to(root).parts):

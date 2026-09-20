@@ -1,0 +1,5 @@
+// Copy to Local.xcconfig and replace the placeholders for your own deployment.
+GYMLOG_RELAY_BASE_URL = https:/$()/YOUR_WORKER_HOST
+GYMLOG_APP_BUNDLE_IDENTIFIER = org.example.gymlog
+GYMLOG_KIT_BUNDLE_IDENTIFIER = org.example.gymlog.kit
+DEVELOPMENT_TEAM =

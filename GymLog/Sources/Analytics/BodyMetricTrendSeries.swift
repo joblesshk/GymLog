@@ -43,6 +43,19 @@ public enum BodyMetricTrendSeries {
         }
     }
 
+    /// The viewport is limited, not the underlying history. Missing values
+    /// and same-day measurements retain their own selectable slots.
+    public static func allPoints(from metrics: [BodyMetric]) -> [BodyMetricTrendPoint] {
+        sorted(metrics).enumerated().map { BodyMetricTrendPoint(index: $0.offset, metric: $0.element) }
+    }
+
+    public static func point(at position: Double, in points: [BodyMetricTrendPoint]) -> BodyMetricTrendPoint? {
+        guard position.isFinite, !points.isEmpty,
+              position >= -0.5, position <= Double(points.count) - 0.5 else { return nil }
+        let index = min(max(Int(position.rounded()), 0), points.count - 1)
+        return points[index]
+    }
+
     /// Returns the latest `limit` records in ascending chronological order,
     /// with a continuous index from zero. A non-positive limit produces no
     /// points and never falls back to the full history.

@@ -411,7 +411,7 @@ private struct RoundRow: View, Identifiable {
                     SetsCountWheel(sets: $round.setsCount)
                 }
             case .load:
-                PickerSheet(title: language.t("重量", "Load")) {
+                PickerSheet(title: language.t("重量", "Load"), contentHeight: 270) {
                     LoadWheel(load: $round.load, kind: loadKind)
                 }
             case .target:
@@ -537,6 +537,7 @@ private struct RoundRow: View, Identifiable {
             .background(DS.C.inset, in: Capsule())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("entry-load-button")
     }
 }
 

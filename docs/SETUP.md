@@ -8,31 +8,28 @@
 
 ## 真机签名
 
-在 Xcode 的 Signing & Capabilities 中选择自己的 Team，并为应用及框架设置唯一标识，或通过 `project.yml` 的对应 target 设置。示例标识 `org.example.gymlog` 不代表可用于发行的应用身份。生成工程会覆盖在生成文件内做出的配置，长期改动应放回 `project.yml`；不要提交 Team ID、描述文件或证书。
+本地构建自动读取 `GymLog/Config/Build.xcconfig`，它在占位默认值之后可选加载同目录的 `Local.xcconfig`。Debug、Release、Xcode 直接运行及命令行构建共用此配置。首次配置可复制 `Local.example.xcconfig` 为 `Local.xcconfig`，填写自己的服务地址、应用/框架 Bundle ID 与签名 Team；覆盖安装时必须沿用手机已有应用身份。
 
-签名覆盖也可以通过命令行传递：
+`Local.xcconfig` 是本地工程的持久配置，不会随重新生成工程被覆盖。它被 Git 忽略：推送 GitHub 时不包含该文件，但不得为了清理发布内容而删除电脑上的配置。GitHub 检出使用安全占位默认值；示例文件不包含作者服务地址或签名身份。仓库检查也会拒绝被强制加入版本控制的本地配置。
 
 ```sh
+xcodegen generate --spec GymLog/project.yml
 xcodebuild -project GymLog/GymLog.xcodeproj -scheme GymLog \
-  -destination 'generic/platform=iOS' DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+  -destination 'generic/platform=iOS' \
   -derivedDataPath /tmp/gymlog-device-build -allowProvisioningUpdates build
 ```
 
-环境变量由开发者在本机设置，不在仓库中保存。
-
 ## 自备云端服务
 
-按照 backend 的 README 部署 Worker。将无密钥的 HTTPS 服务根地址传入构建设置：
+按照 backend 的 README 部署 Worker，然后在 `GymLog/Config/Local.xcconfig` 设置无密钥的 HTTPS 服务根地址：
 
-```sh
-xcodebuild -project GymLog/GymLog.xcodeproj -scheme GymLog \
-  -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO \
-  GYMLOG_RELAY_BASE_URL="https://YOUR_WORKER_HOST" build
+```text
+GYMLOG_RELAY_BASE_URL = https:/$()/YOUR_WORKER_HOST
 ```
 
-在 Xcode 中运行或安装到真机时，把 `GymLog/project.yml` 里的 `GYMLOG_RELAY_BASE_URL` 改为自己的地址（例如 `https://gymlog-cloud-relay.<你的子域>.workers.dev`），再运行 `cd GymLog && xcodegen generate` 重新生成工程；直接在生成的工程里修改会在下次生成时被覆盖。
+xcconfig 中直接写 `https://` 会把双斜线当作注释，所以使用空变量 `$()` 分隔；构建后的地址仍为正常 `https://`。也可使用命令行 `GYMLOG_RELAY_BASE_URL` 临时覆盖。不要再把真实配置写入生成工程或共享 `project.yml`；既有 `project.local.yml` 可以作为包含主工程的兼容入口，避免维护两份工程定义。
 
-服务根地址通过应用 Info.plist 的 `GymLogRelayBaseURL` 读取。ASR 与文字理解路由由客户端添加。默认 `.invalid` 地址下不会宣称云端已配置，也不附带作者的服务或调用额度。
+服务根地址通过应用 Info.plist 的 `GymLogRelayBaseURL` 读取。ASR 与文字理解路由由客户端添加。默认 `.invalid` 地址下不会宣称云端已配置，也不附带作者的服务或调用额度。Provider Key 继续只放在 Worker secrets，不嵌入应用。
 
 模型默认 `deepseek-flash`；若更换模型，需要同时检查 Worker allowlist、客户端请求字段、JSON 输出能力及测试。Provider Key 只放在 Worker secrets。语音和训练评价共用安装身份配额，服务限制及供应商计费由部署者承担。
 

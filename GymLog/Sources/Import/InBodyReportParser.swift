@@ -781,6 +781,54 @@ public enum InBodyReportParser {
     /// the Cyrillic "М" (U+041C).
     private static let bcmDottedPattern = #"\bB[.\s]*C[.\s]*[MМ]\b"#
 
+    /// Bar-chart codes sit beside the scale; the measurement sits below it.
+    /// Once a chart is detected, a missing/ambiguous value stays missing rather
+    /// than falling through to the same code in the historical measurements.
+    private static func chartValue(
+        code: String, rows: [Line], allTokens: [RecognizedToken],
+        excludedKeys: Set<TokenKey>, lineHeight: CGFloat, ownPatterns: [String]
+    ) -> (detected: Bool, value: RecognizedToken?) {
+        let pageWidth = allTokens.map(\.rect.maxX).max() ?? 0
+        let anchors = findAnchors(patterns: [dottedCode(code)], excludeLine: { _ in false }, rows: rows)
+            .sorted { $0.rect.midY < $1.rect.midY }
+        // Later short codes can be history rows, whose evenly spaced values
+        // must never establish a current-measurement chart.
+        for anchor in anchors.prefix(1) {
+            let numerics = allTokens.filter {
+                isNumericToken($0)
+                    && $0.rect.minX > anchor.rect.maxX + 2 * lineHeight
+                    && $0.rect.minX - anchor.rect.maxX < 0.6 * pageWidth
+                    && abs($0.rect.midY - anchor.rect.midY) <= 0.75 * lineHeight
+            }
+            // Fixed-centre bands cannot grow transitively into the value row.
+            for centre in numerics.sorted(by: { $0.rect.midY < $1.rect.midY }) {
+                let scale = numerics.filter { abs($0.rect.midY - centre.rect.midY) <= 0.3 * lineHeight }
+                    .sorted { $0.rect.midX < $1.rect.midX }
+                guard scale.count >= 5, let first = scale.first, let last = scale.last,
+                      last.rect.maxX - first.rect.minX >= 0.25 * pageWidth else { continue }
+                let gaps = zip(scale.dropFirst(), scale).map { $0.rect.midX - $1.rect.midX }
+                let pitch = gaps.sorted()[gaps.count / 2]
+                // Geometry survives substitutions such as 25.0 -> 250 and
+                // 45.0 -> 5.0, which break numeric monotonicity.
+                guard pitch > lineHeight,
+                      gaps.allSatisfy({ $0 >= 0.45 * pitch && $0 <= 3.2 * pitch }) else { continue }
+                let scaleY = scale.map(\.rect.midY).sorted()[scale.count / 2]
+                let candidates = allTokens.filter {
+                    isNumericToken($0) && !excludedKeys.contains(key($0))
+                        && $0.rect.minX > anchor.rect.maxX + 2 * lineHeight
+                        && $0.rect.maxX <= last.rect.maxX + lineHeight
+                        && $0.rect.midY - scaleY >= 0.55 * lineHeight
+                        && $0.rect.midY - scaleY <= 1.8 * lineHeight
+                        && $0.rect.midY - anchor.rect.midY <= 1.6 * lineHeight
+                        && !hasAdjacentDifferentFieldLabel(before: $0, allTokens: allTokens,
+                            lineHeight: lineHeight, excluding: ownPatterns)
+                }
+                return (true, candidates.count == 1 ? candidates[0] : nil)
+            }
+        }
+        return (false, nil)
+    }
+
     /// Walks every row the label matched and keeps the first value that
     /// could actually BE this field, falling back to the topmost reading
     /// only when none of them is in range.
@@ -795,6 +843,11 @@ public enum InBodyReportParser {
         rows: [Line], allTokens: [RecognizedToken], excludedKeys: Set<TokenKey>, lineHeight: CGFloat,
         patterns: [String], plausible: ClosedRange<Double>? = nil, excludeLine: (String) -> Bool = { _ in false }
     ) -> RecognizedToken? {
+        for code in ["SMM", "PBF", "BMI"] where patterns.contains(dottedCode(code)) || (code == "BMI" && patterns.contains(bmiDottedPattern)) {
+            let chart = chartValue(code: code, rows: rows, allTokens: allTokens,
+                                   excludedKeys: excludedKeys, lineHeight: lineHeight, ownPatterns: patterns)
+            if chart.detected { return chart.value }
+        }
         var fallback: RecognizedToken?
         for anchor in findAnchors(patterns: patterns, excludeLine: excludeLine, rows: rows) {
             guard let token = findValue(near: anchor, rows: rows, allTokens: allTokens, excludedKeys: excludedKeys, plausible: plausible, lineHeight: lineHeight, ownPatterns: patterns) else { continue }
@@ -867,7 +920,9 @@ public enum InBodyReportParser {
                 result.visceralFatConfidence = .uncertain
             }
         }
-        if let token = extractField(rows: rows, allTokens: allTokens, excludedKeys: excludedKeys, lineHeight: lineHeight, patterns: [#"basal\s*metabolic\s*rate"#, #"\bbmr\b"#, dottedCode("BMR"), #"basal\s*metabolism"#], plausible: 500...5000) {
+        // Small-print OCR can drop the i in "Metabolic". Keep both the
+        // Basal/Rate context rather than accepting an arbitrary fuzzy label.
+        if let token = extractField(rows: rows, allTokens: allTokens, excludedKeys: excludedKeys, lineHeight: lineHeight, patterns: [#"basal\s*metaboli?c\s*rate"#, #"\bbmr\b"#, dottedCode("BMR"), #"basal\s*metabolism"#], plausible: 500...5000) {
             applyReasonabilityGated(numericValue(token), range: 500...5000, confidence: token.confidence, to: &result.bmr, confidenceOut: &result.bmrConfidence)
         }
         if let token = extractField(rows: rows, allTokens: allTokens, excludedKeys: excludedKeys, lineHeight: lineHeight, patterns: [#"body\s*fat\s*mass"#, #"\bbfm\b"#, dottedCode("MBF"), #"\bfat\s*mass\b"#], plausible: 2...150) {

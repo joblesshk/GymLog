@@ -143,6 +143,16 @@ struct GymLogApp: App {
             ("ui-bm-07", date(20), 67.5, 20.0, 31.4),
             ("ui-bm-08", date(25), 67.0, 19.5, 31.6)
         ]
+        if ProcessInfo.processInfo.arguments.contains("-uiTestingBodyMetricHistory") {
+            for index in 9...16 {
+                let metric = BodyMetric(id: String(format: "ui-bm-%02d", index),
+                    date: date(25).addingTimeInterval(Double(index - 8) * 86400),
+                    weightKg: Double(60 + index), bodyFatPercent: Double(index + 10),
+                    skeletalMuscleKg: Double(index + 20))
+                metric.client = client
+                context.insert(metric)
+            }
+        }
         for record in records {
             let metric = BodyMetric(
                 id: record.id,

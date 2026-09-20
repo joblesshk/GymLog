@@ -457,7 +457,7 @@ private struct SupersetMemberRoundRow: View {
         .sheet(item: $editingField) { field in
             switch field {
             case .load:
-                PickerSheet(title: language.t("重量", "Load")) {
+                PickerSheet(title: language.t("重量", "Load"), contentHeight: 270) {
                     LoadWheel(load: $round.load, kind: loadKind)
                 }
             case .target:

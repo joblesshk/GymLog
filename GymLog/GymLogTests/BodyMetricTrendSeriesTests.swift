@@ -108,4 +108,31 @@ final class BodyMetricTrendSeriesTests: XCTestCase {
         XCTAssertEqual(points.map(\.bodyFatPercent), [20, 20, 20])
         XCTAssertEqual(points.map(\.skeletalMuscleKg), [30, 30, 30])
     }
+    func testFullHistoryRetainsOlderAndMissingMeasurementsForScrolling() {
+        let records = (1...20).reversed().map { metric("d\($0)", day: $0, weight: $0 == 5 ? nil : Double(60 + $0)) }
+        let points = BodyMetricTrendSeries.allPoints(from: records)
+        XCTAssertEqual(points.count, 20)
+        XCTAssertEqual(points.map(\.index), Array(0..<20))
+        XCTAssertEqual(points.first?.id, "d1")
+        XCTAssertNil(points[4].weightKg)
+        XCTAssertEqual(BodyMetricTrendSeries.point(at: 4.1, in: points)?.id, "d5")
+        XCTAssertEqual(BodyMetricTrendSeries.point(at: 19.49, in: points)?.id, "d20")
+        XCTAssertNil(BodyMetricTrendSeries.point(at: -1, in: points))
+        XCTAssertNil(BodyMetricTrendSeries.point(at: .nan, in: points))
+        XCTAssertNil(BodyMetricTrendSeries.point(at: 20, in: points))
+    }
+
+    func testPointSelectionKeepsSameDayRecordsAndAllThreeValuesTogether() {
+        let points = BodyMetricTrendSeries.allPoints(from: [
+            metric("b", day: 5, weight: 69, fat: nil, muscle: 31),
+            metric("a", day: 5, weight: 70, fat: 22, muscle: 30)
+        ])
+        XCTAssertEqual(BodyMetricTrendSeries.point(at: 0, in: points)?.id, "a")
+        let selected = BodyMetricTrendSeries.point(at: 1, in: points)
+        XCTAssertEqual(selected?.id, "b")
+        XCTAssertEqual(selected?.weightKg, 69)
+        XCTAssertNil(selected?.bodyFatPercent)
+        XCTAssertEqual(selected?.skeletalMuscleKg, 31)
+    }
+
 }

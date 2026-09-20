@@ -35,7 +35,7 @@ struct LoadWheel: View {
 }
 
 /// Shared kg-step list and formatting for the two weight wheels below, so
-/// the wheel and its "自定義…" keypad sheet always agree on how a value is
+/// the wheel and inline input always agree on how a value is
 /// rounded and displayed.
 private enum KgFormat {
     /// Widened from the original 2.5-200kg range (CONTRACT-UI.md §3.1) to
@@ -62,21 +62,14 @@ private enum KgFormat {
     }
 }
 
-/// Shared implementation for the three kg-based wheel modes: 2.5kg steps,
-/// 2.5-300kg range (CONTRACT-UI.md §3.1, widened -- see `KgFormat.maxKg`),
-/// differing only in which `LoadValue` case gets written back. A trailing
-/// "自定義…" row opens `LoadCustomWeightSheet` for values that fall between
-/// (or beyond) the 2.5kg steps -- e.g. 22kg between the 20/22.5 rows -- so
-/// exact manual entry doesn't require widening the step size for everyone
-/// else. Same wheel-plus-sheet split as `RepTargetWheel`/`RepTargetCustomSheet`.
+/// Numeric wheels retain custom options and provide a compact inline input.
 private struct KgStepWheel: View {
     enum Mode { case absolute, perSide, assisted }
 
     @Binding var load: LoadValue
     let mode: Mode
-    @State private var showCustomSheet = false
+    @AppStorage("customLoadWeights.v1") private var savedWeights = "[]"
 
-    private static let customTag = "custom"
 
     private var rawKg: Double {
         switch load {
@@ -87,21 +80,8 @@ private struct KgStepWheel: View {
         }
     }
 
-    private var isOnStep: Bool {
-        KgFormat.steps.contains { abs($0 - rawKg) < 0.001 }
-    }
-
-    /// The fixed steps, plus -- only when `rawKg` doesn't land exactly on
-    /// one -- a synthetic row for that exact value, inserted in sorted
-    /// numeric position (unlike `RepTargetWheel`'s frequency-ordered
-    /// presets, these rows are already numerically sorted, so the natural
-    /// place for "22" is between "20" and "22.5", not off at the end).
     private var kgRows: [Double] {
-        guard !isOnStep, rawKg > 0, rawKg.isFinite, rawKg <= 999 else { return KgFormat.steps }
-        var rows = KgFormat.steps
-        let insertAt = rows.firstIndex { $0 > rawKg } ?? rows.count
-        rows.insert(rawKg, at: insertAt)
-        return rows
+        CustomLoadWeights.rows(presets: KgFormat.steps, saved: savedWeights, current: rawKg)
     }
 
     private func label(for kg: Double) -> String {
@@ -128,12 +108,10 @@ private struct KgStepWheel: View {
                 if let match = kgRows.first(where: { abs($0 - rawKg) < 0.001 }) {
                     return KgFormat.format(match)
                 }
-                return Self.customTag
+                return KgFormat.format(rawKg)
             },
             set: { newID in
-                if newID == Self.customTag {
-                    showCustomSheet = true
-                } else if let kg = kgRows.first(where: { KgFormat.format($0) == newID }) {
+                if let kg = kgRows.first(where: { KgFormat.format($0) == newID }) {
                     apply(kg: kg)
                 }
             }
@@ -141,21 +119,19 @@ private struct KgStepWheel: View {
     }
 
     var body: some View {
-        Picker(L("重量", "Load"), selection: selection) {
-            ForEach(kgRows, id: \.self) { kg in
-                Text(label(for: kg)).tag(KgFormat.format(kg))
+        VStack(spacing: 0) {
+            Picker(L("重量", "Load"), selection: selection) {
+                ForEach(kgRows, id: \.self) { kg in
+                    Text(label(for: kg)).tag(KgFormat.format(kg))
+                }
             }
-            Text(L("自定義…", "Custom…")).tag(Self.customTag)
-        }
-        .pickerStyle(.wheel)
-        .labelsHidden()
-        .sheet(isPresented: $showCustomSheet) {
-            LoadCustomWeightSheet(
-                title: L("自定義重量", "Custom Weight"),
-                initialKg: rawKg,
-                allowsZero: false,
-                onApply: { apply(kg: $0) }
-            )
+            .pickerStyle(.wheel)
+            .labelsHidden()
+            .frame(maxHeight: .infinity)
+            .clipped()
+            InlineLoadInput(currentKg: rawKg, allowsZero: false) {
+                apply(kg: $0)
+            }
         }
     }
 }
@@ -164,13 +140,12 @@ private struct KgStepWheel: View {
 /// .bodyweight`), the rest are 2.5kg-stepped added weight on top of
 /// bodyweight (writes back `.absolute`, same encoding an actual loaded plate
 /// would use elsewhere in the app -- there's no separate "added weight"
-/// `LoadValue` case, nor does one need to exist). Also gets a "自定義…" row,
+/// `LoadValue` case, nor does one need to exist). Also offers manual entry,
 /// same rationale as `KgStepWheel` above.
 private struct BodyweightPlusWheel: View {
     @Binding var load: LoadValue
-    @State private var showCustomSheet = false
+    @AppStorage("customLoadWeights.v1") private var savedWeights = "[]"
 
-    private static let customTag = "custom"
     private static let bodyweightTag = "bw"
 
     private var currentAdded: Double {
@@ -182,16 +157,8 @@ private struct BodyweightPlusWheel: View {
         }
     }
 
-    private var isOnStep: Bool {
-        KgFormat.steps.contains { abs($0 - currentAdded) < 0.001 }
-    }
-
     private var addedRows: [Double] {
-        guard !isOnStep, currentAdded > 0, currentAdded.isFinite, currentAdded <= 999 else { return KgFormat.steps }
-        var rows = KgFormat.steps
-        let insertAt = rows.firstIndex { $0 > currentAdded } ?? rows.count
-        rows.insert(currentAdded, at: insertAt)
-        return rows
+        CustomLoadWeights.rows(presets: KgFormat.steps, saved: savedWeights, current: currentAdded)
     }
 
     private func apply(added: Double) {
@@ -207,12 +174,10 @@ private struct BodyweightPlusWheel: View {
                 if let match = addedRows.first(where: { abs($0 - currentAdded) < 0.001 }) {
                     return KgFormat.format(match)
                 }
-                return Self.customTag
+                return KgFormat.format(currentAdded)
             },
             set: { newID in
-                if newID == Self.customTag {
-                    showCustomSheet = true
-                } else if newID == Self.bodyweightTag {
+                if newID == Self.bodyweightTag {
                     apply(added: 0)
                 } else if let kg = addedRows.first(where: { KgFormat.format($0) == newID }) {
                     apply(added: kg)
@@ -222,82 +187,72 @@ private struct BodyweightPlusWheel: View {
     }
 
     var body: some View {
-        Picker(L("重量", "Load"), selection: selection) {
-            Text(L("自重", "Bodyweight")).tag(Self.bodyweightTag)
-            ForEach(addedRows, id: \.self) { kg in
-                Text("+\(KgFormat.format(kg))kg").tag(KgFormat.format(kg))
+        VStack(spacing: 0) {
+            Picker(L("重量", "Load"), selection: selection) {
+                Text(L("自重", "Bodyweight")).tag(Self.bodyweightTag)
+                ForEach(addedRows, id: \.self) { kg in
+                    Text("+\(KgFormat.format(kg))kg").tag(KgFormat.format(kg))
+                }
             }
-            Text(L("自定義…", "Custom…")).tag(Self.customTag)
-        }
-        .pickerStyle(.wheel)
-        .labelsHidden()
-        .sheet(isPresented: $showCustomSheet) {
-            LoadCustomWeightSheet(
-                title: L("自定義加重", "Custom Added Weight"),
-                initialKg: currentAdded,
-                allowsZero: true,
-                onApply: { apply(added: $0) }
-            )
+            .pickerStyle(.wheel)
+            .labelsHidden()
+            .frame(maxHeight: .infinity)
+            .clipped()
+            InlineLoadInput(currentKg: currentAdded, allowsZero: true) {
+                apply(added: $0)
+            }
         }
     }
 }
 
-/// "自定義…" 二級輸入 for 重量: a plain decimal keypad so any exact value --
-/// between the wheel's 2.5kg steps, or beyond its range entirely -- can be
-/// recorded without needing to widen the step size (which would make the
-/// wheel unwieldy) or the range (which can't cover every possible outlier)
-/// for everyone else. Mirrors `RepTargetCustomSheet`'s wheel-plus-sheet split.
-private struct LoadCustomWeightSheet: View {
-    let title: String
-    let initialKg: Double
-    /// `BodyweightPlusWheel`'s custom entry allows 0 (= "自重", no added
-    /// weight); the three `KgStepWheel` modes never should -- 0kg isn't a
-    /// representable absolute/per-side/assisted load.
+/// Commit a valid entry on keyboard submission, focus loss, or closing the picker.
+/// Persist only the completed value, never intermediate keystrokes such as "2" in "21".
+private struct InlineLoadInput: View {
+    let currentKg: Double
     let allowsZero: Bool
     let onApply: (Double) -> Void
 
-    @Environment(\.dismiss) private var dismiss
+    @AppStorage("customLoadWeights.v1") private var savedWeights = "[]"
     @State private var text = ""
+    @FocusState private var inputFocused: Bool
 
-    private var parsedKg: Double? {
-        let normalized = text.replacingOccurrences(of: ",", with: ".")
-        guard let value = Double(normalized), value.isFinite, value <= 999 else { return nil }
-        return (allowsZero ? value >= 0 : value > 0) ? value : nil
+    private func commit() {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ",", with: ".")
+        guard let value = Double(normalized), value.isFinite, value <= 999,
+              allowsZero ? value >= 0 : value > 0 else { return }
+        savedWeights = CustomLoadWeights.adding(value, to: savedWeights)
+        text = ""
+        onApply(value)
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                HStack {
-                    TextField(L("重量", "Weight"), text: $text)
-                        .keyboardType(.decimalPad)
-                    Text("kg").foregroundStyle(DS.C.textMid)
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .background(DS.C.canvas)
-            .font(DS.F.listRow)
-            .foregroundStyle(DS.C.textHi)
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L("取消", "Cancel")) { dismiss() }
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(DS.C.textHi)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(L("確定", "OK")) {
-                        if let kg = parsedKg { onApply(kg) }
-                        dismiss()
-                    }
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(DS.C.accent)
-                    .disabled(parsedKg == nil)
-                }
-            }
+        HStack(spacing: 8) {
+            TextField("", text: $text,
+                      prompt: Text(L("可以手動輸入重量", "Enter a custom weight"))
+                        .foregroundStyle(DS.C.textLow))
+                .keyboardType(.decimalPad)
+                .focused($inputFocused)
+                .accessibilityLabel(L("可以手動輸入重量", "Enter a custom weight"))
+                .accessibilityIdentifier("custom-load-input")
+                .onSubmit { commit(); inputFocused = false }
+            Text("kg").foregroundStyle(DS.C.textLow)
         }
-        .onAppear { text = initialKg > 0 ? KgFormat.format(initialKg) : "" }
+        .font(.system(size: 13))
+        .foregroundStyle(DS.C.textHi)
+        .padding(.horizontal, 12)
+        .frame(width: 230, height: 34)
+        .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 9))
+        .padding(.vertical, 5)
+        .onChange(of: inputFocused) { _, focused in
+            if !focused { commit() }
+        }
+        .onChange(of: currentKg) { _, _ in
+            // A wheel selection supersedes any unfinished manual entry.
+            text = ""
+            inputFocused = false
+        }
+        .onDisappear { commit() }
     }
 }
 

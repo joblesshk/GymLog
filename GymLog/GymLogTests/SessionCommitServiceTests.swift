@@ -34,6 +34,27 @@ final class SessionCommitServiceTests: XCTestCase {
 
     // MARK: - 暂存多次→结束：数据库只有同一条课次
 
+    func testExistingSessionOfAnotherClientIsNotOverwritten() throws {
+        let container = try TestSupport.makeInMemoryContainer()
+        let context = ModelContext(container)
+        let owner = makeClient(in: context)
+        let other = Client(id: "cl-other", name: "Other")
+        context.insert(other)
+        let original = baseInput(client: owner, blocks: [BlockDraft(entries: [])], finishing: false)
+        guard case .success(let saved) = SessionCommitService.commit(original, in: context) else {
+            return XCTFail("initial commit failed")
+        }
+        let blockIDs = saved.session.orderedBlocks.map(\.id)
+        let wrongOwner = baseInput(client: other, blocks: [], existingSessionID: saved.session.id, finishing: true)
+        guard case .failure(.clientMismatch) = SessionCommitService.commit(wrongOwner, in: context) else {
+            return XCTFail("must reject an existing session owned by another client")
+        }
+        XCTAssertEqual(saved.session.client?.id, owner.id)
+        XCTAssertEqual(saved.session.orderedBlocks.map(\.id), blockIDs)
+        XCTAssertTrue(saved.session.isInProgress)
+        XCTAssertFalse(context.hasChanges)
+    }
+
     func testRepeatedDraftSavesThenFinishProduceExactlyOneSession() throws {
         let container = try TestSupport.makeInMemoryContainer()
         let context = ModelContext(container)

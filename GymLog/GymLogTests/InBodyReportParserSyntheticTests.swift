@@ -143,6 +143,82 @@ final class InBodyReportParserSyntheticTests: XCTestCase {
         XCTAssertEqual(InBodyTextRecognizer.orientedImageSize(raw: raw, orientation: .upMirrored), raw)
     }
 
+    // Synthetic layout and values, not a transcription of a private report.
+    private func chartTokens(code: String = "SMM", value: String? = "31.7") -> [RecognizedToken] {
+        var tokens = [
+            token(code, x: 20, y: 100, width: 30),
+            token("UnreadableCaption", x: 20, y: 105, width: 90),
+            token("Report", x: 700, y: 20)
+        ]
+        for (index, tick) in ["20.0", "250", "35.0", "40.0", "5.0", "500", "550"].enumerated() {
+            tokens.append(token(tick, x: CGFloat(150 + index * 50), y: 96, width: 25))
+        }
+        if let value { tokens.append(token(value, x: 275, y: 110, width: 30)) }
+        return tokens
+    }
+
+    func testChartValueBelowScaleSurvivesGarbledCaptionAndNonMonotonicTicks() {
+        let muscle = InBodyReportParser.parse(tokens: chartTokens())
+        let fat = InBodyReportParser.parse(tokens: chartTokens(code: "PBF", value: "24.6"))
+        let bmi = InBodyReportParser.parse(tokens: chartTokens(code: "BMI", value: "23.4"))
+        XCTAssertEqual(muscle.skeletalMuscleKg, 31.7)
+        XCTAssertEqual(fat.bodyFatPercent, 24.6)
+        XCTAssertEqual(bmi.bmi, 23.4)
+    }
+
+    func testMissingChartValueDoesNotFallThroughToHistory() {
+        var tokens = chartTokens(value: nil)
+        tokens += [token("Skeletal Muscle Mass", x: 20, y: 300, width: 110),
+                   token("28.1", x: 150, y: 300, width: 30)]
+        XCTAssertNil(InBodyReportParser.parse(tokens: tokens).skeletalMuscleKg)
+    }
+
+    func testChartDoesNotBorrowAnotherFieldBelowScale() {
+        var tokens = chartTokens(value: nil)
+        tokens += [token("BMI", x: 200, y: 110, width: 30),
+                   token("23.4", x: 275, y: 110, width: 30)]
+        XCTAssertNil(InBodyReportParser.parse(tokens: tokens).skeletalMuscleKg)
+    }
+
+    func testChartAmbiguityAndSharedReferenceRangeRemainMissing() {
+        var ambiguous = chartTokens()
+        ambiguous.append(token("33.1", x: 350, y: 110, width: 30))
+        XCTAssertNil(InBodyReportParser.parse(tokens: ambiguous).skeletalMuscleKg)
+        var range = chartTokens(value: nil)
+        range += [token("27.0", x: 275, y: 110, width: 60),
+                  token("35.0", x: 275, y: 110, width: 60)]
+        XCTAssertNil(InBodyReportParser.parse(tokens: range).skeletalMuscleKg)
+    }
+
+    func testChartDescriptiveCaptionDoesNotBlockItsOwnMeasurement() {
+        var tokens = chartTokens(code: "PBF", value: "24.6")
+        tokens.removeAll { $0.text == "UnreadableCaption" }
+        tokens.append(token("Percent Body Fat", x: 20, y: 110, width: 90))
+        XCTAssertEqual(InBodyReportParser.parse(tokens: tokens).bodyFatPercent, 24.6)
+    }
+
+    func testChartAllowsTwoConsecutiveTicksMissingFromOCR() {
+        var tokens = chartTokens()
+        tokens.removeAll { $0.text == "250" || $0.text == "35.0" }
+        XCTAssertEqual(InBodyReportParser.parse(tokens: tokens).skeletalMuscleKg, 31.7)
+    }
+
+    func testLaterHistoryGridDoesNotOverrideEarlierTableValue() {
+        var tokens = basicTokens(skeletalLabel: "SMM")
+        tokens += chartTokens().map {
+            RecognizedToken(text: $0.text, rect: $0.rect.offsetBy(dx: 0, dy: 300), confidence: $0.confidence)
+        }
+        XCTAssertEqual(InBodyReportParser.parse(tokens: tokens).skeletalMuscleKg, 30.9)
+    }
+
+    func testBasalMetabolicRateWithDroppedLetter() {
+        let result = InBodyReportParser.parse(tokens: [
+            token("Basal Metabolc Rate", x: 20, y: 10, width: 130),
+            token("1628", x: 165, y: 10, width: 40)
+        ])
+        XCTAssertEqual(result.bmr, 1628)
+    }
+
     func testScanServiceRunsOnGeneratedLocalImageAndReturnsDiagnostics() throws {
         let image = makeSyntheticReportImage()
         let uprightData = try encodedJPEG(image, exifOrientation: .up)

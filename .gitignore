@@ -56,3 +56,8 @@ backups/
 *.log
 .DS_Store
 .qwen/
+
+# Keep real deployment settings locally; GitHub receives only safe defaults.
+!GymLog/Config/Build.xcconfig
+/GymLog/Config/Local.xcconfig
+/GymLog/project 2.yml
