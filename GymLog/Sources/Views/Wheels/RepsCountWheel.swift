@@ -11,11 +11,12 @@ import GymLogKit
 struct RepsCountWheel: View {
     @Binding var reps: Int
 
-    // 1...100 -- matches `RepTargetCustomSheet`'s `.fixed` Stepper range, so
+    // 1...150 -- matches `RepTargetCustomSheet`'s `.fixed` Stepper range, so
     // a value that already exists in the client's real history (e.g. a
     // historical `.fixed` rep count above the 1-50 the contract's own
     // example suggested) is still representable, not silently clamped.
-    private static let values = Array(1...100)
+    // Widened from 1-100 to cover high-rep bodyweight/conditioning work.
+    private static let values = Array(1...150)
 
     var body: some View {
         Picker(L("次數", "Reps"), selection: $reps) {

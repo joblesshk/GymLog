@@ -41,21 +41,24 @@ struct RepTargetCustomSheet: View {
                 }
                 .pickerStyle(.segmented)
 
+                // Ranges widened a bit beyond the contract's original figures
+                // (100 reps / 30min / 10km / 20 rounds) to leave headroom for
+                // real outliers before falling back to raw text elsewhere.
                 switch kind {
                 case .fixed:
-                    Stepper(L("固定 \(fixedValue) 次", "Fixed \(fixedValue) reps"), value: $fixedValue, in: 1...100)
+                    Stepper(L("固定 \(fixedValue) 次", "Fixed \(fixedValue) reps"), value: $fixedValue, in: 1...150)
                 case .range:
-                    Stepper(L("下限 \(rangeLow) 次", "Min \(rangeLow) reps"), value: $rangeLow, in: 1...100)
-                    Stepper(L("上限 \(rangeHigh) 次", "Max \(rangeHigh) reps"), value: $rangeHigh, in: rangeLow...100)
+                    Stepper(L("下限 \(rangeLow) 次", "Min \(rangeLow) reps"), value: $rangeLow, in: 1...150)
+                    Stepper(L("上限 \(rangeHigh) 次", "Max \(rangeHigh) reps"), value: $rangeHigh, in: rangeLow...150)
                 case .time:
-                    Stepper(timeLabel, value: $timeSeconds, in: 5...1800, step: 5)
+                    Stepper(timeLabel, value: $timeSeconds, in: 5...3600, step: 5)
                 case .distance:
-                    Stepper(L("\(distanceMeters) 米", "\(distanceMeters) m"), value: $distanceMeters, in: 50...10000, step: 50)
+                    Stepper(L("\(distanceMeters) 米", "\(distanceMeters) m"), value: $distanceMeters, in: 50...50000, step: 50)
                 case .rounds:
-                    Stepper(L("\(roundsCount) 輪", "\(roundsCount) rounds"), value: $roundsCount, in: 1...20)
+                    Stepper(L("\(roundsCount) 輪", "\(roundsCount) rounds"), value: $roundsCount, in: 1...30)
                 case .perSide:
-                    Stepper(L("左 \(perSideLeft) 次", "Left \(perSideLeft) reps"), value: $perSideLeft, in: 1...100)
-                    Stepper(L("右 \(perSideRight) 次", "Right \(perSideRight) reps"), value: $perSideRight, in: 1...100)
+                    Stepper(L("左 \(perSideLeft) 次", "Left \(perSideLeft) reps"), value: $perSideLeft, in: 1...150)
+                    Stepper(L("右 \(perSideRight) 次", "Right \(perSideRight) reps"), value: $perSideRight, in: 1...150)
                 }
             }
             .scrollContentBackground(.hidden)

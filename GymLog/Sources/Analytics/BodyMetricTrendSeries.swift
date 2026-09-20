@@ -25,11 +25,13 @@ public struct BodyMetricTrendPoint: Identifiable, Equatable {
 /// Selects and positions the records used by the body-composition trend.
 ///
 /// Selection happens before any metric-specific nil filtering. This is
-/// material: a missing body-fat value in one of the latest six records must
-/// leave a gap in the body-fat line, rather than pulling an older seventh
-/// record into that metric's chart.
+/// material: a missing body-fat value in one of the latest `defaultLimit`
+/// records must leave a gap in the body-fat line, rather than pulling an
+/// older record outside that window into that metric's chart.
 public enum BodyMetricTrendSeries {
-    public static let defaultLimit = 6
+    /// Widened from 6 to 12 measurements so the trend chart reflects a
+    /// longer history when enough records exist.
+    public static let defaultLimit = 12
 
     /// A deterministic ascending order for both the history list and trend
     /// selection. `id` breaks same-day ties so repeated measurements on one

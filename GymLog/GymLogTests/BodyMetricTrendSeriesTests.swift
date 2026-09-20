@@ -32,11 +32,23 @@ final class BodyMetricTrendSeriesTests: XCTestCase {
             metric("c", day: 3), metric("e", day: 5)
         ]
 
-        let points = BodyMetricTrendSeries.points(from: records)
+        // Explicit limit: 6 exercises the windowing algorithm itself,
+        // independent of `defaultLimit`'s current value (12).
+        let points = BodyMetricTrendSeries.points(from: records, limit: 6)
 
         XCTAssertEqual(points.map(\.id), ["c", "d", "e", "f", "g", "h"])
         XCTAssertEqual(points.map(\.index), Array(0..<6))
         XCTAssertEqual(points.map(\.date), (3...8).map { date($0) })
+    }
+
+    func testDefaultLimitIsTwelveRecords() {
+        let records = (1...14).map { metric("d\($0)", day: $0) }
+
+        let points = BodyMetricTrendSeries.points(from: records)
+
+        XCTAssertEqual(BodyMetricTrendSeries.defaultLimit, 12)
+        XCTAssertEqual(points.map(\.id), (3...14).map { "d\($0)" })
+        XCTAssertEqual(points.count, 12)
     }
 
     func testUnevenDatesAndSameDayRecordsUseOneDiscreteIndexAxis() {
@@ -65,7 +77,7 @@ final class BodyMetricTrendSeriesTests: XCTestCase {
             metric("seven", day: 7, fat: 22)
         ]
 
-        let points = BodyMetricTrendSeries.points(from: records)
+        let points = BodyMetricTrendSeries.points(from: records, limit: 6)
 
         XCTAssertEqual(points.map(\.id), ["two", "three", "four", "five", "six", "seven"])
         XCTAssertEqual(points.map(\.bodyFatPercent), [19, nil, 20, nil, 21, 22])

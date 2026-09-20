@@ -436,9 +436,9 @@ private struct RoundRow: View, Identifiable {
         case .time:
             TimeQuantityWheel(seconds: binding)
         case .distance:
-            QuantityWheel(value: binding, range: 50...10000, step: 50) { language.t("\($0) 米", "\($0) m") }
+            QuantityWheel(value: binding, range: 50...50000, step: 50) { language.t("\($0) 米", "\($0) m") }
         case .rounds:
-            QuantityWheel(value: binding, range: 1...20, step: 1) { language.t("\($0) 輪", "\($0) rounds") }
+            QuantityWheel(value: binding, range: 1...30, step: 1) { language.t("\($0) 輪", "\($0) rounds") }
         case .reps, .unknown:
             RepsCountWheel(reps: binding)
         }

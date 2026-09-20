@@ -2,6 +2,14 @@ import SwiftUI
 import SwiftData
 import GymLogKit
 
+/// One file handed to `.onOpenURL`, classified into which import flow it
+/// belongs to -- see `ContentView.classifyIncomingFile`.
+private struct IncomingFile {
+    enum Kind { case exchange, backup }
+    let url: URL
+    let kind: Kind
+}
+
 /// Tab host, per 工程规划.md §4: 今天 / 学员 / 历史 / 动作库 / 设置.
 /// Owned exclusively by M2 (CONTRACT-UI.md §1). 动作库 mounts M3's
 /// ExerciseLibraryView through the frozen seam in CONTRACT-UI.md §2, so M3
@@ -20,15 +28,23 @@ struct ContentView: View {
     @Query(sort: \Client.name) private var clients: [Client]
 
     // P2 (2026-09-11) §5.2: `.onOpenURL` 接收 AirDrop/Files「打開方式：
-    // GymLog」送来的 `.gymlogshare` 文件——冷启动、前台、连续打开多个文件都
-    // 走这一个入口。训练中收到文件先排队,不打断当前草稿（不切换学员、不
-    // 覆盖草稿）;`draftStore.isActive` 变回 false（暫存/結束/放棄）时才处理
-    // 队列里下一个。
-    @State private var pendingExchangeURLs: [URL] = []
+    // GymLog」送来的文件——冷启动、前台、连续打开多个文件都走这一个入口。
+    // 送来的可能是单次分享 `.gymlogshare`/`.txt`，也可能是「设置」导出的完整
+    // 备份 `.json`——两者都可能是 `.json` 副档名，所以 `classifyIncomingFile`
+    // 靠窥探内容而非副档名区分。（此前两者一律被当成分享文件塞进
+    // `ExchangeImportFlow`，备份文件结构对不上单次分享格式，落到其自然语言
+    // 兜底解析分支，长时间卡在「解析中」多半仍以失败告终。）训练中收到文件先
+    // 排队,不打断当前草稿（不切换学员、不覆盖草稿）;`draftStore.isActive` 变
+    // 回 false（暫存/結束/放棄）时才处理队列里下一个。
+    @State private var pendingIncomingFiles: [IncomingFile] = []
     @State private var currentExchangeImportURL: URL?
     @State private var showingExchangeImportFlow = false
     @State private var exchangeImportResultMessage: String?
     @State private var exchangeImportErrorMessage: String?
+    @State private var currentBackupRestoreURL: URL?
+    @State private var showingBackupRestoreFlow = false
+    @State private var backupRestoreResultMessage: String?
+    @State private var backupRestoreErrorMessage: String?
 
     // M2 app-wide state (CONTRACT-UI.md §3.4/§3.6): current-client selection,
     // the in-progress entry draft, and the coordinator that gates every
@@ -153,15 +169,15 @@ struct ContentView: View {
                 ImportStatusBanner(status: status)
                     .padding(.top, 8)
                     .transition(.move(edge: .top).combined(with: .opacity))
-            } else if !pendingExchangeURLs.isEmpty && draftStore.isActive {
-                // 训练中收到分享文件：只提示数量，不弹预览、不打断当前草稿
-                // （§5.2 明确要求）。课次結束/暫存/放棄后 `onChange` 会自动
-                // 把队列里的第一个文件接着处理。
+            } else if !pendingIncomingFiles.isEmpty && draftStore.isActive {
+                // 训练中收到分享/备份文件：只提示数量，不弹预览、不打断当前
+                // 草稿（§5.2 明确要求）。课次結束/暫存/放棄后 `onChange` 会
+                // 自动把队列里的第一个文件接着处理。
                 HStack(spacing: 6) {
                     Image(systemName: "tray.full")
                     Text(language.t(
-                        "收到 \(pendingExchangeURLs.count) 個分享文件，訓練結束後處理",
-                        "\(pendingExchangeURLs.count) shared file(s) received — will process after this session"
+                        "收到 \(pendingIncomingFiles.count) 個文件，訓練結束後處理",
+                        "\(pendingIncomingFiles.count) file(s) received — will process after this session"
                     ))
                 }
                 .font(.system(size: 12, weight: .medium))
@@ -175,15 +191,20 @@ struct ContentView: View {
         }
         .animation(.default, value: importStatus == nil)
         .onOpenURL { url in
-            pendingExchangeURLs.append(url)
-            processNextPendingExchangeFileIfPossible()
+            Task.detached(priority: .userInitiated) {
+                let kind = Self.classifyIncomingFile(url)
+                await MainActor.run {
+                    pendingIncomingFiles.append(IncomingFile(url: url, kind: kind))
+                    processNextPendingIncomingFileIfPossible()
+                }
+            }
         }
         .onChange(of: draftStore.isActive) { _, isActive in
-            if !isActive { processNextPendingExchangeFileIfPossible() }
+            if !isActive { processNextPendingIncomingFileIfPossible() }
         }
         .sheet(isPresented: $showingExchangeImportFlow, onDismiss: {
             currentExchangeImportURL = nil
-            processNextPendingExchangeFileIfPossible()
+            processNextPendingIncomingFileIfPossible()
         }) {
             if let currentExchangeImportURL {
                 ExchangeImportFlow(pendingURL: currentExchangeImportURL) { status in
@@ -205,6 +226,24 @@ struct ContentView: View {
                 }
             }
         }
+        .sheet(isPresented: $showingBackupRestoreFlow, onDismiss: {
+            currentBackupRestoreURL = nil
+            processNextPendingIncomingFileIfPossible()
+        }) {
+            if let currentBackupRestoreURL {
+                BackupRestoreFlow(pendingURL: currentBackupRestoreURL) { status in
+                    switch status {
+                    case .success(let result):
+                        backupRestoreResultMessage = language.t(
+                            "已恢復 \(result.clientsWritten) 位學員、\(result.sessionsWritten) 個課次",
+                            "Restored \(result.clientsWritten) client(s), \(result.sessionsWritten) session(s)"
+                        )
+                    case .failure(let message):
+                        backupRestoreErrorMessage = message
+                    }
+                }
+            }
+        }
         .alert(language.t("匯入完成", "Import Complete"), isPresented: Binding(get: { exchangeImportResultMessage != nil }, set: { if !$0 { exchangeImportResultMessage = nil } })) {
             Button(language.t("好", "OK"), role: .cancel) {}
         } message: {
@@ -214,6 +253,16 @@ struct ContentView: View {
             Button(language.t("好", "OK"), role: .cancel) {}
         } message: {
             Text(exchangeImportErrorMessage ?? "")
+        }
+        .alert(language.t("恢復完成", "Restore Complete"), isPresented: Binding(get: { backupRestoreResultMessage != nil }, set: { if !$0 { backupRestoreResultMessage = nil } })) {
+            Button(language.t("好", "OK"), role: .cancel) {}
+        } message: {
+            Text(backupRestoreResultMessage ?? "")
+        }
+        .alert(language.t("恢復失敗", "Restore Failed"), isPresented: Binding(get: { backupRestoreErrorMessage != nil }, set: { if !$0 { backupRestoreErrorMessage = nil } })) {
+            Button(language.t("好", "OK"), role: .cancel) {}
+        } message: {
+            Text(backupRestoreErrorMessage ?? "")
         }
         .task {
             await importFixtureIfNeeded()
@@ -231,14 +280,44 @@ struct ContentView: View {
         }
     }
 
-    /// 队列里下一个待处理的分享文件——训练中（`draftStore.isActive`）或
-    /// 已经有一个预览面板开着时都先不动，等条件满足再弹。
-    private func processNextPendingExchangeFileIfPossible() {
+    /// 队列里下一个待处理的文件（分享或备份）——训练中（`draftStore.isActive`）
+    /// 或已经有一个预览面板开着时都先不动，等条件满足再弹。两种文件共用一个
+    /// 队列，按各自的 `kind` 分别弹对应的面板，这样任一面板关闭都能正确唤醒
+    /// 队列里的下一项，不管它是哪一种。
+    private func processNextPendingIncomingFileIfPossible() {
         guard currentExchangeImportURL == nil, !showingExchangeImportFlow else { return }
+        guard currentBackupRestoreURL == nil, !showingBackupRestoreFlow else { return }
         guard !draftStore.isActive else { return }
-        guard !pendingExchangeURLs.isEmpty else { return }
-        currentExchangeImportURL = pendingExchangeURLs.removeFirst()
-        showingExchangeImportFlow = true
+        guard !pendingIncomingFiles.isEmpty else { return }
+        let next = pendingIncomingFiles.removeFirst()
+        switch next.kind {
+        case .exchange:
+            currentExchangeImportURL = next.url
+            showingExchangeImportFlow = true
+        case .backup:
+            currentBackupRestoreURL = next.url
+            showingBackupRestoreFlow = true
+        }
+    }
+
+    /// 单次分享 `.gymlogshare`/`.txt` 一定走 `ExchangeImportFlow`；`.json` 则
+    /// 两种文件都可能是，靠窥探最外层 JSON key 区分——`BackupFile`（`Sources/
+    /// Export/BackupDTO.swift`）顶层有 `schemaVersion`/`clients`，
+    /// `ExchangePackage`（`Sources/Exchange/ExchangeDTO.swift`）没有。窥探
+    /// 前先用文件大小把不可能是备份的超大文件（备份本身有 50MB 上限，见
+    /// `BackupRestoreFlow.maxFileSize`）挡掉，避免为了区分类型而把一个巨大
+    /// 文件整个读进内存；读取或解析失败一律当作分享文件处理，保持原有行为。
+    private static func classifyIncomingFile(_ url: URL) -> IncomingFile.Kind {
+        guard url.pathExtension.lowercased() == "json" else { return .exchange }
+        let didStart = url.startAccessingSecurityScopedResource()
+        defer { if didStart { url.stopAccessingSecurityScopedResource() } }
+        let fileSize = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+        guard fileSize > 0, fileSize <= 50_000_000 else { return .exchange }
+        guard let data = try? Data(contentsOf: url),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return .exchange
+        }
+        return (object["schemaVersion"] != nil && object["clients"] != nil) ? .backup : .exchange
     }
 
     /// One-time heal for installs that seeded their exercise library before

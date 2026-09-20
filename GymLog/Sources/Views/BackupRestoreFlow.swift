@@ -9,6 +9,12 @@ import GymLogKit
 /// 动作库/模板（不像 Excel 导入那样限定到当前选中的学员），所以放在「設置」而
 /// 不是「歷史」里。
 struct BackupRestoreFlow: View {
+    /// 非 nil 時直接用這個 URL（`ContentView.onOpenURL` 判斷出是備份文件時遞
+    /// 入），不再彈系統文件選擇器——鏡像 `ExchangeImportFlow.pendingURL` 的同
+    /// 一個口子。過去 AirDrop/Files「打開方式：GymLog」送來的備份 `.json` 一
+    /// 律被當成單次分享文件塞進 `ExchangeImportFlow`，結構對不上，落到那邊
+    /// 的自然語言兜底解析，對著一個完整備份長時間卡在「解析中」。
+    var pendingURL: URL?
     let onComplete: (Status) -> Void
 
     enum Status {
@@ -20,22 +26,36 @@ struct BackupRestoreFlow: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
-    @State private var showingFilePicker = true
+    @State private var showingFilePicker: Bool
     @State private var isProcessing = false
     @State private var errorMessage: String?
     @State private var parsedFile: BackupFile?
     @State private var previewResult: BackupImporter.PreviewResult?
     @State private var showingPreview = false
+    @State private var didStartInput = false
 
     /// Generous multiple of a realistic backup's size (a few hundred KB even
     /// with thousands of sessions) -- same "too big means wrong file, not a
     /// legitimately large export" reasoning as `ExcelImportFlow`'s own cap.
     private static let maxFileSize = 50_000_000
 
+    init(pendingURL: URL? = nil, onComplete: @escaping (Status) -> Void) {
+        self.pendingURL = pendingURL
+        self.onComplete = onComplete
+        _showingFilePicker = State(initialValue: pendingURL == nil)
+    }
+
     var body: some View {
         Color.clear
             .fileImporter(isPresented: $showingFilePicker, allowedContentTypes: [UTType(filenameExtension: "json") ?? .json]) { result in
                 handleFileSelection(result)
+            }
+            .onAppear {
+                guard !didStartInput else { return }
+                didStartInput = true
+                if let pendingURL {
+                    handleSelectedURL(pendingURL, needsSecurityScope: true)
+                }
             }
             .overlay {
                 if isProcessing {
@@ -69,39 +89,47 @@ struct BackupRestoreFlow: View {
         case .failure(let error):
             errorMessage = error.localizedDescription
         case .success(let url):
-            guard url.pathExtension.lowercased() == "json" else {
-                errorMessage = language.t("請選擇備份 .json 檔案。", "Please choose a backup .json file.")
-                return
-            }
-            let didStartScope = url.startAccessingSecurityScopedResource()
-            isProcessing = true
-            Task.detached(priority: .userInitiated) {
-                defer { if didStartScope { url.stopAccessingSecurityScopedResource() } }
-                do {
-                    // 2026-09-07 审阅 B10: check the file's size BEFORE
-                    // reading its bytes -- the old code read the entire
-                    // file into memory first and only rejected it
-                    // afterward, so the size check bought no actual memory
-                    // protection against a genuinely huge file.
-                    let fileSizeValues = try? url.resourceValues(forKeys: [.fileSizeKey])
-                    guard let fileSize = fileSizeValues?.fileSize, fileSize < Self.maxFileSize else {
-                        await MainActor.run {
-                            isProcessing = false
-                            errorMessage = language.t("檔案過大，請確認選擇的是正確的備份檔案。", "File too large — please check you selected the right backup file.")
-                        }
-                        return
-                    }
-                    let data = try Data(contentsOf: url)
-                    let file = try BackupImporter.parse(data)
+            handleSelectedURL(url, needsSecurityScope: true)
+        }
+    }
+
+    /// `needsSecurityScope`: both the `.fileImporter` picker result AND a
+    /// URL handed in from `pendingURL` (ultimately `.onOpenURL`) are
+    /// security-scoped resources on iOS -- see `ExchangeImportFlow`'s
+    /// identical note.
+    private func handleSelectedURL(_ url: URL, needsSecurityScope: Bool) {
+        guard url.pathExtension.lowercased() == "json" else {
+            errorMessage = language.t("請選擇備份 .json 檔案。", "Please choose a backup .json file.")
+            return
+        }
+        let didStartScope = needsSecurityScope && url.startAccessingSecurityScopedResource()
+        isProcessing = true
+        Task.detached(priority: .userInitiated) {
+            defer { if didStartScope { url.stopAccessingSecurityScopedResource() } }
+            do {
+                // 2026-09-07 审阅 B10: check the file's size BEFORE
+                // reading its bytes -- the old code read the entire
+                // file into memory first and only rejected it
+                // afterward, so the size check bought no actual memory
+                // protection against a genuinely huge file.
+                let fileSizeValues = try? url.resourceValues(forKeys: [.fileSizeKey])
+                guard let fileSize = fileSizeValues?.fileSize, fileSize < Self.maxFileSize else {
                     await MainActor.run {
                         isProcessing = false
-                        computePreview(file)
+                        errorMessage = language.t("檔案過大，請確認選擇的是正確的備份檔案。", "File too large — please check you selected the right backup file.")
                     }
-                } catch {
-                    await MainActor.run {
-                        isProcessing = false
-                        errorMessage = Self.describe(error, language: language)
-                    }
+                    return
+                }
+                let data = try Data(contentsOf: url)
+                let file = try BackupImporter.parse(data)
+                await MainActor.run {
+                    isProcessing = false
+                    computePreview(file)
+                }
+            } catch {
+                await MainActor.run {
+                    isProcessing = false
+                    errorMessage = Self.describe(error, language: language)
                 }
             }
         }

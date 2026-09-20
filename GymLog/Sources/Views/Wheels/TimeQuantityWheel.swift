@@ -11,7 +11,8 @@ import GymLogKit
 struct TimeQuantityWheel: View {
     @Binding var seconds: Int
 
-    private static let minutes = Array(0...30)
+    // Widened from 0-30 to 0-60 to cover longer timed holds/conditioning sets.
+    private static let minutes = Array(0...60)
     private static let secondSteps = Array(stride(from: 0, to: 60, by: 5))
 
     private var minutesBinding: Binding<Int> {
