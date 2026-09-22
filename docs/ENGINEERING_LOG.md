@@ -18,4 +18,8 @@
 - 发布凭证、数据库备份及截图存放在仓库外，签名凭据未加入 Git。上传与 Apple 后处理状态分开记录。
 
 ### 发布状态
-Build 31 归档及上传执行中，最终结果见后续记录。
+- 源码与全部工作区资料已提交：131aed6；未推送 GitHub。
+- Build 31 最终 Release 归档成功，App 与 GymLogKit 均为 1.0（31）；签名和二进制隐私检查通过。
+- 已覆盖安装到用户 iPhone Air，并成功启动；设备应用列表确认版本 1.0（31）。新空白状态尚待用户实际体验。
+- 2026-09-22 22:45 香港时间，Apple 返回 “Uploaded package is processing”、 “Upload succeeded” 和 “EXPORT SUCCEEDED”。这是上传成功及处理中的凭证，不代表 TestFlight 已可下载。
+- 仓库外发布目录：Developer/Artifacts/GymLog/release-build31；保留最终归档、上传日志与空白状态截图。
