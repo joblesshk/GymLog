@@ -328,7 +328,7 @@ struct ExcelImportFlow: View {
             case .noLogSheets:
                 return language.t("找不到訓練記錄：A 欄需要有「Week 1」這樣的課次標題列。", "No training log found: column A needs session header rows such as \"Week 1\".")
             case let .headerMismatch(sheet, row, _):
-                return language.t("「\(sheet)」第 \(row) 列的表頭須依次為 Exercise, Sets, Weights, Rep range, Rep completed, Rest, Notes。", "Row \(row) of \"\(sheet)\" must have the headers Exercise, Sets, Weights, Rep range, Rep completed, Rest, Notes.")
+                return language.t("「\(sheet)」第 \(row) 行的表頭須依次為 Exercise, Sets, Weight 或 Weights, Rep range, Rep completed, Rest, Notes。", "Row \(row) of \"\(sheet)\" must have the headers Exercise, Sets, Weight or Weights, Rep range, Rep completed, Rest, Notes.")
             case let .invalidDate(sheet, row, raw):
                 return language.t("「\(sheet)」第 \(row) 列的日期「\(raw)」無法識別；請填寫 Excel 日期，或「日/月」、「日/月/年」。", "The date \"\(raw)\" in row \(row) of \"\(sheet)\" can't be read; use an Excel date, or day/month or day/month/year text.")
             case .dateOrderingBroken:

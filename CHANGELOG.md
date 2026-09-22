@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0 (31) — 2026-09-22
+
+- Refine profile, history, exercise-library and training-entry presentation.
+- Add a guided InBody empty state with scan and manual-entry actions.
+- Accept Weight/Weights headers and reconstruct cross-sheet training dates in week order.
+- Record unchanged actual values when confirming the picker.
+
+
 ## Unreleased — 2026-09-17
 
 - Exercise name display in Today reverts to the pre-refresh inline "中文（English）" layout; heart rate screen gains a session trend chart and a Z1-Z5 zone band; InBody trend chart gets a proper date axis and tighter Y-axis scaling; body-composition bar renders as one continuous proportional bar; history list gains a training-intensity heatmap.

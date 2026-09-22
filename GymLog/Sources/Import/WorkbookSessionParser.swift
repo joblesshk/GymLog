@@ -111,6 +111,13 @@ public enum WorkbookSessionParser {
             rawSessions.append(contentsOf: gatherRawSessions(sheetName: sheetName, rows: rows))
         }
 
+        // Week numbers describe the training sequence across split/routine sheets.
+        // Preserve source order within equal weeks (multiple sessions per week).
+        rawSessions = rawSessions.enumerated().sorted {
+            if $0.element.week != $1.element.week { return $0.element.week < $1.element.week }
+            return $0.offset < $1.offset
+        }.map(\.element)
+
         let dateResults = try reconstructDates(rawSessions, now: now)
 
         let stats = ExerciseStatsAggregator()
@@ -145,16 +152,23 @@ public enum WorkbookSessionParser {
     // MARK: - §3.3 header validation
 
     private static func validateHeaderRows(sheet: String, rows: [Int: [Int: XLSXCell]]) throws {
-        let expected = ["Exercise", "Sets", "Weights", "Rep range", "Rep completed", "Rest", "Notes"]
+        let expected = ["exercise", "sets", "weights", "rep range", "rep completed", "rest", "notes"]
         for rowNumber in rows.keys.sorted() {
             let cells = rows[rowNumber]!
-            let aText = (cells[1]?.text ?? "").trimmingCharacters(in: .whitespaces)
-            guard aText == "Exercise" else { continue }
+            guard normalizedHeader(cells[1]?.text ?? "") == "exercise" else { continue }
             let found = (1...7).map { (cells[$0]?.text ?? "").trimmingCharacters(in: .whitespaces) }
-            guard found == expected else {
+            let normalized = found.enumerated().map { index, text in
+                let value = normalizedHeader(text)
+                return index == 2 && value == "weight" ? "weights" : value
+            }
+            guard normalized == expected else {
                 throw WorkbookSessionParserError.headerMismatch(sheet: sheet, row: rowNumber, found: found)
             }
         }
+    }
+
+    private static func normalizedHeader(_ text: String) -> String {
+        text.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ").lowercased()
     }
 
     // MARK: - §3.3 week-block segmentation
@@ -201,7 +215,7 @@ public enum WorkbookSessionParser {
             guard let session = current else { continue }
             if aText.isEmpty { continue }
             session.allRows.append(rowNumber)
-            if aText == "Exercise" { continue }
+            if normalizedHeader(aText) == "exercise" { continue }
             if aText == "Warm-up" {
                 session.warmup = cellText(cells, 2)
                 session.warmupNote = cellText(cells, 7)

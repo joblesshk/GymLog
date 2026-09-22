@@ -113,69 +113,31 @@ struct ExercisePickerSheet: View {
         allExercises.filter { $0.matches(searchText: trimmedQuery) }
     }
 
-    /// 「全部」分類、未搜索時的瀏覽模式：置頂常用區塊 + 依英文名首字母分組
-    /// （GymLog 改版設計 §3——244 條純文字列表最缺的是視覺錨點）。其餘分類/
-    /// 搜索結果維持原本的單一列表，不強加字母分組（例如「力量」篩選後只剩
-    /// 幾十條，分組反而打散了本來就短的列表）。
-    private var isBrowsingAll: Bool {
-        if case .all = category, !isSearching { return true }
-        return false
-    }
-
-    private var frequentForBrowsing: [Exercise] {
-        guard let clientID else { return [] }
-        return FrequencyAnalyzer.frequentExercises(clientID: clientID, in: modelContext)
-    }
-
-    /// 依 `canonicalName`（英文名）首字母分組——索引軌與截圖裡的字母分組都是
-    /// 按英文名，中文名放在同一行的副標題裡，不參與排序/分組。
-    private func indexLetter(for exercise: Exercise) -> String {
-        guard let first = exercise.canonicalName.uppercased().first, first.isLetter else { return "#" }
-        return String(first)
-    }
-
-    private var alphabeticalGroups: [(letter: String, exercises: [Exercise])] {
-        let grouped = Dictionary(grouping: allExercises, by: indexLetter(for:))
-        return grouped.keys.sorted().map { letter in
-            (letter, grouped[letter]!.sorted {
-                $0.canonicalName.localizedStandardCompare($1.canonicalName) == .orderedAscending
-            })
-        }
-    }
-
     var body: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
-                List {
-                    if isBrowsingAll {
-                        if !frequentForBrowsing.isEmpty {
-                            Section {
-                                ForEach(frequentForBrowsing, id: \.id) { ex in exerciseRow(ex) }
-                            } header: {
-                                HStack {
-                                    Text(language.t("常用 · Frequent", "Frequent"))
-                                    Spacer()
-                                    Text(language.t("\(allExercises.count) 個動作", "\(allExercises.count) exercises"))
-                                        .foregroundStyle(DS.C.textLow)
-                                }
-                                .sectionLabelStyle()
+            List {
+                Section {
+                    ForEach(results, id: \.id) { ex in
+                        Button {
+                            onSelect(ex)
+                            dismiss()
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(ex.displayName)
+                                    .font(DS.F.listRow)
+                                    .foregroundStyle(DS.C.textHi)
+                                Text(subtitle(for: ex))
+                                    .font(DS.F.subtitle)
+                                    .foregroundStyle(DS.C.textLow)
                             }
                         }
-                        ForEach(alphabeticalGroups, id: \.letter) { group in
-                            Section {
-                                ForEach(group.exercises, id: \.id) { ex in exerciseRow(ex) }
-                            } header: {
-                                Text(group.letter).sectionLabelStyle().id(group.letter)
-                            }
-                        }
-                    } else {
-                        Section {
-                            ForEach(results, id: \.id) { ex in exerciseRow(ex) }
-                        } header: {
-                            Text(resultsHeader)
-                                .sectionLabelStyle()
-                        }
+                        .listRowBackground(DS.C.surface)
+                        .accessibilityIdentifier("exercise-row-\(ex.id)")
                     }
+                } header: {
+                    Text(resultsHeader)
+                        .sectionLabelStyle()
+                }
 
                 // 搜不到时把"新增"直接推到眼前——右上角的 ＋ 一直都在，但教练
                 // 打完一个库里没有的名字时，这里点一下就能沿用它建新动作。
@@ -224,11 +186,6 @@ struct ExercisePickerSheet: View {
             }
             .scrollContentBackground(.hidden)
             .background(DS.C.canvas)
-            .overlay(alignment: .trailing) {
-                if isBrowsingAll {
-                    indexTrack(proxy: proxy)
-                }
-            }
             .safeAreaInset(edge: .top) { categoryBar }
             .onAppear {
                 guard !didSeedCategory else { return }
@@ -260,76 +217,7 @@ struct ExercisePickerSheet: View {
             } message: {
                 Text(createErrorMessage ?? "")
             }
-            }
         }
-    }
-
-    /// 右側 A–Z 索引軌，寬 20pt，點一下跳到對應字母分組（「全部」瀏覽模式限定）。
-    private func indexTrack(proxy: ScrollViewProxy) -> some View {
-        VStack(spacing: 1) {
-            ForEach(alphabeticalGroups.map(\.letter), id: \.self) { letter in
-                Text(letter)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(DS.C.textLow)
-                    .frame(width: 20, height: 15)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        withAnimation { proxy.scrollTo(letter, anchor: .top) }
-                    }
-            }
-        }
-        .padding(.trailing, 3)
-    }
-
-    /// 選動作面板的一列：模式方塊 + 中文主行／英文副行 + 器械與體系標籤
-    /// （GymLog 改版設計 §3；行高 56pt，命中區沿用整行可點）。
-    private func exerciseRow(_ ex: Exercise) -> some View {
-        let names = ex.localizedNamePair(for: language)
-        return Button {
-            onSelect(ex)
-            dismiss()
-        } label: {
-            HStack(spacing: 12) {
-                MovementPatternBadge(pattern: ex.movementPattern)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(names.primary)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(DS.C.textHi)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.82)
-                        .accessibilityIdentifier("exercise-picker-name-primary-\(ex.id)")
-                    if let secondary = names.secondary {
-                        Text(secondary)
-                            .font(.system(size: 11))
-                            .foregroundStyle(DS.C.textLow)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                            .accessibilityIdentifier("exercise-picker-name-secondary-\(ex.id)")
-                    }
-                }
-                Spacer(minLength: 8)
-                HStack(spacing: 5) {
-                    tag(ex.equipment.displayName, fg: DS.C.textMid, bg: DS.C.inset)
-                    if ex.discipline != .strength {
-                        tag(ex.discipline.badgeLabel, fg: ex.discipline.badgeColor, bg: ex.discipline.badgeColor.opacity(0.10))
-                    }
-                }
-            }
-            .frame(minHeight: 56)
-        }
-        .listRowBackground(DS.C.surface)
-        .accessibilityIdentifier("exercise-row-\(ex.id)")
-    }
-
-    private func tag(_ text: String, fg: Color, bg: Color) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(fg)
-            .lineLimit(1)
-            .fixedSize()
-            .padding(.horizontal, 7)
-            .padding(.vertical, 4)
-            .background(bg, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 
     /// 分类胶囊（横向滚动）+ 固定在右端的「新增動作」。
@@ -383,6 +271,16 @@ struct ExercisePickerSheet: View {
             return language.t("搜索全庫 · \(results.count) 個結果", "All exercises · \(results.count) result(s)")
         }
         return language.t("\(results.count) 個動作", "\(results.count) exercises")
+    }
+
+    private func subtitle(for exercise: Exercise) -> String {
+        // 搜索是跨分类的，所以结果行必须自己说明属于哪一类，否则教练看不出
+        // 为什么这个动作会出现在当前这一屏。
+        // 「訓練體系」只在不是纯力量时才写出来：库里 148/240 是纯力量动作，
+        // 每行都缀一个「力量」等于什么都没说。
+        let base = "\(exercise.movementPattern.displayName) · \(exercise.equipment.displayName)"
+        guard exercise.discipline != .strength else { return base }
+        return "\(base) · \(exercise.discipline.displayName)"
     }
 
     /// 新建动作并立刻选中。与 `ExerciseLibraryView.createCustomExercise` 的

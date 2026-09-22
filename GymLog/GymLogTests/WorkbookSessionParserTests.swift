@@ -143,6 +143,35 @@ final class WorkbookSessionParserTests: XCTestCase {
         }
     }
 
+    func testSingularWeightAndHeaderWhitespaceAreAccepted() throws {
+        var rows = week(1, .text("1/3/2025"))
+        rows[1] = [" Exercise ", "Sets ", "Weight", "Rep\nrange", "Rep  completed", "Rest", "Notes"].map { .text($0) }
+        let parsed = try WorkbookSessionParser.parse(workbook(sheets: [("Upper", rows)]))
+        XCTAssertEqual(parsed.sessions.count, 1)
+        XCTAssertEqual(parsed.sessions[0].blocks.count, 1)
+        XCTAssertEqual(parsed.sessions[0].blocks[0].entries[0].sets[0].load, .absolute(kg: 40, raw: "40"))
+    }
+
+    func testReorderedHeadersStillFail() throws {
+        var rows = week(1, .text("1/3/2025"))
+        rows[1].swapAt(2, 3)
+        XCTAssertThrowsError(try WorkbookSessionParser.parse(workbook(sheets: [("Upper", rows)]))) {
+            guard case .headerMismatch? = $0 as? WorkbookSessionParserError else {
+                return XCTFail("unexpected error \($0)")
+            }
+        }
+    }
+
+    func testInterleavedWeeksAcrossRoutineSheetsReconstructChronologically() throws {
+        let leg = week(3, .text("27/11")) + week(5, .number(serial(2024, 11, 12), style: 1))
+        let upper = week(1, .number(serial(2024, 12, 11), style: 1)) + week(2, .text("20/11"))
+            + week(4, .number(serial(2024, 3, 12), style: 1))
+        let parsed = try WorkbookSessionParser.parse(workbook(sheets: [("Leg", leg), ("Upper", upper)]))
+        XCTAssertEqual(parsed.sessions.map(\.weekNumber), [1, 2, 3, 4, 5])
+        XCTAssertEqual(parsed.sessions.map { ymd($0.date) }, ["2024-11-12", "2024-11-20", "2024-11-27", "2024-12-03", "2024-12-11"])
+        XCTAssertEqual(parsed.sessions.map(\.sourceSheet), ["Upper", "Upper", "Leg", "Upper", "Leg"])
+    }
+
     // MARK: - Dates
 
     func testRealExcelDatesAreImportedAsWritten() throws {

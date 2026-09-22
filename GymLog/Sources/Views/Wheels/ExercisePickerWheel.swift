@@ -27,6 +27,7 @@ struct ExercisePickerWheel: View {
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.canonicalName) private var allExercises: [Exercise]
+    @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
     // Stable internal sentinel for the "frequently used" category tab --
     // kept separate from its displayed label (`L("常用", "Frequent")`) so the
@@ -87,7 +88,19 @@ struct ExercisePickerWheel: View {
                     }
                 )) {
                     ForEach(rightColumnExercises, id: \.id) { ex in
-                        Text(ex.displayName).tag(ex.id)
+                        let names = ex.localizedNamePair(for: language)
+                        VStack(spacing: 0) {
+                            Text(names.primary)
+                                .font(.system(size: 15, weight: .semibold))
+                                .lineLimit(1)
+                            if let secondary = names.secondary {
+                                Text(secondary)
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .tag(ex.id)
                     }
                 }
                 .pickerStyle(.wheel)

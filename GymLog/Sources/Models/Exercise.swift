@@ -118,6 +118,19 @@ public final class Exercise {
         return L("\(nameZh)（\(canonicalName)）", "\(canonicalName) (\(nameZh))")
     }
 
+    /// Presentation pair for compact bilingual exercise-name stacks. The app
+    /// language selects the prominent line while the other language remains a
+    /// secondary aid. Empty and duplicate translations collapse to one line.
+    public func localizedNamePair(for language: AppLanguage) -> (primary: String, secondary: String?) {
+        let english = canonicalName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let chinese = nameZh.trimmingCharacters(in: .whitespacesAndNewlines)
+        let primary = language == .zhHant
+            ? (chinese.isEmpty ? english : chinese)
+            : (english.isEmpty ? chinese : english)
+        let alternate = language == .zhHant ? english : chinese
+        return (primary, alternate.isEmpty || alternate == primary ? nil : alternate)
+    }
+
     /// Single search-matching rule shared by every exercise picker/filter in
     /// the app (library list, merge-target picker, single-exercise query,
     /// add-exercise sheet). Before this, each screen re-implemented its own

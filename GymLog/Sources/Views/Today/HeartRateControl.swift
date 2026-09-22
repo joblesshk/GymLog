@@ -44,6 +44,7 @@ struct HeartRateChip: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityText)
+        .accessibilityIdentifier("heart-rate-control")
         .task(id: monitor.status) { await pollStaleness() }
         .sheet(isPresented: $showSheet) {
             HeartRateSheet(monitor: monitor, age: age)
@@ -719,4 +720,3 @@ struct HeartRateSheet: View {
         )
     }
 }
-

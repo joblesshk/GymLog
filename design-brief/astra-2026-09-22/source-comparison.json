@@ -1,0 +1,86 @@
+[
+  {
+    "reference": "design-brief/reference-code/BodyMetricDetailView.swift",
+    "current": "GymLog/Sources/Views/Clients/BodyMetricDetailView.swift",
+    "identical": false,
+    "referenceLines": 194,
+    "currentLines": 498
+  },
+  {
+    "reference": "design-brief/reference-code/ClientProfileView.swift",
+    "current": "GymLog/Sources/Views/Clients/ClientProfileView.swift",
+    "identical": false,
+    "referenceLines": 437,
+    "currentLines": 630
+  },
+  {
+    "reference": "design-brief/reference-code/DesignSystem.swift",
+    "current": "GymLog/Sources/App/DesignSystem.swift",
+    "identical": false,
+    "referenceLines": 363,
+    "currentLines": 371
+  },
+  {
+    "reference": "design-brief/reference-code/EntryRowView.swift",
+    "current": "GymLog/Sources/Views/Today/EntryRowView.swift",
+    "identical": false,
+    "referenceLines": 473,
+    "currentLines": 559
+  },
+  {
+    "reference": "design-brief/reference-code/ExercisePickerSheet.swift",
+    "current": "GymLog/Sources/Views/Wheels/ExercisePickerSheet.swift",
+    "identical": false,
+    "referenceLines": 437,
+    "currentLines": 534
+  },
+  {
+    "reference": "design-brief/reference-code/ExerciseQueryView.swift",
+    "current": "GymLog/Sources/Views/History/ExerciseQueryView.swift",
+    "identical": false,
+    "referenceLines": 149,
+    "currentLines": 200
+  },
+  {
+    "reference": "design-brief/reference-code/HeartRateControl.swift",
+    "current": "GymLog/Sources/Views/Today/HeartRateControl.swift",
+    "identical": false,
+    "referenceLines": 217,
+    "currentLines": 722
+  },
+  {
+    "reference": "design-brief/reference-code/HistoryListView.swift",
+    "current": "GymLog/Sources/Views/History/HistoryListView.swift",
+    "identical": false,
+    "referenceLines": 429,
+    "currentLines": 635
+  },
+  {
+    "reference": "design-brief/reference-code/RestTimerPill.swift",
+    "current": null,
+    "identical": false,
+    "referenceLines": 91,
+    "currentLines": null
+  },
+  {
+    "reference": "design-brief/reference-code/SessionDetailView.swift",
+    "current": "GymLog/Sources/Views/History/SessionDetailView.swift",
+    "identical": false,
+    "referenceLines": 431,
+    "currentLines": 753
+  },
+  {
+    "reference": "design-brief/reference-code/WODBlockDraftCard.swift",
+    "current": "GymLog/Sources/Views/Today/WODBlockDraftCard.swift",
+    "identical": false,
+    "referenceLines": 714,
+    "currentLines": 867
+  },
+  {
+    "reference": "design-brief/reference-code/WODPrescription.swift",
+    "current": "GymLog/Sources/Models/WOD/WODPrescription.swift",
+    "identical": true,
+    "referenceLines": 175,
+    "currentLines": 175
+  }
+]

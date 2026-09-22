@@ -11,6 +11,7 @@ import GymLogKit
 struct PickerSheet<Content: View>: View {
     let title: String
     var contentHeight: CGFloat = 150
+    var onConfirm: () -> Void = {}
     @ViewBuilder let content: () -> Content
     @Environment(\.dismiss) private var dismiss
 
@@ -28,7 +29,10 @@ struct PickerSheet<Content: View>: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(L("完成", "Done")) { dismiss() }
+                    Button(L("完成", "Done")) {
+                        onConfirm()
+                        dismiss()
+                    }
                         .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(DS.C.accent)
                         .accessibilityIdentifier("picker-sheet-done-button")

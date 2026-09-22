@@ -499,8 +499,9 @@ private struct SupersetMemberRoundRow: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .frame(width: width, height: 30)
-                .background(DS.C.inset, in: Capsule())
+                .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("superset-round-field")
     }
 }

@@ -366,10 +366,20 @@ private struct ExchangePasteSheet: View {
 private struct ThemePreviewRow: View {
     let selected: AppTheme
 
+    @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
+
     var body: some View {
         HStack(spacing: 10) {
-            ThemePreviewCard(scheme: .light, isSelected: selected == .light)
-            ThemePreviewCard(scheme: .dark, isSelected: selected == .dark)
+            ThemePreviewCard(
+                scheme: .light,
+                isSelected: selected == .light,
+                accessibilityName: language.t("淺色外觀預覽", "Light appearance preview")
+            )
+            ThemePreviewCard(
+                scheme: .dark,
+                isSelected: selected == .dark,
+                accessibilityName: language.t("深色外觀預覽", "Dark appearance preview")
+            )
         }
     }
 }
@@ -377,6 +387,9 @@ private struct ThemePreviewRow: View {
 private struct ThemePreviewCard: View {
     let scheme: ColorScheme
     let isSelected: Bool
+    let accessibilityName: String
+
+    @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
     private var bg: Color { scheme == .dark ? Color(hex: "#181C21") : Color(hex: "#FFFFFF") }
     private var canvas: Color { scheme == .dark ? Color(hex: "#0E1013") : Color(hex: "#F6F2EA") }
@@ -404,6 +417,9 @@ private struct ThemePreviewCard: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(isSelected ? DS.C.accent : line, lineWidth: isSelected ? 2 : 1)
         )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityName)
+        .accessibilityValue(isSelected ? language.t("已選取", "Selected") : language.t("未選取", "Not selected"))
     }
 }
 

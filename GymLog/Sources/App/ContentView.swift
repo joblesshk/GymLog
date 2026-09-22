@@ -131,9 +131,12 @@ struct ContentView: View {
         // `tabBarHeight` 量到的實際高度定位，不是憑感覺寫死一個常數，
         // 這樣底欄本身的高度（大字模式/不同機型）變化時仍然對得上。
         .overlay(alignment: .bottomLeading) {
-            GlobalVoiceButton(coordinator: voiceCoordinator)
-                .padding(.leading, DS.Space.pageMargin)
-                .padding(.bottom, tabBarHeight + 8)
+            if tabSelection.selectedTab == 0 {
+                GlobalVoiceButton(coordinator: voiceCoordinator)
+                    .padding(.leading, DS.Space.pageMargin)
+                    .padding(.bottom, tabBarHeight + 8)
+                    .transition(.opacity)
+            }
         }
         .sheet(isPresented: Binding(
             get: { voiceCoordinator.isPanelPresented },

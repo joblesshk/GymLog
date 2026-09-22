@@ -404,7 +404,7 @@ struct TodayView: View {
                     Button {
                         exercisePickerTarget = .newBlock
                     } label: {
-                        Label(language.t("添加動作", "Add Exercise"), systemImage: "plus")
+                        Label(language.t("動作", "Exercise"), systemImage: "plus")
                     }
                     .buttonStyle(.gymAdd)
                     .accessibilityIdentifier("add-exercise-button")
@@ -415,7 +415,7 @@ struct TodayView: View {
                     Button {
                         showingSupersetTemplatePicker = true
                     } label: {
-                        Label(language.t("添加 Superset", "Add Superset"), systemImage: "plus")
+                        Label("Superset", systemImage: "plus")
                     }
                     .buttonStyle(.gymAdd)
                     .accessibilityIdentifier("add-superset-button")
@@ -423,7 +423,7 @@ struct TodayView: View {
                     Button {
                         showingWODTemplatePicker = true
                     } label: {
-                        Label(language.t("添加 WOD", "Add WOD"), systemImage: "plus")
+                        Label("WOD", systemImage: "plus")
                     }
                     .buttonStyle(.gymAdd)
                     .accessibilityIdentifier("add-wod-button")
@@ -486,6 +486,7 @@ struct TodayView: View {
                 .buttonStyle(.gymPrimary)
                 .disabled(!canCommit)
                 .opacity(canCommit ? 1 : 0.4)
+                .accessibilityIdentifier("finish-session-button")
 
                 HStack(spacing: 12) {
                     Button {
@@ -497,9 +498,13 @@ struct TodayView: View {
                     .buttonStyle(.gymSecondary)
                     .disabled(!canCommit)
                     .opacity(canCommit ? 1 : 0.4)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("save-draft-button")
 
                     discardButton
+                        .frame(maxWidth: .infinity)
                 }
+                .frame(maxWidth: .infinity)
 
             }
             .padding(DS.Space.pageMargin)
@@ -592,7 +597,8 @@ struct TodayView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(DS.C.danger)
         }
-        .buttonStyle(.gymTertiary)
+        .buttonStyle(.gymDanger)
+        .accessibilityIdentifier("discard-session-button")
         .confirmationDialog(
             discardButtonTitle,
             isPresented: $showingDiscardConfirmation,

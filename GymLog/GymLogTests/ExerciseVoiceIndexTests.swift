@@ -59,4 +59,20 @@ final class ExerciseVoiceIndexTests: XCTestCase {
             return XCTFail("完全沒有任何召回時應該是 notFound")
         }
     }
+
+    func testLocalizedNamePairFollowsAppLanguageAndCollapsesMissingOrDuplicateNames() {
+        let bilingual = makeExercise(id: "ex-back-squat", name: "Back Squat", nameZh: "槓鈴背蹲")
+        XCTAssertEqual(bilingual.localizedNamePair(for: .zhHant).primary, "槓鈴背蹲")
+        XCTAssertEqual(bilingual.localizedNamePair(for: .zhHant).secondary, "Back Squat")
+        XCTAssertEqual(bilingual.localizedNamePair(for: .en).primary, "Back Squat")
+        XCTAssertEqual(bilingual.localizedNamePair(for: .en).secondary, "槓鈴背蹲")
+
+        let englishOnly = makeExercise(id: "ex-row", name: "Seal Row")
+        XCTAssertEqual(englishOnly.localizedNamePair(for: .zhHant).primary, "Seal Row")
+        XCTAssertNil(englishOnly.localizedNamePair(for: .zhHant).secondary)
+
+        let duplicate = makeExercise(id: "ex-same", name: "Burpee", nameZh: "Burpee")
+        XCTAssertEqual(duplicate.localizedNamePair(for: .en).primary, "Burpee")
+        XCTAssertNil(duplicate.localizedNamePair(for: .en).secondary)
+    }
 }

@@ -53,64 +53,48 @@ struct SessionDetailView: View {
 
     var body: some View {
         let prIDs = prPointIDs()
-        List {
-            Section {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 16) {
+                sessionHeader
                 sessionSummaryCard(prCount: prIDs.count)
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-            }
-            Section {
-                EnergyReportView(report: TrainingInsights.report(session))
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-            }
-            if session.warmup != nil || session.warmupNote != nil {
-                Section {
-                    NoteRow(text: session.warmup, note: session.warmupNote)
-                        .listRowBackground(DS.C.surface)
-                } header: {
-                    Text(L("熱身", "Warm-up")).sectionLabelStyle()
-                }
-            }
+                    .accessibilityIdentifier("session-detail-summary")
 
-            ForEach(session.orderedBlocks, id: \.persistentModelID) { block in
-                Section {
-                    if block.sectionKind == .wod {
-                        WODBlockCard(block: block, recordStatus: wodRecordStatuses["\(session.id)#\(block.order)"] ?? .none)
-                            .listRowBackground(DS.C.surface)
-                    } else {
-                        BlockCard(block: block, sessionID: session.id, prPointIDs: prIDs)
-                            .listRowBackground(DS.C.surface)
-                    }
-                    if let note = block.note, !note.isEmpty {
-                        NoteCard(note: note)
-                            .listRowBackground(DS.C.surface)
-                    }
-                } header: {
-                    HStack {
-                        Text(blockHeaderTitle(block))
-                            .sectionLabelStyle()
-                            .lineLimit(1)
-                        Spacer()
-                        if block.orderedEntries.contains(where: { $0.orderedSets.contains { $0.isInferred } }) {
-                            // 「推斷」整塊只標一次，不再逐行出現。
-                            HStack(spacing: 4) {
-                                Circle().fill(DS.C.inferred).frame(width: 6, height: 6)
-                                Text(L("推斷", "Inferred"))
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(DS.C.inferred)
+                if session.warmup != nil || session.warmupNote != nil {
+                    Text(L("熱身", "Warm-up")).sectionLabelStyle()
+                    NoteRow(text: session.warmup, note: session.warmupNote)
+                        .padding(14).frame(maxWidth: .infinity, alignment: .leading).gymCard()
+                }
+
+                ForEach(session.orderedBlocks, id: \.persistentModelID) { block in
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(blockHeaderTitle(block)).sectionLabelStyle().lineLimit(1)
+                            Spacer()
+                            if block.orderedEntries.contains(where: { $0.orderedSets.contains { $0.isInferred } }) {
+                                HStack(spacing: 4) {
+                                    Circle().fill(DS.C.inferred).frame(width: 6, height: 6)
+                                    Text(L("推斷", "Inferred")).font(.system(size: 10, weight: .semibold)).foregroundStyle(DS.C.inferred)
+                                }
+                            }
+                            if let rest = block.restSeconds {
+                                Text(L("休息 \(rest)s", "Rest \(rest)s")).font(.system(size: 11)).foregroundStyle(DS.C.textLow)
                             }
                         }
-                        if let rest = block.restSeconds {
-                            Text(L("休息 \(rest)s", "Rest \(rest)s"))
-                                .font(.system(size: 11, weight: .regular))
-                                .foregroundStyle(DS.C.textLow)
+
+                    if block.sectionKind == .wod {
+                        WODBlockCard(block: block, recordStatus: wodRecordStatuses["\(session.id)#\(block.order)"] ?? .none)
+                            .padding(14).gymCard()
+                    } else {
+                        BlockCard(block: block, sessionID: session.id, prPointIDs: prIDs)
+                            .padding(14).gymCard()
+                    }
+                    if let note = block.note, !note.isEmpty {
+                            NoteCard(note: note).padding(14).gymCard()
                         }
                     }
+                    .accessibilityIdentifier("session-detail-block-\(block.order)")
                 }
-            }
 
-            Section {
                 DisclosureGroup {
                     VStack(alignment: .leading, spacing: 10) {
                         if session.cooldown != nil || session.cooldownNote != nil {
@@ -126,24 +110,24 @@ struct SessionDetailView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(DS.C.textMid)
                 }
-            }
-            .listRowBackground(DS.C.surface)
-            .font(.system(size: 14, weight: .medium))
-            .foregroundStyle(DS.C.textHi)
-            .tint(DS.C.textLow)
+                .padding(14).gymCard()
+                .font(.system(size: 14, weight: .medium)).foregroundStyle(DS.C.textHi).tint(DS.C.textLow)
+
+                EnergyReportView(report: TrainingInsights.report(session))
+                    .accessibilityIdentifier("session-detail-energy")
 
             // 2026-09-16：AI 訓練評價移到整頁最下面，且不再自動生成
             // （`TrainingInsightView` 已經拿掉那個 `.task` 自動觸發）——教練
             // 翻歷史課次的第一眼要看到的是這節課本身的數據，不是等雲端評價。
-            Section {
                 TrainingInsightView(session: session)
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
             }
+            .padding(.horizontal, DS.Space.pageMargin)
+            .padding(.top, 12)
+            .padding(.bottom, 28)
         }
-        .scrollContentBackground(.hidden)
         .background(DS.C.canvas)
-        .navigationTitle(SessionDateFormat.display.string(from: session.date))
+        .accessibilityIdentifier("session-detail-scroll")
+        .navigationTitle(L("課次詳情", "Session Detail"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -307,8 +291,27 @@ struct SessionDetailView: View {
         if block.sectionKind == .wod {
             return block.wodPayload?.prescription.name.map { "WOD · \($0.uppercased())" } ?? "WOD"
         }
-        let names = block.orderedEntries.map(\.displayName).joined(separator: " + ")
-        return "\(block.blockType.displayName) · \(names.uppercased())"
+        return block.blockType.displayName
+    }
+
+    private var sessionHeader: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(SessionDateFormat.display.string(from: session.date))
+                    .font(.system(size: 30, weight: .bold))
+                    .foregroundStyle(DS.C.textHi)
+                Spacer()
+                if session.isInProgress { DataTagView(kind: .inProgress) }
+                else { Text(L("已結束", "Completed")).font(.system(size: 11, weight: .semibold)).foregroundStyle(DS.C.textLow) }
+                if session.dateOrigin == .reconstructed { DataTagView(kind: .restored) }
+            }
+            Text(L(
+                "\(session.client?.displayName ?? "—") · 第 \(session.weekNumber) 週",
+                "\(session.client?.displayName ?? "—") · Week \(session.weekNumber)"
+            ))
+            .font(.system(size: 13)).foregroundStyle(DS.C.textLow)
+        }
+        .accessibilityIdentifier("session-detail-header")
     }
 
     /// 課次摘要卡（GymLog 改版設計 §6）：總量／最大／時長 + 動作模式色標，
@@ -354,7 +357,6 @@ struct SessionDetailView: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .gymCard()
-        .padding(.horizontal, DS.Space.pageMargin)
     }
 
     private func summaryStat(_ title: String, _ value: Double?, unit: String, isDuration: Bool = false) -> some View {
@@ -544,10 +546,20 @@ private struct EntryView: View {
     let showsLetter: Bool
     let letterIndex: Int
     var isPR: Bool = false
+    @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
     private var letter: String {
         let letters = ["A", "B", "C", "D", "E", "F"]
         return letterIndex < letters.count ? letters[letterIndex] : "\(letterIndex + 1)"
+    }
+
+    private var primaryName: String {
+        guard let exercise = entry.exercise else { return entry.displayName }
+        return exercise.localizedNamePair(for: language).primary
+    }
+
+    private var secondaryName: String? {
+        entry.exercise?.localizedNamePair(for: language).secondary
     }
 
     /// 這個 entry 真正達成最大可比較重量的那一組——`isPR` 只代表「這個 entry
@@ -584,9 +596,18 @@ private struct EntryView: View {
                         .frame(width: 20, height: 20)
                         .background(Circle().fill(DS.C.accent))
                 }
-                Text(entry.displayName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(DS.C.textHi)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(primaryName)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(DS.C.textHi)
+                        .accessibilityIdentifier("session-detail-exercise-primary")
+                    if let secondaryName {
+                        Text(secondaryName)
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.C.textLow)
+                            .accessibilityIdentifier("session-detail-exercise-secondary")
+                    }
+                }
                 if entry.exercise == nil {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(DS.C.danger)
@@ -612,6 +633,7 @@ private struct EntryView: View {
                 }
             }
             .padding(.leading, showsLetter ? 28 : 0)
+            .accessibilityIdentifier("session-detail-set-list")
         }
     }
 }
@@ -623,21 +645,18 @@ private struct SetRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(L("第\(set.setIndex + 1)組", "Set \(set.setIndex + 1)"))
-                .font(.system(size: 12, weight: .regular))
+            Text(L("第 \(set.setIndex + 1) 組", "Set \(set.setIndex + 1)"))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(DS.C.textMid)
-                .frame(width: 46, alignment: .leading)
+                .frame(width: 52, alignment: .leading)
 
             loadValue
 
-            // 2026-09-16（GymLog 改版設計 §6 逐組行規格）：實際完成單獨用
-            // 「× 8」這種緊湊、加粗的記法當主角，跟目標（小字、靠右、次要）
-            // 拉開視覺層級——原本「目標 X · 完成 Y」擠在同一行同樣的灰字裡，
-            // 掃一眼分不出教練真正做了多少。
-            Text(compactActualText)
-                .font(.system(size: 15, weight: .semibold))
+            Text(isUnrecorded ? L("— 未記錄", "— Not recorded") : compactActualText)
+                .font(.system(size: isUnrecorded ? 12 : 16, weight: isUnrecorded ? .regular : .semibold))
                 .monospacedDigit()
-                .foregroundStyle(DS.C.textHi)
+                .foregroundStyle(isUnrecorded ? DS.C.textLow : DS.C.textHi)
+                .accessibilityIdentifier(isUnrecorded ? "session-detail-set-unrecorded" : "session-detail-set-actual")
 
             Spacer(minLength: 4)
 
@@ -654,6 +673,12 @@ private struct SetRow: View {
         .padding(.vertical, 9)
         .padding(.horizontal, isPR ? 10 : 0)
         .background(isPR ? DS.C.prBg : Color.clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .accessibilityIdentifier("session-detail-set-\(set.setIndex + 1)")
+    }
+
+    private var isUnrecorded: Bool {
+        if case .unknown = set.actual { return true }
+        return false
     }
 
     /// 「× 8」這種緊湊記法只對「次數型」量化（固定/區間/每側/輪次）有意義；
@@ -666,7 +691,7 @@ private struct SetRow: View {
         case .rounds(let count, _): return "× \(count)"
         case .perSide(let left, let right, _): return left == right ? "× \(left)" : "× \(left)/\(right)"
         case .time, .distance: return set.actual.displayText
-        case .unknown: return "—"
+        case .unknown: return L("— 未記錄", "— Not recorded")
         }
     }
 

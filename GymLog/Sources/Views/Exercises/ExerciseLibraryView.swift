@@ -55,9 +55,9 @@ struct ExerciseLibraryView: View {
         var label: String {
             switch self {
             case .exercises: return L("動作", "Exercises")
-            case .templates: return L("組合模板", "Templates")
-            case .supersets: return L("Superset 模板", "Superset Templates")
-            case .wods: return L("WOD 模板", "WOD Templates")
+            case .templates: return L("組合", "Combos")
+            case .supersets: return "Superset"
+            case .wods: return "WOD"
             }
         }
     }
@@ -150,6 +150,7 @@ struct ExerciseLibraryView: View {
             .padding(.horizontal, DS.Space.pageMargin)
             .padding(.vertical, 8)
             .background(DS.C.canvas)
+            .accessibilityIdentifier("library-mode-picker")
     }
 
     /// The pre-existing "动作" segment (CONTRACT-UI.md §4.4) -- unchanged in
@@ -159,41 +160,90 @@ struct ExerciseLibraryView: View {
     /// `NavigationStack` level above (identical effect, since this view was
     /// previously the stack's sole direct child anyway).
     private var exerciseListContent: some View {
-        List {
-            if let undo = lastMergeUndo {
-                Section {
-                    mergeUndoBanner(undo)
-                        .listRowBackground(DS.C.surface)
-                }
-            }
-            Section {
-                ForEach(filteredExercises, id: \.id) { exercise in
-                    NavigationLink {
-                        ExerciseDetailEditView(
-                            exerciseID: exercise.id,
-                            onMergeRequested: { mergeSourceID = exercise.id }
-                        )
-                    } label: {
-                        ExerciseRow(exercise: exercise)
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(language.t("動作庫", "Exercise Library"))
+                            .font(.system(size: 30, weight: .bold))
+                            .foregroundStyle(DS.C.textHi)
+                        Text(language.t("中文、英文與別名均可搜尋", "Search Chinese, English, or aliases"))
+                            .font(DS.F.subtitle).foregroundStyle(DS.C.textLow)
                     }
-                    .listRowBackground(DS.C.surface)
-                    .listRowSeparatorTint(DS.C.hairlineSoft)
+                    Spacer()
+                    Text("\(filteredExercises.count)")
+                        .font(.system(size: 28, weight: .semibold, design: .rounded))
+                        .foregroundStyle(DS.C.accent)
                 }
-                .onDelete { offsets in
-                    if let index = offsets.first {
-                        pendingDeleteExercise = filteredExercises[index]
+                .accessibilityIdentifier("library-page-header")
+
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(DS.C.textLow)
+                    TextField(language.t("搜尋動作", "Search exercises"), text: $searchText)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .accessibilityIdentifier("library-search-field")
+                    if !searchText.isEmpty {
+                        Button { searchText = "" } label: { Image(systemName: "xmark.circle.fill") }
+                            .foregroundStyle(DS.C.textLow)
+                            .accessibilityLabel(language.t("清除搜尋", "Clear Search"))
                     }
                 }
-            } header: {
-                if !filteredExercises.isEmpty {
+                .padding(.horizontal, 14).frame(height: 48)
+                .background(DS.C.surface, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(LibraryFilter.allCases) { option in
+                            Button { filter = option } label: {
+                                Text(filterLabel(option))
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .padding(.horizontal, 12).frame(height: 34)
+                                    .foregroundStyle(filter == option ? DS.C.onAccent : DS.C.textMid)
+                                    .background(filter == option ? DS.C.accent : DS.C.surface, in: Capsule())
+                            }
+                            .accessibilityIdentifier("library-filter-\(option.rawValue)")
+                        }
+                    }
+                }
+                .accessibilityIdentifier("library-filter-chips")
+
+                if let undo = lastMergeUndo { mergeUndoBanner(undo) }
+
+                if filteredExercises.isEmpty {
+                    ContentUnavailableView.search(text: searchText)
+                        .frame(maxWidth: .infinity, minHeight: 220)
+                } else {
                     Text(language.t("\(filteredExercises.count) 個動作", "\(filteredExercises.count) exercises"))
                         .sectionLabelStyle()
+                    ForEach(filteredExercises, id: \.id) { exercise in
+                        NavigationLink {
+                            ExerciseDetailEditView(
+                                exerciseID: exercise.id,
+                                onMergeRequested: { mergeSourceID = exercise.id }
+                            )
+                        } label: {
+                            ExerciseRow(exercise: exercise)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("library-exercise-\(exercise.id)")
+                        .contextMenu {
+                            Button { mergeSourceID = exercise.id } label: {
+                                Label(language.t("合並到其他動作", "Merge into Exercise"), systemImage: "arrow.triangle.merge")
+                            }
+                            Button(role: .destructive) { pendingDeleteExercise = exercise } label: {
+                                Label(language.t("刪除動作", "Delete Exercise"), systemImage: "trash")
+                            }
+                        }
+                    }
                 }
             }
+            .padding(.horizontal, DS.Space.pageMargin)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
         }
-        .scrollContentBackground(.hidden)
         .background(DS.C.canvas)
-        .searchable(text: $searchText, prompt: language.t("搜索動作名或別名", "Search name or alias"))
+        .accessibilityIdentifier("library-scroll-content")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Picker(language.t("篩選", "Filter"), selection: $filter) {
@@ -202,6 +252,7 @@ struct ExerciseLibraryView: View {
                     }
                 }
                 .pickerStyle(.menu)
+                .accessibilityIdentifier("library-filter-menu")
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(role: .destructive) {
@@ -213,6 +264,7 @@ struct ExerciseLibraryView: View {
                 }
                 .disabled(exercises.isEmpty)
                 .accessibilityLabel(language.t("清空動作庫", "Clear All Exercises"))
+                .accessibilityIdentifier("library-clear-all-button")
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
@@ -225,6 +277,7 @@ struct ExerciseLibraryView: View {
                         .background(DS.C.accent, in: Circle())
                 }
                 .accessibilityLabel(language.t("新增動作", "Add Exercise"))
+                .accessibilityIdentifier("library-add-exercise-button")
             }
         }
         .sheet(isPresented: $showingAddExercise) {
@@ -492,8 +545,51 @@ private struct MergeUndoRecord {
     let sessionCount: Int
 }
 
+private func containsHanText(_ value: String) -> Bool {
+    value.unicodeScalars.contains { (0x3400...0x9FFF).contains(Int($0.value)) }
+}
+
+/// English library copy is deterministic and independent of the stored user
+/// note. Existing English prose wins; Chinese/empty notes fall back to a
+/// concise description assembled from the exercise's structured metadata.
+private func englishExerciseDescription(_ exercise: Exercise) -> String {
+    let note = exercise.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !note.isEmpty && !containsHanText(note) { return note }
+
+    let pattern: String = switch exercise.movementPattern {
+    case .push: "push"
+    case .pull: "pull"
+    case .squat: "squat"
+    case .hipHinge: "hip hinge"
+    case .core: "core"
+    case .carry: "loaded carry"
+    case .conditioning: "conditioning"
+    case .unknown: "general training"
+    }
+    let equipment: String = switch exercise.equipment {
+    case .barbell: "with a barbell"
+    case .dumbbell: "with dumbbells"
+    case .machine: "on a machine"
+    case .cable: "with a cable station"
+    case .kettlebell: "with a kettlebell"
+    case .bodyweight: "using bodyweight"
+    case .band: "with a resistance band"
+    case .sled: "with a sled"
+    case .ball: "with a training ball"
+    case .ergometer: "on an ergometer"
+    case .other: "with the listed equipment"
+    }
+    let discipline: String = switch exercise.discipline {
+    case .strength: "strength training"
+    case .crossfit: "CrossFit"
+    case .both: "strength training and CrossFit"
+    }
+    return "\(exercise.canonicalName) is a \(pattern) exercise performed \(equipment) for \(discipline)."
+}
+
 private struct ExerciseRow: View {
     let exercise: Exercise
+    @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
     /// 只在不是纯力量时才写出来：库里 148/240 是纯力量动作，每行都缀一个
     /// 「力量」等于什么都没说。
@@ -501,23 +597,58 @@ private struct ExerciseRow: View {
         exercise.discipline == .strength ? "" : " · \(exercise.discipline.displayName)"
     }
 
+    private var names: (primary: String, secondary: String?) {
+        exercise.localizedNamePair(for: language)
+    }
+
+    /// Notes are free-form user data. We do not machine-translate them; an
+    /// English library hides Chinese-only notes so Chinese prose does not leak
+    /// into the metadata area. The edit screen still exposes the stored value.
+    private var descriptionText: String? {
+        let value = exercise.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        if language == .en { return englishExerciseDescription(exercise) }
+        return value.isEmpty ? nil : value
+    }
+
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(DS.C.accent.opacity(0.12))
+                Text(movementSymbol)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(DS.C.accent)
+            }
+            .frame(width: 44, height: 44)
+            .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
-                Text(exercise.displayName)
+                Text(names.primary)
                     .font(DS.F.cardTitle)
                     .foregroundStyle(DS.C.textHi)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
+                    .accessibilityIdentifier("library-exercise-name-primary")
+                if let secondaryName = names.secondary {
+                    Text(secondaryName)
+                        .font(DS.F.subtitle)
+                        .foregroundStyle(DS.C.textMid)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .accessibilityIdentifier("library-exercise-name-secondary")
+                }
                 Text(L(
                     "\(exercise.movementPattern.displayName) · \(exercise.equipment.displayName)\(disciplineSuffix) · 出現 \(exercise.occurrenceCount) 次",
                     "\(exercise.movementPattern.displayName) · \(exercise.equipment.displayName)\(disciplineSuffix) · \(exercise.occurrenceCount)×"
                 ))
                     .font(DS.F.subtitle)
                     .foregroundStyle(DS.C.textLow)
-                if !exercise.notes.isEmpty {
-                    Text(exercise.notes)
+                    .accessibilityIdentifier("library-exercise-metadata")
+                if let descriptionText {
+                    Text(descriptionText)
                         .font(.caption)
                         .foregroundStyle(DS.C.textLow)
                         .lineLimit(1)
+                        .accessibilityIdentifier("library-exercise-notes")
                 }
             }
             Spacer()
@@ -534,7 +665,16 @@ private struct ExerciseRow: View {
                 }
             }
         }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: DS.Size.listRow, alignment: .leading)
+        .gymCard()
     }
+
+    private var movementSymbol: String {
+        let name = exercise.movementPattern.displayName
+        return String(name.prefix(1))
+    }
+
 }
 
 /// Edit form for one exercise. Looked up by id (not held as a direct
@@ -573,6 +713,7 @@ private struct EditForm: View {
     @State private var deleteErrorMessage: String?
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
     private var deleteConfirmationMessage: String {
         let entries = exercise.entries ?? []
@@ -602,7 +743,15 @@ private struct EditForm: View {
             Section(L("規範名", "Canonical Name")) {
                 TextField(L("規範名（英文）", "Canonical Name (English)"), text: $exercise.canonicalName)
                 TextField(L("中文名", "Chinese Name"), text: $exercise.nameZh)
-                TextField(L("動作說明（50字以內）", "Description (50 characters or fewer)"), text: $exercise.notes)
+                if language == .zhHant {
+                    TextField(L("動作說明（50字以內）", "Description (50 characters or fewer)"), text: $exercise.notes)
+                } else {
+                    TextField("Description (50 characters or fewer)", text: Binding(
+                        get: { englishExerciseDescription(exercise) },
+                        set: { exercise.notes = $0 }
+                    ))
+                        .accessibilityIdentifier("exercise-detail-english-description")
+                }
                 if !exercise.aliases.isEmpty {
                     Text(L("別名：\(exercise.aliases.joined(separator: "、"))", "Aliases: \(exercise.aliases.joined(separator: ", "))"))
                         .font(.caption)
@@ -686,7 +835,7 @@ private struct EditForm: View {
         }
         .font(DS.F.listRow)
         .foregroundStyle(DS.C.textHi)
-        .navigationTitle(exercise.displayName)
+        .navigationTitle(exercise.localizedNamePair(for: language).primary)
         .navigationBarTitleDisplayMode(.inline)
         .alert(L("確認：該動作數值越小越強？", "Confirm: lower is stronger for this exercise?"), isPresented: $showingInvertedWarning) {
             Button(L("確認", "Confirm"), role: .destructive) {}

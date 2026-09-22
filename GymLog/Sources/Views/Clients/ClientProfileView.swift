@@ -64,9 +64,11 @@ struct ClientProfileView: View {
     @State private var form = ClientProfileFormState()
     @State private var loadedClientID: String?
     @State private var showAddClient = false
+    @State private var profileEditorSection: ProfileEditorSection?
     @State private var showAddBodyMetric = false
     // M7 §5.1: InBody report photo scan entry point.
     @State private var showInBodyScan = false
+    @State private var showsAllBodyMetrics = false
     @State private var saveErrorMessage: String?
     @State private var showSavedConfirmation = false
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
@@ -80,11 +82,9 @@ struct ClientProfileView: View {
             Group {
                 if let client = currentClient {
                     Form {
-                        basicInfoSection
-                        trainingInfoSection
-                        habitsSection
+                        profileSummarySection(for: client)
                         inBodySection(for: client)
-                        saveSection(for: client)
+                        profileDetailsSection
                     }
                     .scrollContentBackground(.hidden)
                     .background(DS.C.canvas)
@@ -102,7 +102,7 @@ struct ClientProfileView: View {
                     .font(DS.F.listRow)
                     .foregroundStyle(DS.C.textHi)
                     .onAppear { loadFormIfNeeded(client: client) }
-                    .onChange(of: client.id) { loadForm(client: client) }
+                    .onChange(of: client.id) { showsAllBodyMetrics = false; loadForm(client: client) }
                     // R05 (2026-09-16): every edit to the local buffer
                     // re-syncs `coordinator.hasAdditionalUnsavedWork` so a
                     // client switch started from anywhere (nav-bar switcher,
@@ -157,6 +157,9 @@ struct ClientProfileView: View {
                     AddBodyMetricSheet(client: client)
                 }
             }
+            .sheet(item: $profileEditorSection) { section in
+                if let client = currentClient { profileEditor(for: client, section: section) }
+            }
             .sheet(isPresented: $showInBodyScan) {
                 if let client = currentClient {
                     InBodyScanFlow(client: client)
@@ -174,6 +177,121 @@ struct ClientProfileView: View {
     }
 
     // MARK: - Form sections
+
+    private func profileSummarySection(for client: Client) -> some View {
+        Section {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().fill(client.stableColor.opacity(0.16))
+                    Text(client.displayName.prefix(1).uppercased())
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(client.stableColor)
+                }
+                .frame(width: 54, height: 54)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(client.displayName)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(DS.C.textHi)
+                    Text(language.t("學員檔案 · 個人資料", "Client profile · Personal details"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(DS.C.textLow)
+                }
+                Spacer(minLength: 8)
+                Button(language.t("編輯", "Edit")) { profileEditorSection = .basic }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(DS.C.accent)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .accessibilityIdentifier("profile-edit-button")
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .gymCard()
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("profile-summary-card")
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
+            .listRowBackground(Color.clear)
+        }
+    }
+
+    private var profileDetailsSection: some View {
+        Section {
+            Button { profileEditorSection = .basic } label: {
+                profileDetailRow(language.t("基本信息", "Basic Info"), systemImage: "person.text.rectangle")
+            }
+            .accessibilityIdentifier("profile-basic-info-button")
+            Button { profileEditorSection = .training } label: {
+                profileDetailRow(language.t("訓練目標", "Training Goals"), systemImage: "target")
+            }
+            .accessibilityIdentifier("profile-training-goals-button")
+            Button { profileEditorSection = .habits } label: {
+                profileDetailRow(language.t("習慣與病史", "Habits & Medical History"), systemImage: "heart.text.square")
+            }
+            .accessibilityIdentifier("profile-habits-medical-button")
+        } header: {
+            Text(language.t("檔案資料", "PROFILE DETAILS")).sectionLabelStyle()
+        }
+        .listRowBackground(DS.C.surface)
+    }
+
+    private func profileDetailRow(_ title: String, systemImage: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .foregroundStyle(DS.C.accent)
+                .frame(width: 24)
+            Text(title).foregroundStyle(DS.C.textHi)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(DS.C.textLow)
+        }
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
+    }
+
+    private enum ProfileEditorSection: String, Identifiable {
+        case basic, training, habits
+        var id: String { rawValue }
+    }
+
+    private func editorTitle(_ section: ProfileEditorSection) -> String {
+        switch section {
+        case .basic: return language.t("基本信息", "Basic Info")
+        case .training: return language.t("訓練目標", "Training Goals")
+        case .habits: return language.t("習慣與病史", "Habits & Medical History")
+        }
+    }
+
+    @ViewBuilder
+    private func editorSection(_ section: ProfileEditorSection) -> some View {
+        switch section {
+        case .basic: basicInfoSection
+        case .training: trainingInfoSection
+        case .habits: habitsSection
+        }
+    }
+
+    private func profileEditor(for client: Client, section: ProfileEditorSection) -> some View {
+        NavigationStack {
+            Form {
+                editorSection(section)
+                saveSection(for: client)
+            }
+            .scrollContentBackground(.hidden)
+            .background(DS.C.canvas)
+            .font(DS.F.listRow)
+            .foregroundStyle(DS.C.textHi)
+            .navigationTitle(editorTitle(section))
+            .accessibilityIdentifier("profile-\(section.rawValue)-editor")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(language.t("關閉", "Close")) { profileEditorSection = nil }
+                }
+            }
+        }
+        .presentationDetents([.large])
+    }
 
     private var basicInfoSection: some View {
         Section {
@@ -288,21 +406,23 @@ struct ClientProfileView: View {
                     .listRowBackground(Color.clear)
             }
 
-            HStack {
-                Text(language.t("歷史記錄 · \(metrics.count)", "History · \(metrics.count)"))
-                    .sectionLabelStyle()
-                Spacer()
+            if !metrics.isEmpty {
+                HStack {
+                    Text(language.t("歷史記錄 · \(metrics.count)", "History · \(metrics.count)"))
+                        .sectionLabelStyle()
+                    Spacer()
+                }
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 0, trailing: 16))
+                .listRowBackground(Color.clear)
             }
-            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 0, trailing: 16))
-            .listRowBackground(Color.clear)
 
             if metrics.isEmpty {
-                Text(language.t("暫無 InBody 記錄", "No InBody records yet"))
-                    .font(.system(size: 13))
-                    .foregroundStyle(DS.C.textLow)
-                    .listRowBackground(DS.C.surface)
+                inBodyEmptyState
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
             } else {
-                ForEach(metrics, id: \.id) { metric in
+                ForEach(showsAllBodyMetrics ? metrics : Array(metrics.prefix(3)), id: \.id) { metric in
                     // Tappable: the row itself is a dense summary, and a
                     // saved record previously had no way to be read in
                     // full, corrected, or removed.
@@ -311,29 +431,59 @@ struct ClientProfileView: View {
                     } label: {
                         BodyMetricRow(metric: metric)
                     }
+                    .accessibilityIdentifier("profile-body-history-row-\(metric.id)")
                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    .listRowBackground(Color.clear)
+                }
+                if metrics.count > 3 {
+                    Button {
+                        withAnimation { showsAllBodyMetrics.toggle() }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(showsAllBodyMetrics
+                                 ? language.t("收起", "Show Less")
+                                 : language.t("展開其餘 \(metrics.count - 3) 條", "Show \(metrics.count - 3) More"))
+                            Image(systemName: showsAllBodyMetrics ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(DS.C.accent)
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 36)
+                        .background(DS.C.accent.opacity(0.10), in: Capsule())
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("profile-body-history-toggle")
+                    .accessibilityValue("\(showsAllBodyMetrics ? metrics.count : min(metrics.count, 3))")
+                    .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
                     .listRowBackground(Color.clear)
                 }
             }
 
-            HStack(spacing: 8) {
-                Button {
-                    showAddBodyMetric = true
-                } label: {
-                    Text(language.t("新增記錄", "Add Record"))
-                }
-                .buttonStyle(.gymPrimary)
+            if !metrics.isEmpty {
+                HStack(spacing: 8) {
+                    Button {
+                        showAddBodyMetric = true
+                    } label: {
+                        Text(language.t("新增記錄", "Add Record"))
+                    }
+                    .buttonStyle(.gymPrimary)
+                    .accessibilityIdentifier("profile-add-body-metric-button")
 
-                Button {
-                    showInBodyScan = true
-                } label: {
-                    Label(language.t("掃描報告", "Scan Report"), systemImage: "doc.viewfinder")
-                        .font(.system(size: 14, weight: .semibold))
+                    Button {
+                        showInBodyScan = true
+                    } label: {
+                        Label(language.t("掃描報告", "Scan Report"), systemImage: "doc.viewfinder")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .buttonStyle(.gymSecondary)
+                    .accessibilityIdentifier("profile-scan-report-button")
                 }
-                .buttonStyle(.gymSecondary)
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                .listRowBackground(Color.clear)
             }
-            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-            .listRowBackground(Color.clear)
         } header: {
             Text(language.t("身體組成 · BODY COMPOSITION", "BODY COMPOSITION")).sectionLabelStyle()
         } footer: {
@@ -342,6 +492,60 @@ struct ClientProfileView: View {
                 "Reads body-composition report photos from any analyser (processed entirely on-device). Review every value before saving."
             ))
             .foregroundStyle(DS.C.textLow)
+        }
+    }
+
+    private var inBodyEmptyState: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "figure.stand")
+                    .font(.system(size: 25, weight: .medium))
+                    .foregroundStyle(DS.C.accent)
+                    .frame(width: 52, height: 52)
+                    .background(DS.C.accentSoft, in: RoundedRectangle(cornerRadius: 16))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(language.t("記錄第一次身體測量", "Your first body measurement"))
+                        .font(DS.F.cardTitle)
+                        .foregroundStyle(DS.C.textHi)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(language.t(
+                        "加入 InBody 報告，開始追蹤體重、體脂與肌肉的變化。",
+                        "Add an InBody report to start tracking changes in weight, body fat and muscle."
+                    ))
+                    .font(.system(size: 13))
+                    .foregroundStyle(DS.C.textMid)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            VStack(spacing: 8) {
+                Button {
+                    showInBodyScan = true
+                } label: {
+                    Label(language.t("掃描報告", "Scan Report"), systemImage: "doc.viewfinder")
+                }
+                .buttonStyle(.gymPrimary)
+                .accessibilityIdentifier("profile-scan-report-button")
+                Button {
+                    showAddBodyMetric = true
+                } label: {
+                    Text(language.t("或手動新增記錄", "Or add a record manually"))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(DS.C.textMid)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("profile-add-body-metric-button")
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.C.surface, in: RoundedRectangle(cornerRadius: DS.Radius.card))
+        .overlay {
+            RoundedRectangle(cornerRadius: DS.Radius.card)
+                .strokeBorder(DS.C.hairlineSoft, lineWidth: 1)
         }
     }
 
@@ -368,20 +572,20 @@ struct ClientProfileView: View {
             HStack(spacing: 8) {
                 bodyMetricStatCell(
                     title: language.t("體重", "Weight"), unit: "kg",
-                    value: latest.weightKg, previous: previous?.weightKg, goal: .neutral
+                    value: latest.weightKg, previous: previous?.weightKg
                 )
                 bodyMetricStatCell(
                     title: language.t("體脂率", "Body Fat"), unit: "%",
-                    value: latest.bodyFatPercent, previous: previous?.bodyFatPercent, goal: .down
+                    value: latest.bodyFatPercent, previous: previous?.bodyFatPercent
                 )
                 bodyMetricStatCell(
                     title: language.t("骨骼肌", "Muscle"), unit: "kg",
-                    value: latest.skeletalMuscleKg, previous: previous?.skeletalMuscleKg, goal: .up
+                    value: latest.skeletalMuscleKg, previous: previous?.skeletalMuscleKg
                 )
             }
             Text(language.t(
-                "綠色 = 朝目標方向移動（體脂下降、肌肉上升）；中性灰 = 僅供參考",
-                "Green = moving toward the goal (fat down, muscle up); neutral gray is for reference only"
+                "相較上一筆 · 數值變化僅供核對，不判定好壞",
+                "Compared with the previous record · changes are neutral and do not indicate good or bad"
             ))
             .font(.system(size: 11))
             .foregroundStyle(DS.C.textLow)
@@ -392,19 +596,8 @@ struct ClientProfileView: View {
         .padding(.horizontal, DS.Space.pageMargin)
     }
 
-    /// 方向判定依指標而異：體脂下降、肌肉上升皆為正向（`review` 綠 + 對應箭
-    /// 頭）；體重沒有「好方向」，變化量一律中性灰。
-    private enum BodyMetricGoalDirection { case up, down, neutral }
-
-    private func bodyMetricStatCell(title: String, unit: String, value: Double?, previous: Double?, goal: BodyMetricGoalDirection) -> some View {
+    private func bodyMetricStatCell(title: String, unit: String, value: Double?, previous: Double?) -> some View {
         let delta = (value != nil && previous != nil) ? value! - previous! : nil
-        let isPositive = delta.map { d in
-            switch goal {
-            case .up: return d > 0
-            case .down: return d < 0
-            case .neutral: return false
-            }
-        } ?? false
         return VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.system(size: 10, weight: .semibold))
@@ -427,8 +620,8 @@ struct ClientProfileView: View {
                     Text(delta >= 0 ? "↑" : "↓")
                     Text(Self.fmt(abs(delta)))
                 }
-                .font(.system(size: 11, weight: isPositive ? .bold : .semibold))
-                .foregroundStyle(goal == .neutral ? DS.C.textMid : (isPositive ? DS.C.review : DS.C.textMid))
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(DS.C.textMid)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

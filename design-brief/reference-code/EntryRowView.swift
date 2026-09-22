@@ -53,10 +53,6 @@ struct EntryRowView: View {
         return LoadWheelResolver.kind(for: draft.exercise, historicalBandColors: colors)
     }
 
-    private var exerciseNames: (primary: String, secondary: String?) {
-        draft.exercise.localizedNamePair(for: language)
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             header
@@ -98,38 +94,19 @@ struct EntryRowView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 10) {
-            MovementPatternBadge(pattern: draft.exercise.movementPattern)
-                .padding(.top, 2)
-
+        HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Button {
                     exercisePickerPresentation = .wheel
                 } label: {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(exerciseNames.primary)
-                            .font(DS.F.cardTitle)
-                            .foregroundStyle(DS.C.textHi)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.82)
-                            .accessibilityIdentifier("entry-exercise-name-primary")
-                        if let secondaryName = exerciseNames.secondary {
-                            Text(secondaryName)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(DS.C.textLow)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.72)
-                                .accessibilityIdentifier("entry-exercise-name-secondary")
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
+                    Text(draft.exercise.displayName)
+                        .font(DS.F.cardTitle)
+                        .foregroundStyle(DS.C.textHi)
                 }
                 .buttonStyle(.plain)
-                .layoutPriority(1)
                 .accessibilityIdentifier("entry-exercise-name")
-                .accessibilityLabel(draft.exercise.displayName)
 
+                summaryLine
             }
 
             Spacer()
@@ -154,6 +131,23 @@ struct EntryRowView: View {
         }
     }
 
+    private var roundWord: String {
+        language.t(
+            draft.rounds.count == 1 ? "1 個 Round" : "\(draft.rounds.count) 個 Round",
+            draft.rounds.count == 1 ? "1 Round" : "\(draft.rounds.count) Rounds"
+        )
+    }
+
+    private var summaryLine: some View {
+        Group {
+            Text(([language.t("\(roundWord) · 共 \(draft.plannedSets) 組", "\(roundWord) · \(draft.plannedSets) sets")]
+                + [restSeconds.map { language.t("休息 \($0)s", "Rest \($0)s") }, energyText].compactMap { $0 })
+                .joined(separator: " · "))
+                .accessibilityIdentifier("entry-summary-line")
+        }
+        .font(DS.F.subtitle)
+        .foregroundStyle(DS.C.textLow)
+    }
 }
 
 /// CONTRACT-M9.md v2: five columns (ROUND/組數/重量/目標/實際, plus an
@@ -174,17 +168,7 @@ private struct RoundTableView: View {
     let loadKind: LoadWheelKind
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
-    // R02 (2026-09-16): must read the frozen `draft.recordingMetric`, not
-    // `draft.exercise.recordingMetric` live -- `Exercise` is a SwiftData
-    // reference type the coach can reclassify (動作庫 -> 編輯 -> 記錄單位) at
-    // any time, independently of any draft/history entry already pointing
-    // at it. Reading it live here reintroduces exactly the bug
-    // `EntryDraft`'s own `recordingMetric` capture (see its doc comment,
-    // "2026-09-07 审阅 B02") exists to prevent: a saved 500m row entry, after
-    // the exercise gets reclassified to reps, showing/editing as "500 次"
-    // here even though `SessionDraftLoader`/`resolvedSets()` still correctly
-    // treat it as meters.
-    private var metric: RecordingMetric { draft.recordingMetric }
+    private var metric: RecordingMetric { draft.exercise.recordingMetric }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -256,10 +240,13 @@ private struct RoundTableView: View {
     }
 }
 
-/// CONTRACT-M9.md v2, ratios updated by GymLog 改版設計 §3: 重量與實際是現場
-/// 最常改的兩個值，改版前四欄一樣寬（除了本來就寬的重量），現在實際也跟著
-/// 放大——0.85 / 1.5 / 0.9 / 1.15，四者相加仍是 4.4 整除，算法不變。重量仍是
-/// 最寬的一欄：最長的常見文字是「輔助 30kg」/「紫帶 x2」。
+/// CONTRACT-M9.md v2: the shared width math behind the single-row Round
+/// table. 重量 gets ~1.6x the width of 組數/目標/實際 (all three of which are
+/// short, numeric-only content) -- it's the one column that realistically
+/// needs to fit longer text. Values are tuned against real content, not
+/// arbitrary: the widest routinely-seen 重量 text is things like "輔助
+/// 30kg"/"紫帶 x2"; 組數/目標/實際 never exceed ~5 characters (e.g. "59:55",
+/// "100次").
 private struct RoundColumnLayout {
     let roundWidth: CGFloat
     let setsWidth: CGFloat
@@ -274,11 +261,11 @@ private struct RoundColumnLayout {
         deleteWidth = canDelete ? 20 : 0
         let gapCount: CGFloat = canDelete ? 5 : 4
         let remaining = max(0, totalWidth - roundWidth - deleteWidth - spacing * gapCount)
-        let unit = remaining / 4.4
-        setsWidth = unit * 0.85
-        loadWidth = unit * 1.5
-        targetWidth = unit * 0.9
-        actualWidth = unit * 1.15
+        let unit = remaining / 4.0
+        setsWidth = unit * 0.8
+        loadWidth = unit * 1.6
+        targetWidth = unit * 0.8
+        actualWidth = unit * 0.8
     }
 }
 
@@ -341,33 +328,11 @@ private struct RoundRow: View, Identifiable {
         }
     }
 
-    /// R01 (2026-09-16): `round.target`/`.actual` are the real `RepTarget`
-    /// now (`.range`/`.perSide` included for an untouched historical Round)
-    /// -- these wheels can only show/edit one `Int`, so the binding reads
-    /// via `RepTargetToRoundQuantity.quantity(from:metric:)` (lossy for
-    /// `.range`/`.perSide`, same midpoint rule as always) and writes back
-    /// through `repTarget(quantity:metric:)`. Only actually opening this
-    /// sheet and changing the value narrows the stored `RepTarget` to
-    /// `metric`'s simple shape -- merely displaying it never does.
-    private var targetQuantityBinding: Binding<Int> {
-        Binding(
-            get: { RepTargetToRoundQuantity.quantity(from: round.target, metric: metric) },
-            set: { round.target = RepTargetToRoundQuantity.repTarget(quantity: $0, metric: metric) }
-        )
-    }
-
-    private var actualQuantityBinding: Binding<Int> {
-        Binding(
-            get: { RepTargetToRoundQuantity.quantity(from: round.actual, metric: metric) },
-            set: { round.actual = RepTargetToRoundQuantity.repTarget(quantity: $0, metric: metric) }
-        )
-    }
-
     var body: some View {
         GeometryReader { geo in
             let layout = RoundColumnLayout(totalWidth: geo.size.width, canDelete: canDelete)
-            let target = quantityCellText(RepTargetToRoundQuantity.quantity(from: round.target, metric: metric))
-            let actual = round.actualRecorded ? quantityCellText(RepTargetToRoundQuantity.quantity(from: round.actual, metric: metric)) : (number: "—", unit: "")
+            let target = quantityCellText(round.targetQuantity)
+            let actual = round.actualRecorded ? quantityCellText(round.actualQuantity) : (number: "—", unit: "")
 
             HStack(spacing: layout.spacing) {
                 Text("R\(index + 1)")
@@ -377,14 +342,10 @@ private struct RoundRow: View, Identifiable {
                     .minimumScaleFactor(0.8)
                     .frame(width: layout.roundWidth, alignment: .leading)
 
-                dataCell(number: "\(round.setsCount)", unit: language.t("組", "x"), width: layout.setsWidth, kind: .sets) { editingField = .sets }
+                dataCell(number: "\(round.setsCount)", unit: language.t("組", "x"), width: layout.setsWidth) { editingField = .sets }
                 loadCell(width: layout.loadWidth) { editingField = .load }
-                dataCell(number: target.number, unit: target.unit, width: layout.targetWidth, kind: .target) { editingField = .target }
-                if round.actualRecorded {
-                    dataCell(number: actual.number, unit: actual.unit, width: layout.actualWidth, kind: .actual) { editingField = .actual }
-                } else {
-                    unrecordedActualCell(width: layout.actualWidth) { editingField = .actual }
-                }
+                dataCell(number: target.number, unit: target.unit, width: layout.targetWidth) { editingField = .target }
+                dataCell(number: actual.number, unit: actual.unit, width: layout.actualWidth) { editingField = .actual }
 
                 if canDelete {
                     Button(role: .destructive) {
@@ -400,7 +361,7 @@ private struct RoundRow: View, Identifiable {
                 }
             }
         }
-        .frame(height: 46)
+        .frame(height: 38)
         .sheet(item: $editingField) { field in
             switch field {
             case .sets:
@@ -408,19 +369,17 @@ private struct RoundRow: View, Identifiable {
                     SetsCountWheel(sets: $round.setsCount)
                 }
             case .load:
-                PickerSheet(title: language.t("重量", "Load"), contentHeight: 270) {
+                PickerSheet(title: language.t("重量", "Load")) {
                     LoadWheel(load: $round.load, kind: loadKind)
                 }
             case .target:
                 PickerSheet(title: quantityFieldTitle(isTarget: true)) {
-                    quantityWheel(targetQuantityBinding)
+                    quantityWheel($round.targetQuantity)
                 }
             case .actual:
-                PickerSheet(title: quantityFieldTitle(isTarget: false), onConfirm: {
-                    round.actualRecorded = true
-                }) {
+                PickerSheet(title: quantityFieldTitle(isTarget: false)) {
                     VStack {
-                        quantityWheel(actualQuantityBinding)
+                        quantityWheel($round.actualQuantity)
                         Button(language.t("記錄此數值", "Record this value")) { round.actualRecorded = true; editingField = nil }
                         Button(language.t("清除實際成績", "Clear result")) { round.actualRecorded = false; editingField = nil }
                     }
@@ -435,80 +394,35 @@ private struct RoundRow: View, Identifiable {
         case .time:
             TimeQuantityWheel(seconds: binding)
         case .distance:
-            QuantityWheel(value: binding, range: 50...50000, step: 50) { language.t("\($0) 米", "\($0) m") }
+            QuantityWheel(value: binding, range: 50...10000, step: 50) { language.t("\($0) 米", "\($0) m") }
         case .rounds:
-            QuantityWheel(value: binding, range: 1...30, step: 1) { language.t("\($0) 輪", "\($0) rounds") }
+            QuantityWheel(value: binding, range: 1...20, step: 1) { language.t("\($0) 輪", "\($0) rounds") }
         case .reps, .unknown:
             RepsCountWheel(reps: binding)
         }
     }
 
-    /// GymLog 改版設計 §3：重量與實際是現場最常改的兩個值，要比組數/目標更
-    /// 突出；實際額外用 accent 描邊框住，跟「已記錄」的狀態綁在一起——描邊本
-    /// 身就是「這是教練剛剛按進去的數字」的視覺提示，不用再讀顏色以外的東西。
-    private enum RoundCellKind { case sets, target, actual }
-
-    private func numberFont(_ kind: RoundCellKind) -> Font {
-        switch kind {
-        case .sets: return .system(size: 16, weight: .semibold)
-        case .target: return .system(size: 14, weight: .medium)
-        case .actual: return .system(size: 20, weight: .bold)
-        }
-    }
-
-    private func numberColor(_ kind: RoundCellKind) -> Color {
-        switch kind {
-        case .sets: return DS.C.textHi
-        case .target: return DS.C.textMid
-        case .actual: return DS.C.accent
-        }
-    }
-
     @ViewBuilder
-    private func dataCell(number: String, unit: String, width: CGFloat, kind: RoundCellKind, action: @escaping () -> Void) -> some View {
+    private func dataCell(number: String, unit: String, width: CGFloat, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 1) {
                 Text(number)
-                    .font(numberFont(kind))
+                    .font(DS.F.dataNumberCompact())
                     .monospacedDigit()
-                    .foregroundStyle(numberColor(kind))
+                    .foregroundStyle(DS.C.textHi)
                 if !unit.isEmpty {
                     Text(unit)
                         .font(DS.F.dataUnitCompact)
-                        .foregroundStyle(kind == .actual ? DS.C.accent : DS.C.textLow)
+                        .foregroundStyle(DS.C.textLow)
                 }
             }
             .lineLimit(1)
             .minimumScaleFactor(0.6)
             .frame(width: width)
-            .frame(height: 46)
-            .background(kind == .actual ? DS.C.accentSoft : DS.C.inset, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-            .overlay {
-                if kind == .actual {
-                    RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(DS.C.accent, lineWidth: 1.5)
-                }
-            }
+            .frame(height: 38)
+            .background(DS.C.inset, in: Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("entry-round-field-\(String(describing: kind))")
-    }
-
-    /// 未記錄的「實際」：虛線 accent 描邊 + 「＋」，取代原本的純文字「—」——
-    /// 一眼就能看出這一格「還沒填」而不是「填了個破折號」。
-    private func unrecordedActualCell(width: CGFloat, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: "plus")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(DS.C.accent)
-                .frame(width: width, height: 46)
-                .background(DS.C.surface, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(DS.C.accent.opacity(0.45), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(language.t("記錄實際成績", "Record actual result"))
-        .accessibilityIdentifier("entry-round-unrecorded-actual")
     }
 
     @ViewBuilder
@@ -516,9 +430,9 @@ private struct RoundRow: View, Identifiable {
         Button(action: action) {
             Group {
                 if let numeric = round.load.numericDisplay {
-                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    HStack(alignment: .firstTextBaseline, spacing: 1) {
                         Text(numeric.value)
-                            .font(.system(size: 19, weight: .semibold))
+                            .font(DS.F.dataNumberCompact())
                             .monospacedDigit()
                             .foregroundStyle(DS.C.textHi)
                         Text(numeric.unit)
@@ -527,18 +441,17 @@ private struct RoundRow: View, Identifiable {
                     }
                 } else {
                     Text(round.load.displayText)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(DS.C.textHi)
                 }
             }
             .lineLimit(1)
             .minimumScaleFactor(0.55)
             .frame(width: width)
-            .frame(height: 46)
-            .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .frame(height: 38)
+            .background(DS.C.inset, in: Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("entry-load-button")
     }
 }
 

@@ -13,10 +13,6 @@ enum DS {
     enum C {
         static let canvas = Color("canvas")
         static let surface = Color("surface")
-        /// GymLog 改版設計 §問題二：Round 容器的「卡中卡」底色，比 `surface`
-        /// 更沉一階（淺色疊一層暖白、深色比 `surface` 更深），用來讓多輪 WOD
-        /// 的分組在視覺上從屬於外層卡片，而不是新開一種色階。
-        static let surfaceSunken = Color("surfaceSunken")
         static let inset = Color("inset")
         static let insetSegmented = Color("insetSegmented")
         static let hairline = Color("hairline")
@@ -37,10 +33,6 @@ enum DS {
         static let prBg = Color("prBg")
         static let danger = Color("danger")
         static let chevron = Color("chevron")
-        /// 心率專用紅——刻意與 `danger` 分開一組資產：淺色 #C93A2B、深色
-        /// #FF7A66，兩者都與 accent（橘 / 螢光黃綠）留出足夠對比，不會在心率
-        /// 面板裡撞色（GymLog 改版設計 §2）。
-        static let heartRate = Color("heartRate")
     }
 
     // MARK: Typography (§2)
@@ -266,21 +258,6 @@ struct TertiaryButtonStyle: ButtonStyle {
     }
 }
 
-/// Destructive peer action used beside a secondary action. It deliberately
-/// keeps the same geometry as the other session actions while danger color and
-/// the confirmation flow carry the destructive meaning.
-struct DangerButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(DS.C.danger)
-            .frame(maxWidth: .infinity)
-            .frame(height: DS.Size.buttonHeight)
-            .contentShape(Rectangle())
-            .opacity(configuration.isPressed ? 0.6 : 1)
-    }
-}
-
 /// 「往这堂课里加内容」的按钮（添加動作 / 添加 WOD）。2026-09-09 教练反馈：
 /// 「Save Draft 和 Finish Session 放在了 Add Exercise 和 Add WOD 下面，按钮都
 /// 一样大，给人非常同质化的感觉」——这两组按钮做的是完全不同的事，一组往课
@@ -319,10 +296,6 @@ extension ButtonStyle where Self == SecondaryButtonStyle {
 
 extension ButtonStyle where Self == TertiaryButtonStyle {
     static var gymTertiary: TertiaryButtonStyle { TertiaryButtonStyle() }
-}
-
-extension ButtonStyle where Self == DangerButtonStyle {
-    static var gymDanger: DangerButtonStyle { DangerButtonStyle() }
 }
 
 // MARK: - Segmented control (§4.7)

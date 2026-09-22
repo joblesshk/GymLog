@@ -97,8 +97,8 @@ struct GymLogApp: App {
         let session = WorkoutSession(id: "ui-test-reviewed", date: Date(), dateOrigin: .asRecorded, dateRaw: "ui-test", weekNumber: 1, sourceSheet: "App", sourceRow: 0)
         session.client = client
         context.insert(session)
-        for (order, (name, pattern)) in [("Back squat", MovementPattern.squat), ("Bench press", .push)].enumerated() {
-            let exercise = Exercise(id: "ui-ex-\(order)", canonicalName: name, aliases: [], movementPattern: pattern, equipment: .barbell, loadDirection: .higherIsStronger, isUnilateral: false, occurrenceCount: 0, needsReview: false, reviewReason: nil)
+        for (order, (name, nameZh, pattern)) in [("Back squat", "槓鈴背蹲", MovementPattern.squat), ("Bench press", "槓鈴臥推", .push)].enumerated() {
+            let exercise = Exercise(id: "ui-ex-\(order)", canonicalName: name, aliases: [], movementPattern: pattern, equipment: .barbell, loadDirection: .higherIsStronger, isUnilateral: false, occurrenceCount: 0, needsReview: false, reviewReason: nil, nameZh: nameZh)
             context.insert(exercise)
             let block = SessionBlock(order: order, blockType: .single, restSeconds: 90, restRaw: "90s", sourceRow: order)
             block.session = session

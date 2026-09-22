@@ -6,7 +6,7 @@
 
 - 训练记录可以放在任意名称的工作表中。只要某个工作表的 A 列出现 `Week 1`、`Week 2` 这类行，就会被识别为训练记录表；其他工作表会被忽略。
 - 可选的 `Info` 工作表用于学员资料，见文末。
-- 表头文字、`Week`、`Warm-up`、`Cool-down` 均须使用英文并区分大小写。
+- 表头使用英文，不区分大小写，允许首尾空白及词间多余空格、换行。`Week`、`Warm-up`、`Cool-down` 仍区分大小写。
 
 ## 每节课次的写法
 
@@ -20,7 +20,9 @@
 | 动作 | 动作名称 | 组数 | 负重 / 目标次数 / 完成次数 / 组间休息 | 备注 |
 | 冷身（可选） | `Cool-down` | 冷身内容 | — | 冷身备注 |
 
-表头行 A–G 列必须依次为 `Exercise, Sets, Weights, Rep range, Rep completed, Rest, Notes`，否则导入会提示具体的工作表和行号。
+表头行 A–G 列必须依次为 `Exercise, Sets, Weights, Rep range, Rep completed, Rest, Notes`，其中 C 列也接受单数 `Weight`。缺列或顺序错误时，导入会提示工作表和行号。
+
+跨工作表的课次共用连续的 Week 编号。导入时先按 Week 编号合并，再重建日期；同一 Week 内保留原始工作表及行顺序，因此允许一周多次训练。
 
 示例：
 
