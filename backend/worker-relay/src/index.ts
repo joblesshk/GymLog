@@ -1,5 +1,5 @@
 import { signRelayToken, verifyRelayToken, type RelayClaims, type RelayScope } from "./auth";
-import { finishQuota, reserveQuota, quota, QuotaDO, type QuotaEnvironment } from "./quota";
+import { finishQuota, reserveGlobalBudget, reserveQuota, quota, QuotaDO, type QuotaEnvironment } from "./quota";
 
 export { QuotaDO };
 
@@ -18,7 +18,18 @@ export interface Env extends QuotaEnvironment {
   MAX_INPUT_CHARS?: string;
   MAX_OUTPUT_TOKENS?: string;
   ALLOWED_CLEANUP_MODELS?: string;
+  // Comma-separated SHA-256 hex of the app's system prompts. When set, cleanup
+  // requests must carry one of them, so the relay only serves the app's own tasks.
+  ALLOWED_SYSTEM_PROMPT_SHA256?: string;
+  GLOBAL_DAILY_ASR_LIMIT?: string;
+  GLOBAL_DAILY_CLEANUP_LIMIT?: string;
+  TRIAL_RATE_LIMITER?: RateLimit;
 }
+
+const ALLOWED_CLEANUP_FIELDS = new Set([
+  "model", "stream", "messages", "max_tokens", "max_completion_tokens", "temperature",
+  "response_format", "thinking", "enable_thinking",
+]);
 
 const encoder = new TextEncoder();
 
@@ -30,10 +41,13 @@ export default {
       if (!env.RELAY_TOKEN_SIGNING_SECRET) return unauthorized();
       const credential = request.headers.get("Authorization") ?? "";
       if (!/^Bearer trial_[a-f0-9]{64}$/.test(credential)) return unauthorized();
-      const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(credential.slice(7)))))
-        .map(v => v.toString(16).padStart(2, "0")).join("");
-      const subject = "gymlog:" + digest;
+      const subject = "gymlog:" + await sha256Hex(credential.slice(7));
       if (url.pathname === "/v1/usage") return quota(env, subject, "status");
+      // Identities are self-generated, so throttle grant issuance per client IP.
+      if (env.TRIAL_RATE_LIMITER) {
+        const { success } = await env.TRIAL_RATE_LIMITER.limit({ key: request.headers.get("CF-Connecting-IP") ?? "unknown" });
+        if (!success) return json({ error: { message: "Too many requests", type: "rate_limit_error" } }, 429);
+      }
       const id = request.headers.get("X-Operation-ID") ?? "";
       const reservation = await quota(env, subject, "grant", id);
       if (!reservation.ok) return reservation;
@@ -77,6 +91,8 @@ async function cleanup(request: Request, env: Env, ctx: ExecutionContext): Promi
   if (!Array.isArray(payload.value.messages) || payload.value.messages.length === 0) {
     return json({ error: { message: "messages is required", type: "invalid_request_error" } }, 400);
   }
+  const shapeError = await cleanupShapeError(payload.value, env);
+  if (shapeError) return json({ error: { message: shapeError, type: "invalid_request_error" } }, 400);
   const requestedMaxTokens = payload.value.max_tokens ?? payload.value.max_completion_tokens;
   if (requestedMaxTokens === undefined) payload.value.max_tokens = integerEnv(env.MAX_OUTPUT_TOKENS, 4096);
   if (requestedMaxTokens !== undefined) {
@@ -90,6 +106,7 @@ async function cleanup(request: Request, env: Env, ctx: ExecutionContext): Promi
   }
   const reserved = await reserveQuota(env, claims.sub, claims.jti ?? "", "cleanup");
   if (!reserved) return quotaExceeded();
+  if (!await reserveGlobalBudget(env, "cleanup", integerEnv(env.GLOBAL_DAILY_CLEANUP_LIMIT, 3000))) return serviceBudgetExhausted();
 
   let upstream: Response;
   try {
@@ -130,6 +147,7 @@ async function asrWebSocket(request: Request, env: Env): Promise<Response> {
   }
   const reserved = await reserveQuota(env, claims.sub, claims.jti ?? "", "asr");
   if (!reserved) return quotaExceeded();
+  if (!await reserveGlobalBudget(env, "asr", integerEnv(env.GLOBAL_DAILY_ASR_LIMIT, 2000))) return serviceBudgetExhausted();
   if (env.MOCK_UPSTREAM === "1") {
     // Mock mode intentionally does not fake a Cloudflare 101 response. The bridge is tested
     // independently with a fake upstream, while local HTTP protocol tests remain deterministic.
@@ -272,6 +290,29 @@ async function normalizeWebSocketData(data: unknown): Promise<string | ArrayBuff
   throw new TypeError("unsupported_websocket_message");
 }
 
+// Only the app's own request shape: optional system message then one user message,
+// known fields, and (when pinned) a recognized system prompt.
+async function cleanupShapeError(body: Record<string, any>, env: Env): Promise<string | null> {
+  const unknownField = Object.keys(body).find((key) => !ALLOWED_CLEANUP_FIELDS.has(key));
+  if (unknownField) return `Field ${unknownField} is not allowed`;
+  const messages = body.messages as Array<Record<string, unknown> | null>;
+  const expectedRoles = messages.length === 2 ? ["system", "user"] : ["user"];
+  if (messages.length > 2 || messages.some((message, index) =>
+    !message || message.role !== expectedRoles[index] || typeof message.content !== "string")) {
+    return "messages must be an optional system message followed by one user text message";
+  }
+  const pinned = (env.ALLOWED_SYSTEM_PROMPT_SHA256 ?? "").split(",").map((v) => v.trim().toLowerCase()).filter(Boolean);
+  if (pinned.length > 0 && (messages.length !== 2 || !pinned.includes(await sha256Hex(messages[0]!.content as string)))) {
+    return "System prompt is not recognized";
+  }
+  return null;
+}
+
+async function sha256Hex(text: string): Promise<string> {
+  return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(text))))
+    .map((v) => v.toString(16).padStart(2, "0")).join("");
+}
+
 async function authenticate(request: Request, env: Env, scope: RelayScope): Promise<RelayClaims | null> {
   return verifyRelayToken(request.headers.get("Authorization"), env.RELAY_TOKEN_SIGNING_SECRET, scope);
 }
@@ -391,6 +432,10 @@ function unauthorized(): Response {
 
 function quotaExceeded(): Response {
   return json({ error: { message: "Installation quota or concurrency limit exceeded", type: "rate_limit_error" } }, 429);
+}
+
+function serviceBudgetExhausted(): Response {
+  return json({ error: { message: "Service daily budget exhausted", type: "service_unavailable" } }, 503);
 }
 
 function upstreamFailure(): Response {

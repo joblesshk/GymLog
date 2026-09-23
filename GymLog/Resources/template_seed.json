@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "source": "Synthetic demonstration templates; not athlete history",
+  "source": "Demonstration templates: exercise combinations only, no athlete identities, dates or loads. Combinations reflect common coach programming patterns; WOD templates are public CrossFit benchmarks.",
   "templates": [
     {
       "id": "demo-basic",

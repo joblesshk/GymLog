@@ -38,7 +38,8 @@ public final class TodayDraftStore {
     /// CONTRACT-M5.md §3.1: "训练持续时间：默认1小时，必须可改". Draft-only
     /// (not a `@Model` field) -- written into `WorkoutSession
     /// .plannedDurationMinutes` on save, same as every other draft value.
-    public var plannedDurationMinutes: Int = 60
+    /// `nil` only while editing a saved session that never recorded one.
+    public var plannedDurationMinutes: Int? = 60
     /// 2026-09-07 M3: the `WODBlockDraft.id` currently running a live
     /// `WODTimerModel`, or `nil` if none is. 工程审阅 §7: "只有一個主訓練
     /// 計時器" -- a session can have multiple WOD blocks, but only one may

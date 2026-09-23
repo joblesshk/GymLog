@@ -422,8 +422,8 @@ struct ContentView: View {
     }
 
     /// Fifth one-time heal, same shape as the 2026-09-09 pass above: 58
-    /// exercises extracted from two clients' (Example Athlete A、Example
-    /// Athlete B) coach Excel workout logs that the library was still missing.
+    /// exercise names seen in coach Excel workout logs that the library was
+    /// still missing (names only; no athlete data is bundled).
     private func applyExerciseLibraryAdditions20260916IfNeeded() {
         let flagKey = "appliedExerciseLibraryAdditions20260916"
         guard !UserDefaults.standard.bool(forKey: flagKey) else { return }

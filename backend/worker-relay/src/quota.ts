@@ -32,13 +32,27 @@ export function transition(state: State | undefined, action: string, id: string,
   op[action as Stage] = true;
   return { state, status: 200, body: { ok: true, ...usage() } };
 }
+// Service-wide daily cap on upstream calls, independent of installation identities
+// (which anyone can mint). Resets at UTC+8 midnight, like the monthly quota.
+export interface BudgetState { day: string; counts: Record<string, number> }
+export function dayAt(now: number): string { return new Date(now + 8 * 3600_000).toISOString().slice(0, 10); }
+export function budgetTransition(state: BudgetState | undefined, stage: string, limit: number, now: number) {
+  if (!state || state.day !== dayAt(now)) state = { day: dayAt(now), counts: {} };
+  const used = state.counts[stage] ?? 0;
+  if (used >= limit) return { state, status: 503, body: { error: "service_daily_budget_exhausted" } };
+  state.counts[stage] = used + 1;
+  return { state, status: 200, body: { ok: true } };
+}
 export class QuotaDO implements DurableObject {
   constructor(private state: DurableObjectState) {}
   async fetch(request: Request): Promise<Response> {
-    const body = await request.json().catch(() => ({})) as { id?: string };
+    const body = await request.json().catch(() => ({})) as { id?: string; stage?: string; limit?: number };
+    const action = new URL(request.url).pathname.slice(1);
     return this.state.blockConcurrencyWhile(async () => {
-      const result = transition(await this.state.storage.get<State>("state"), new URL(request.url).pathname.slice(1), body.id ?? "", Date.now());
-      await this.state.storage.put("state", result.state);
+      const result = action === "budget"
+        ? budgetTransition(await this.state.storage.get<BudgetState>("budget"), body.stage ?? "", body.limit ?? 0, Date.now())
+        : transition(await this.state.storage.get<State>("state"), action, body.id ?? "", Date.now());
+      await this.state.storage.put(action === "budget" ? "budget" : "state", result.state);
       return new Response(JSON.stringify(result.body), { status: result.status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
     });
   }
@@ -49,6 +63,11 @@ export async function quota(env: QuotaEnvironment, subject: string, action: stri
 }
 export async function reserveQuota(env: QuotaEnvironment, subject: string, id: string, stage: Stage): Promise<boolean> {
   return (await quota(env, subject, stage, id)).ok;
+}
+export async function reserveGlobalBudget(env: QuotaEnvironment, stage: Stage, limit: number): Promise<boolean> {
+  const response = await env.QUOTA.get(env.QUOTA.idFromName("global:budget"))
+    .fetch("https://quota/budget", { method: "POST", body: JSON.stringify({ stage, limit }) });
+  return response.ok;
 }
 // A submitted operation is charged once, regardless of upstream failure/cancellation.
 export async function finishQuota(_env: QuotaEnvironment, _subject: string, _committed: boolean): Promise<void> {}

@@ -34,10 +34,12 @@ public enum SessionDraftLoader {
                 // `fromPrescription` 按「复测」的规则把成绩清空了；继续编辑要的
                 // 是原样，所以把这一次的成绩再填回去。
                 apply(payload.result, to: wodDraft)
-                blocks.append(BlockDraft(
+                let loaded = BlockDraft(
                     blockType: block.blockType, restSeconds: block.restSeconds,
                     sectionKind: .wod, wodDraft: wodDraft
-                ))
+                )
+                loaded.source = sourceFields(of: block)
+                blocks.append(loaded)
                 continue
             }
 
@@ -63,11 +65,11 @@ public enum SessionDraftLoader {
                 if block.blockType == .superset {
                     loadedRounds = loadedRounds.flatMap { round in
                         (0..<max(round.setsCount, 1)).map { _ in
-                            RoundDraft(setsCount: 1, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded)
+                            RoundDraft(setsCount: 1, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded, isInferred: round.isInferred)
                         }
                     }
                 }
-                entries.append(EntryDraft(
+                let loadedEntry = EntryDraft(
                     exercise: exercise,
                     rounds: loadedRounds,
                     restSeconds: block.restSeconds,
@@ -77,15 +79,30 @@ public enum SessionDraftLoader {
                     // 次」（2026-09-07 审阅 B02 已经在草稿快照那条路径上踩过
                     // 一次，这里是同一个坑的另一个入口）。
                     recordingMetric: metric
-                ))
+                )
+                loadedEntry.source = EntrySourceFields(exerciseID: exercise.id, exerciseRaw: entry.exerciseRaw)
+                entries.append(loadedEntry)
             }
             guard !entries.isEmpty else { continue }
-            blocks.append(BlockDraft(
+            let loaded = BlockDraft(
                 blockType: block.blockType, restSeconds: block.restSeconds,
                 entries: entries, sectionKind: block.sectionKind
-            ))
+            )
+            loaded.source = sourceFields(of: block)
+            blocks.append(loaded)
         }
         return (blocks, droppedTotal)
+    }
+
+    /// Blocks whose stored WOD payload this build cannot decode. `load` would
+    /// drop them, and saving would then delete them, so callers must refuse a
+    /// full edit of such a session instead.
+    public static func unsupportedBlockCount(in session: WorkoutSession) -> Int {
+        session.orderedBlocks.filter(\.hasUnsupportedWODPayload).count
+    }
+
+    private static func sourceFields(of block: SessionBlock) -> BlockSourceFields {
+        BlockSourceFields(note: block.note, restRaw: block.restRaw, restSeconds: block.restSeconds, sourceRow: block.sourceRow)
     }
 
     /// 2026-09-16：把一節歷史課次**複製**成今天全新一節的起點——跟 `load`
@@ -180,21 +197,24 @@ public enum SessionDraftLoader {
         var runLoad: LoadValue?
         var runTarget: RepTarget?
         var runActual: RepTarget?
+        var runInferred: Bool?
 
         for set in sets {
-            if set.load == runLoad, set.target == runTarget, set.actual == runActual, !result.isEmpty {
+            if set.load == runLoad, set.target == runTarget, set.actual == runActual, set.isInferred == runInferred, !result.isEmpty {
                 result[result.count - 1].setsCount += 1
                 continue
             }
             runLoad = set.load
             runTarget = set.target
             runActual = set.actual
+            runInferred = set.isInferred
             result.append(RoundDraft(
                 setsCount: 1,
                 load: set.load,
                 target: set.target,
                 actual: set.actual,
-                actualRecorded: { if case .unknown = set.actual { return false }; return true }()
+                actualRecorded: { if case .unknown = set.actual { return false }; return true }(),
+                isInferred: set.isInferred
             ))
         }
         return result

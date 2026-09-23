@@ -31,18 +31,23 @@ import Observation
 public struct RoundDraft: Identifiable, Equatable {
     public let id: UUID
     public var setsCount: Int
-    public var load: LoadValue
-    public var target: RepTarget
-    public var actual: RepTarget { didSet { actualRecorded = true } }
+    public var load: LoadValue { didSet { isInferred = false } }
+    public var target: RepTarget { didSet { isInferred = false } }
+    public var actual: RepTarget { didSet { actualRecorded = true; isInferred = false } }
     public var actualRecorded: Bool
+    /// Mirrors `SetLog.isInferred` for Rounds loaded from history (sets the
+    /// Excel importer expanded from shorthand like "3x10"). Carried through
+    /// an untouched open → save; any edit to load/target/actual clears it.
+    public var isInferred: Bool
 
-    public init(id: UUID = UUID(), setsCount: Int, load: LoadValue, target: RepTarget, actual: RepTarget, actualRecorded: Bool = true) {
+    public init(id: UUID = UUID(), setsCount: Int, load: LoadValue, target: RepTarget, actual: RepTarget, actualRecorded: Bool = true, isInferred: Bool = false) {
         self.id = id
         self.setsCount = setsCount
         self.load = load
         self.target = target
         self.actual = actual
         self.actualRecorded = actualRecorded
+        self.isInferred = isInferred
     }
 
     /// Convenience for every call site that only has (or only needs) a
@@ -173,6 +178,10 @@ public final class EntryDraft: Identifiable {
     /// DEFAULT for a Round created fresh from now on; it can never
     /// retroactively reinterpret a quantity someone already typed in.
     public private(set) var recordingMetric: RecordingMetric
+    /// The persisted `ExerciseEntry` this draft was loaded from, `nil` for a
+    /// new entry. Its raw name is written back only while the exercise is
+    /// unchanged, so a full edit never replaces imported source text.
+    public var source: EntrySourceFields?
 
     public init(
         id: UUID = UUID(),
@@ -336,12 +345,12 @@ public final class EntryDraft: Identifiable {
             let offsetWithinRound = physicalSetIndex - consumed - 1
             var pieces: [RoundDraft] = []
             if offsetWithinRound > 0 {
-                pieces.append(RoundDraft(setsCount: offsetWithinRound, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded))
+                pieces.append(RoundDraft(setsCount: offsetWithinRound, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded, isInferred: round.isInferred))
             }
-            pieces.append(RoundDraft(id: round.id, setsCount: 1, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded))
+            pieces.append(RoundDraft(id: round.id, setsCount: 1, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded, isInferred: round.isInferred))
             let afterCount = round.setsCount - offsetWithinRound - 1
             if afterCount > 0 {
-                pieces.append(RoundDraft(setsCount: afterCount, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded))
+                pieces.append(RoundDraft(setsCount: afterCount, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded, isInferred: round.isInferred))
             }
             rounds.replaceSubrange(index...index, with: pieces)
             return round.id
@@ -373,6 +382,47 @@ public final class EntryDraft: Identifiable {
             return (0..<round.setsCount).map { _ in (round.load, round.target, actual) }
         }
     }
+
+    /// `SetLog.isInferred` for each set `resolvedSets()` returns, same order.
+    public func resolvedInferredFlags() -> [Bool] {
+        rounds.flatMap { Array(repeating: $0.isInferred, count: $0.setsCount) }
+    }
+
+    /// The `exerciseRaw` to persist: the loaded source text while the entry
+    /// still points at the same exercise, otherwise the canonical name.
+    public var resolvedExerciseRaw: String {
+        guard let source, source.exerciseID == exercise.id else { return exercise.canonicalName }
+        return source.exerciseRaw
+    }
+}
+
+/// Persisted `ExerciseEntry` fields the Today editor has no UI for.
+public struct EntrySourceFields: Codable, Equatable {
+    public var exerciseID: String
+    public var exerciseRaw: String
+
+    public init(exerciseID: String, exerciseRaw: String) {
+        self.exerciseID = exerciseID
+        self.exerciseRaw = exerciseRaw
+    }
+}
+
+/// Persisted `SessionBlock` fields the Today editor has no UI for, carried
+/// through a full edit so "open → save" does not erase imported notes.
+public struct BlockSourceFields: Codable, Equatable {
+    public var note: String?
+    public var restRaw: String?
+    /// The `restSeconds` that `restRaw` describes; `restRaw` is dropped once
+    /// the block's rest is edited to something else.
+    public var restSeconds: Int?
+    public var sourceRow: Int
+
+    public init(note: String?, restRaw: String?, restSeconds: Int?, sourceRow: Int) {
+        self.note = note
+        self.restRaw = restRaw
+        self.restSeconds = restSeconds
+        self.sourceRow = sourceRow
+    }
 }
 
 /// In-memory grouping of one or more `EntryDraft`s -- mirrors `SessionBlock`
@@ -391,6 +441,8 @@ public final class BlockDraft: Identifiable {
     /// `entries` (which stays empty for it) -- see `WODBlockDraft`.
     public var sectionKind: SectionKind
     public var wodDraft: WODBlockDraft?
+    /// `nil` for a block created in this draft; set when loaded from history.
+    public var source: BlockSourceFields?
 
     public init(
         id: UUID = UUID(), blockType: BlockType = .single, restSeconds: Int? = nil, entries: [EntryDraft] = [],
@@ -402,5 +454,13 @@ public final class BlockDraft: Identifiable {
         self.entries = entries
         self.sectionKind = sectionKind
         self.wodDraft = wodDraft
+    }
+}
+
+extension BlockDraft {
+    /// The source rest text, kept only while the block's rest is unchanged.
+    public var resolvedRestRaw: String? {
+        guard let source, source.restSeconds == restSeconds else { return nil }
+        return source.restRaw
     }
 }

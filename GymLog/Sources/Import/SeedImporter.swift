@@ -696,8 +696,8 @@ public enum SeedImporter {
         return changed
     }
 
-    /// 2026-09-16：從兩位學員（Example Athlete A、Example Athlete B）的教練 Excel
-    /// 訓練紀錄中萃取出的 58 個常見動作，之前完全不在庫裡（用別名比對過，
+    /// 2026-09-16：從教練 Excel 訓練紀錄中萃取出的 58 個常見動作名稱（只取
+    /// 動作名，不含任何學員資料），之前完全不在庫裡（用別名比對過，
     /// 排除了純標點/大小寫差異的假陽性，例如 "High row unilateral" 其實就是
     /// 已存在的 "High row (unilateral)"）。同上，ids 與
     /// `Resources/exercise_library_seed.json` 對應。

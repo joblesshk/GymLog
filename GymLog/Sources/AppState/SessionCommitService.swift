@@ -37,7 +37,8 @@ public enum SessionCommitService {
         /// overwrite their original imported cell text).
         public let newSessionDateRawText: String
         public let weekNumberForNewSession: Int
-        public let plannedDurationMinutes: Int
+        /// `nil` keeps an edited session's duration unrecorded.
+        public let plannedDurationMinutes: Int?
         public let blocks: [BlockDraft]
         /// `false` = "暫時保存" (`WorkoutSession.isInProgress = true`);
         /// `true` = "結束課次" (`isInProgress = false`). Both go through this
@@ -48,7 +49,7 @@ public enum SessionCommitService {
 
         public init(
             client: Client, draftClientID: String, existingSessionID: String?, sessionDateUTC: Date,
-            newSessionDateRawText: String, weekNumberForNewSession: Int, plannedDurationMinutes: Int,
+            newSessionDateRawText: String, weekNumberForNewSession: Int, plannedDurationMinutes: Int?,
             blocks: [BlockDraft], finishing: Bool
         ) {
             self.client = client
@@ -110,7 +111,8 @@ public enum SessionCommitService {
         for (blockIndex, blockDraft) in input.blocks.enumerated() {
             let block = SessionBlock(
                 order: blockIndex, blockType: blockDraft.blockType, restSeconds: blockDraft.restSeconds,
-                sourceRow: 0, sectionKind: blockDraft.sectionKind
+                restRaw: blockDraft.resolvedRestRaw, note: blockDraft.source?.note,
+                sourceRow: blockDraft.source?.sourceRow ?? 0, sectionKind: blockDraft.sectionKind
             )
             block.session = session
             context.insert(block)
@@ -131,15 +133,16 @@ public enum SessionCommitService {
             for (entryIndex, entryDraft) in blockDraft.entries.enumerated() {
                 let entry = ExerciseEntry(
                     order: entryIndex, exerciseIdRef: entryDraft.exercise.id,
-                    exerciseRaw: entryDraft.exercise.canonicalName, plannedSets: entryDraft.plannedSets,
+                    exerciseRaw: entryDraft.resolvedExerciseRaw, plannedSets: entryDraft.plannedSets,
                     exercise: entryDraft.exercise
                 )
                 entry.block = block
                 context.insert(entry)
+                let inferredFlags = entryDraft.resolvedInferredFlags()
                 for (setIndex, values) in entryDraft.resolvedSets().enumerated() {
                     let setLog = SetLog(
                         setIndex: setIndex, load: values.load, target: values.target, actual: values.actual,
-                        isInferred: false
+                        isInferred: inferredFlags[setIndex]
                     )
                     setLog.entry = entry
                     context.insert(setLog)

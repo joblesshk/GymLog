@@ -14,7 +14,7 @@ UI tests use an isolated in-memory profile through `-uiTesting`. Run the GymLogU
 
 Tests must use synthetic fixture data or mocked network transport. Historical workbooks, original body-report OCR dumps, private photos and derived real-history regression suites have been excluded from this source release. Do not cite the earlier private test totals as this repository's coverage.
 
-The repository gate checks paths, fixture provenance and common secret/signing patterns without printing matched values. Run Gitleaks on the commit history before publishing:
+The repository gate checks paths, fixture provenance, sync-conflict duplicates and common secret/signing/team-ID patterns without printing matched values. Keep client names, real bundle identifiers and team IDs one per line in `~/.config/gymlog/private-terms.txt` (or the file named by `GYMLOG_PRIVATE_TERMS`); the gate then rejects any tracked file containing them. That file must never be committed. Run Gitleaks on the commit history before publishing:
 
 ```sh
 gitleaks git . --redact=100

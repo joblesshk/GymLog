@@ -10,10 +10,14 @@
     "MAX_INPUT_CHARS": "200000",
     "MAX_OUTPUT_TOKENS": "4096",
     "ALLOWED_CLEANUP_MODELS": "deepseek-flash",
+    "ALLOWED_SYSTEM_PROMPT_SHA256": "37d23de46ab2cf848d67f87a83a7a93ffa3f489ec99ebecec1497805760170c8,561358993c85458a366fdf2251df9733bf2f7da180f8ad6f5e17e14ca5214fea",
+    "GLOBAL_DAILY_ASR_LIMIT": "2000",
+    "GLOBAL_DAILY_CLEANUP_LIMIT": "3000",
     "UPSTREAM_ASR_WS_URL": "https://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream",
     "UPSTREAM_ASR_RESOURCE_ID": "volc.seedasr.sauc.duration",
     "UPSTREAM_LLM_URL": "https://api.deepseek.com/v1/chat/completions"
   },
   "durable_objects": {"bindings": [{"name": "QUOTA", "class_name": "QuotaDO"}]},
+  "ratelimits": [{"name": "TRIAL_RATE_LIMITER", "namespace_id": "1001", "simple": {"limit": 20, "period": 60}}],
   "migrations": [{"tag": "v1", "new_sqlite_classes": ["QuotaDO"]}]
 }

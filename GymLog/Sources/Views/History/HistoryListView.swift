@@ -61,6 +61,7 @@ struct HistoryListView: View {
     @State private var shareResultsErrorMessage: String?
     // 「今天」里还开着另一份没暫存/結束的草稿时，不能直接把这节课载进去覆盖它。
     @State private var showingOpenDraftConflict = false
+    @State private var showingUnsupportedContentAlert = false
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
     private var currentClient: Client? {
@@ -375,6 +376,14 @@ struct HistoryListView: View {
                     "Another session is still open in Today without being saved or finished. Save or finish it there first, then come back to edit this one."
                 ))
             }
+            .alert(language.t("無法在「今天」中編輯", "Can't Edit in Today"), isPresented: $showingUnsupportedContentAlert) {
+                Button(language.t("好", "OK"), role: .cancel) {}
+            } message: {
+                Text(language.t(
+                    "這節課含有由較新版本建立的 WOD，此版本無法完整編輯；為免保存時遺失，只能在課次詳情中查看。請更新 App 後再編輯。",
+                    "This session contains a WOD created by a newer app version. Editing it here could lose it on save, so it can only be viewed. Update the app to edit it."
+                ))
+            }
             .alert(language.t("刪除失敗", "Delete Failed"), isPresented: Binding(get: { deleteErrorMessage != nil }, set: { if !$0 { deleteErrorMessage = nil } })) {
                 Button(language.t("好", "OK"), role: .cancel) {}
             } message: {
@@ -431,6 +440,8 @@ struct HistoryListView: View {
             path.removeAll()
         case .blockedByOpenDraft:
             showingOpenDraftConflict = true
+        case .unsupportedContent:
+            showingUnsupportedContentAlert = true
         }
     }
 

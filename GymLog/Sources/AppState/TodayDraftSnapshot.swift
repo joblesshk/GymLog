@@ -29,14 +29,17 @@ public struct RoundDraftSnapshot: Codable, Equatable {
     public var target: RepTarget
     public var actual: RepTarget
     public var actualRecorded: Bool?
+    /// `nil` for snapshots written before this field existed (= not inferred).
+    public var isInferred: Bool?
 
-    public init(id: UUID, setsCount: Int, load: LoadValue, target: RepTarget, actual: RepTarget, actualRecorded: Bool? = nil) {
+    public init(id: UUID, setsCount: Int, load: LoadValue, target: RepTarget, actual: RepTarget, actualRecorded: Bool? = nil, isInferred: Bool? = nil) {
         self.id = id
         self.setsCount = setsCount
         self.load = load
         self.target = target
         self.actual = actual
         self.actualRecorded = actualRecorded
+        self.isInferred = isInferred
     }
 }
 
@@ -57,13 +60,15 @@ public struct EntryDraftSnapshot: Codable, Equatable {
     /// than pretending it's exact (`EntryDraft.restore`'s `metricUncertain`
     /// return value).
     public var recordingMetric: RecordingMetric?
+    public var source: EntrySourceFields?
 
-    public init(id: UUID, exerciseID: String, rounds: [RoundDraftSnapshot], restSeconds: Int?, recordingMetric: RecordingMetric?) {
+    public init(id: UUID, exerciseID: String, rounds: [RoundDraftSnapshot], restSeconds: Int?, recordingMetric: RecordingMetric?, source: EntrySourceFields? = nil) {
         self.id = id
         self.exerciseID = exerciseID
         self.rounds = rounds
         self.restSeconds = restSeconds
         self.recordingMetric = recordingMetric
+        self.source = source
     }
 }
 
@@ -191,14 +196,16 @@ public struct BlockDraftSnapshot: Codable, Equatable {
     /// kind), same convention as `SessionBlockBackupDTO.sectionKind`.
     public var sectionKind: SectionKind?
     public var wodDraft: WODBlockDraftSnapshot?
+    public var source: BlockSourceFields?
 
-    public init(id: UUID, blockType: BlockType, restSeconds: Int?, entries: [EntryDraftSnapshot], sectionKind: SectionKind? = nil, wodDraft: WODBlockDraftSnapshot? = nil) {
+    public init(id: UUID, blockType: BlockType, restSeconds: Int?, entries: [EntryDraftSnapshot], sectionKind: SectionKind? = nil, wodDraft: WODBlockDraftSnapshot? = nil, source: BlockSourceFields? = nil) {
         self.id = id
         self.blockType = blockType
         self.restSeconds = restSeconds
         self.entries = entries
         self.sectionKind = sectionKind
         self.wodDraft = wodDraft
+        self.source = source
     }
 }
 
@@ -207,7 +214,8 @@ public struct BlockDraftSnapshot: Codable, Equatable {
 public struct TodayDraftSnapshot: Codable, Equatable {
     public var clientID: String
     public var sessionDate: Date
-    public var plannedDurationMinutes: Int
+    /// `nil` = the session being edited never recorded a duration.
+    public var plannedDurationMinutes: Int?
     public var blocks: [BlockDraftSnapshot]
     public var savedAt: Date
     /// 2026-09-09：草稿已经「暫存」进 `WorkoutSession` 时的那一节的 id。
@@ -218,7 +226,7 @@ public struct TodayDraftSnapshot: Codable, Equatable {
     public var openedFromHistory: Bool?
 
     public init(
-        clientID: String, sessionDate: Date, plannedDurationMinutes: Int, blocks: [BlockDraftSnapshot], savedAt: Date,
+        clientID: String, sessionDate: Date, plannedDurationMinutes: Int?, blocks: [BlockDraftSnapshot], savedAt: Date,
         persistedSessionID: String? = nil, openedFromHistory: Bool? = nil
     ) {
         self.clientID = clientID
@@ -235,13 +243,13 @@ public struct TodayDraftSnapshot: Codable, Equatable {
 
 extension RoundDraft {
     public func snapshot() -> RoundDraftSnapshot {
-        RoundDraftSnapshot(id: id, setsCount: setsCount, load: load, target: target, actual: actual, actualRecorded: actualRecorded)
+        RoundDraftSnapshot(id: id, setsCount: setsCount, load: load, target: target, actual: actual, actualRecorded: actualRecorded, isInferred: isInferred)
     }
 }
 
 extension EntryDraft {
     public func snapshot() -> EntryDraftSnapshot {
-        EntryDraftSnapshot(id: id, exerciseID: exercise.id, rounds: rounds.map { $0.snapshot() }, restSeconds: restSeconds, recordingMetric: recordingMetric)
+        EntryDraftSnapshot(id: id, exerciseID: exercise.id, rounds: rounds.map { $0.snapshot() }, restSeconds: restSeconds, recordingMetric: recordingMetric, source: source)
     }
 
     /// Rebuilds a live `EntryDraft` from a snapshot, resolving `exerciseID`
@@ -254,9 +262,10 @@ extension EntryDraft {
     public static func restore(from snapshot: EntryDraftSnapshot, exercises: [Exercise]) -> (entry: EntryDraft?, metricUncertain: Bool) {
         guard let exercise = exercises.first(where: { $0.id == snapshot.exerciseID }) else { return (nil, false) }
         let rounds = snapshot.rounds.map {
-            RoundDraft(id: $0.id, setsCount: $0.setsCount, load: $0.load, target: $0.target, actual: $0.actual, actualRecorded: $0.actualRecorded ?? true)
+            RoundDraft(id: $0.id, setsCount: $0.setsCount, load: $0.load, target: $0.target, actual: $0.actual, actualRecorded: $0.actualRecorded ?? true, isInferred: $0.isInferred ?? false)
         }
         let entry = EntryDraft(id: snapshot.id, exercise: exercise, rounds: rounds, restSeconds: snapshot.restSeconds, recordingMetric: snapshot.recordingMetric)
+        entry.source = snapshot.source
         return (entry, snapshot.recordingMetric == nil)
     }
 }
@@ -342,7 +351,7 @@ extension BlockDraft {
     public func snapshot() -> BlockDraftSnapshot {
         BlockDraftSnapshot(
             id: id, blockType: blockType, restSeconds: restSeconds, entries: entries.map { $0.snapshot() },
-            sectionKind: sectionKind, wodDraft: wodDraft?.snapshot()
+            sectionKind: sectionKind, wodDraft: wodDraft?.snapshot(), source: source
         )
     }
 
@@ -359,6 +368,7 @@ extension BlockDraft {
         if sectionKind == .wod {
             let wodDraft = snapshot.wodDraft.map { WODBlockDraft.restore(from: $0, exercises: exercises) }
             let block = BlockDraft(id: snapshot.id, blockType: snapshot.blockType, restSeconds: snapshot.restSeconds, sectionKind: .wod, wodDraft: wodDraft)
+            block.source = snapshot.source
             return (block, 0, 0)
         }
         let resolved = snapshot.entries.map { EntryDraft.restore(from: $0, exercises: exercises) }
@@ -366,7 +376,9 @@ extension BlockDraft {
         let dropped = resolved.count - entries.count
         let metricUncertainCount = resolved.filter { $0.metricUncertain }.count
         guard !entries.isEmpty else { return (nil, dropped, metricUncertainCount) }
-        return (BlockDraft(id: snapshot.id, blockType: snapshot.blockType, restSeconds: snapshot.restSeconds, entries: entries, sectionKind: sectionKind), dropped, metricUncertainCount)
+        let block = BlockDraft(id: snapshot.id, blockType: snapshot.blockType, restSeconds: snapshot.restSeconds, entries: entries, sectionKind: sectionKind)
+        block.source = snapshot.source
+        return (block, dropped, metricUncertainCount)
     }
 }
 

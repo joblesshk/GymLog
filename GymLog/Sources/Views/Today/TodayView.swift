@@ -69,6 +69,7 @@ struct TodayView: View {
     @State private var sharedPlanURL: URL?
     @State private var sharedPlanText = ""
     @State private var sharePlanErrorMessage: String?
+    @State private var showingUnsupportedContentAlert = false
     // 2026-09-13 全局語音改造：語音服務/錄音 session 已升級成
     // `ContentView` 持有的全局 `VoiceCommandCoordinator`（見該檔案說明），
     // 不再是這裡的私有 `@State`；這裡不再持有、也不再需要自己處理背景
@@ -135,7 +136,9 @@ struct TodayView: View {
                             onCopyFromHistory: { showingHistoryCopyPicker = true },
                             onSelectTemplate: { template in startFromTemplate(template, client: client) },
                             onContinueUnfinished: { session in
-                                SessionEditingCoordinator.open(session, exercises: allExercises, into: draft, tabSelection: nil)
+                                if SessionEditingCoordinator.open(session, exercises: allExercises, into: draft, tabSelection: nil) == .unsupportedContent {
+                                    showingUnsupportedContentAlert = true
+                                }
                             }
                         )
                         .sheet(isPresented: $showingHistoryCopyPicker) {
@@ -312,6 +315,14 @@ struct TodayView: View {
             Button(language.t("好", "OK"), role: .cancel) {}
         } message: {
             Text(copyResolutionWarning ?? "")
+        }
+        .alert(language.t("無法繼續記錄", "Can't Continue This Session"), isPresented: $showingUnsupportedContentAlert) {
+            Button(language.t("好", "OK"), role: .cancel) {}
+        } message: {
+            Text(language.t(
+                "這節課含有由較新版本建立的 WOD，此版本無法完整編輯；為免保存時遺失，請更新 App 後再繼續。",
+                "This session contains a WOD created by a newer app version. Update the app to continue it without losing that WOD."
+            ))
         }
         .sheet(isPresented: $showingSupersetTemplatePicker) {
             SessionTemplatePickerView(
