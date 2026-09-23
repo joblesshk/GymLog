@@ -103,6 +103,7 @@ struct SessionTemplatePickerView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(DS.C.accent)
         }
+        .accessibilityIdentifier("template-picker-manual-fallback")
         .listRowBackground(DS.C.surface)
     }
 }

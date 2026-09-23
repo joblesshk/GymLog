@@ -47,8 +47,12 @@ final class VoiceCommandTextEntryUITests: XCTestCase {
         app.buttons["完成"].tap()
         XCTAssertTrue(app.buttons["start-empty-session-button"].waitForExistence(timeout: 5))
     }
-    func testGlobalVoiceReachableFromLibrary() {
-        let app = launch(); app.buttons["動作庫"].tap(); open(app)
+    func testVoiceEntryShownOnlyOnToday() {
+        let app = launch()
+        app.buttons["動作庫"].tap()
+        XCTAssertTrue(app.textFields["library-search-field"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["global-voice-button"].exists)
+        app.buttons["今天"].tap(); open(app)
         XCTAssertTrue(app.buttons["voice-command-mic-button"].exists)
     }
     func testSettingsNeedsNoProviderCredentials() {

@@ -111,7 +111,10 @@ struct EnergyReportView: View {
         guard let weight = report.weightKg else { return nil }
         let kg = String(format: "%.1f", weight)
         if let date = report.weightDate {
-            let day = date.formatted(.dateTime.year().month().day())
+            // Follow the in-app language, not the device locale, so the Chinese
+            // line never shows an English month name.
+            let locale = Locale(identifier: LanguageContext.current == .zhHant ? "zh_Hant_TW" : "en_US")
+            let day = date.formatted(.dateTime.year().month().day().locale(locale))
             return L("按體重 \(kg) kg 計算 · \(day) 的體重記錄", "Based on \(kg) kg · body-weight record from \(day)")
         }
         return L("按體重 \(kg) kg 計算 · 個人資料中的起始體重", "Based on \(kg) kg · starting weight in the profile")

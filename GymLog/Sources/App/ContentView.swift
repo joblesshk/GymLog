@@ -20,9 +20,9 @@ struct ContentView: View {
     @State private var importStatus: ImportStatusBanner.Status?
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
-    // 2026-09-13 全局語音改造：語音入口/面板需要能在今天/學員/歷史/動作庫/
-    // 設置五個頁面都唤出，唯一一份協調器建在這裡（見
-    // `VoiceCommandCoordinator` 的說明），不是某個 tab 私有的 `@State`。
+    // 語音協調器建在根層級（見 `VoiceCommandCoordinator` 的說明），不是某個
+    // tab 私有的 `@State`；入口按鈕目前只在「今天」顯示（產品決定，
+    // 2026-09-23 確認），面板與取消邏輯仍由這裡統一管理。
     @State private var voiceCoordinator = CloudVoiceController.forApplication()
     @Query(sort: \Exercise.canonicalName) private var allExercises: [Exercise]
     @Query(sort: \Client.name) private var clients: [Client]

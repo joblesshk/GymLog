@@ -45,6 +45,12 @@ final class SupersetUITests: XCTestCase {
         guard addSupersetButton.waitForExistence(timeout: 10) else { return false }
         tapWhenHittable(addSupersetButton, in: app)
 
+        // 「添加 Superset」先打開模板庫；走底部的手動選擇入口。
+        let manualFallback = app.buttons["template-picker-manual-fallback"]
+        for _ in 0..<10 where !manualFallback.exists { app.swipeUp() }
+        guard manualFallback.waitForExistence(timeout: 5) else { return false }
+        manualFallback.tap()
+
         let firstRow = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'exercise-row-'")).element(boundBy: 0)
         guard firstRow.waitForExistence(timeout: 10) else { return false }
         firstRow.tap()

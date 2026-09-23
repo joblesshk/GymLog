@@ -39,9 +39,12 @@ final class TrainingInsightsUITests: XCTestCase {
         XCTAssertTrue(bodyHistoryToggle.waitForExistence(timeout: 5))
         XCTAssertEqual(bodyHistoryToggle.value as? String, "3")
         bodyHistoryToggle.tap()
+        // 展開後按鈕被 8 條記錄推到畫面外，懶加載列表需要先滾回可見範圍。
+        for _ in 0..<6 where !bodyHistoryToggle.exists || !bodyHistoryToggle.isHittable { app.swipeUp() }
         XCTAssertEqual(bodyHistoryToggle.label, "收起")
         XCTAssertEqual(bodyHistoryToggle.value as? String, "8")
         bodyHistoryToggle.tap()
+        for _ in 0..<6 where !bodyHistoryToggle.exists { app.swipeDown() }
         XCTAssertEqual(bodyHistoryToggle.value as? String, "3")
         let profileShot = XCTAttachment(screenshot: app.screenshot()); profileShot.name = "Astra profile page"; profileShot.lifetime = .keepAlways; add(profileShot)
 
@@ -53,6 +56,12 @@ final class TrainingInsightsUITests: XCTestCase {
         for (buttonID, editorID, title) in editors {
             for _ in 0..<6 where !app.buttons[buttonID].exists { app.swipeUp() }
             XCTAssertTrue(app.buttons[buttonID].waitForExistence(timeout: 5))
+            // The floating tab bar covers the bottom of the list; a tap there
+            // lands on a tab instead of the button.
+            for _ in 0..<6 where app.buttons[buttonID].frame.maxY > app.frame.height * 0.8 {
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+                    .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)))
+            }
             app.buttons[buttonID].tap()
             XCTAssertTrue(app.descendants(matching: .any)[editorID].waitForExistence(timeout: 5))
             XCTAssertTrue(app.navigationBars[title].exists)
@@ -264,7 +273,10 @@ final class TrainingInsightsUITests: XCTestCase {
         let top = XCTAttachment(screenshot: app.screenshot()); top.name = "History insight cards"; top.lifetime = .keepAlways; add(top)
 
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'kcal'")).firstMatch.exists, "energy headline should show kcal")
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS '起始體重'")).firstMatch.exists, "energy card should say which body weight it used")
+        // 用哪個體重取決於測試當天與種子體測日期的先後，只檢查卡片有說明來源。
+        let weightSource = app.staticTexts["energy-weight-source"]
+        XCTAssertTrue(weightSource.exists && weightSource.label.hasPrefix("按體重"), "energy card should say which body weight it used")
+        XCTAssertNil(weightSource.label.range(of: "[A-Za-z]{3} \\d", options: .regularExpression), "Chinese UI must not show an English date: \(weightSource.label)")
         app.buttons["energy-breakdown-toggle"].tap()
         XCTAssertTrue(app.staticTexts["Bench press"].waitForExistence(timeout: 3))
         let lower = XCTAttachment(screenshot: app.screenshot()); lower.name = "History insight cards expanded"; lower.lifetime = .keepAlways; add(lower)

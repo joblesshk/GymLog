@@ -92,6 +92,9 @@ struct SessionDetailView: View {
                             NoteCard(note: note).padding(14).gymCard()
                         }
                     }
+                    // `.contain` keeps each exercise row's own identifier instead of
+                    // letting the block identifier overwrite every child's.
+                    .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("session-detail-block-\(block.order)")
                 }
 
