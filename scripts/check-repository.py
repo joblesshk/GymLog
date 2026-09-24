@@ -42,6 +42,7 @@ for name in sorted(set(filter(None, paths))):
     except UnicodeError:
         continue
     rules = {
+        "deployed Worker hostname": r"https?://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev\b",
         "private home path": r"/Users/[A-Za-z][^\s\"']*/",
         "private key": r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----",
         "provider or GitHub token": r"(?:sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{24,})",
@@ -51,6 +52,10 @@ for name in sorted(set(filter(None, paths))):
     for label, pattern in rules.items():
         if re.search(pattern, text):
             issues.append((name, label))
+    if name == "GymLog/Config/Build.xcconfig":
+        configured = re.search(r"^GYMLOG_RELAY_BASE_URL\s*=\s*(.+)$", text, re.MULTILINE)
+        if not configured or configured.group(1).strip() != "https:/$()/relay.example.invalid":
+            issues.append((name, "shared build configuration must use the disabled example endpoint"))
     lowered = text.lower()
     if any(term in lowered for term in private_terms):
         issues.append((name, "private term"))

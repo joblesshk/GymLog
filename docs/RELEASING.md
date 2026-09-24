@@ -10,3 +10,10 @@
 8. Create a Git tag and GitHub release only after the relevant checks. Use synthetic screenshots and exclude databases, logs with device/account metadata, and credentials from attachments.
 
 The CI workflow builds and tests only. It never signs, installs, uploads to Apple, deploys a Worker or accesses production secrets automatically.
+
+## Distribution separation
+
+- TestFlight builds use the ignored local configuration to include the deployed relay address. New installs create their own installation credential automatically; no provider API key or coach database is bundled.
+- Git checkouts contain a disabled example address, no working service credentials and no real athlete records. Generic AI integration code and a self-hostable Worker remain available; consumers must supply their own deployment.
+- Run the repository gate with a local private-terms file when auditing real athlete identities. Scan remote history separately: removing a name in a new commit does not erase old commits.
+- Release privacy checks inspect the actual app bundle for database/export files, test fixtures and athlete/usage data in the exercise seed. These structural checks complement a known-identity scan; they do not prove the absence of unknown identities in arbitrary text.

@@ -513,11 +513,8 @@ struct ContentView: View {
     /// below and 工程记录.md), NOT from the frozen migration output --
     /// unlike the old combined seed, it needs no `applyKnownExerciseCorrections`
     /// pass afterward, because those corrections are already baked into every
-    /// exercise this file contains. The real coach data
-    /// (client + 124 sessions) still exists as `Fixtures/gymlog_seed.json`,
-    /// bundled ONLY into GymLogTests (see project.yml) for the tests that
-    /// need real historical data to verify against -- it is never bundled
-    /// into the GymLog app target itself.
+    /// exercise this file contains. Only the exercise library and generic
+    /// templates ship in the app. Synthetic fixtures belong to the test target.
     private func importFixtureIfNeeded() async {
         // Verification-only escape hatch (same family as `GYMLOG_INITIAL_TAB`):
         // testing "does re-importing an Excel file correctly repopulate an

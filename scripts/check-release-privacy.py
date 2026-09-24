@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check the actual archive, including embedded frameworks, before uploading."""
 import pathlib
+import json
 import plistlib
 import subprocess
 import sys
@@ -9,6 +10,17 @@ app = pathlib.Path(sys.argv[1])
 info = plistlib.loads((app / "Info.plist").read_bytes())
 if not str(info.get("NSMicrophoneUsageDescription", "")).strip():
     raise SystemExit("Release privacy check failed: microphone purpose string is missing.")
+
+# Inspect the actual shipping resources, not just the source target settings.
+for path in app.rglob("*"):
+    if path.is_file() and (path.suffix.lower() in {".store", ".sqlite", ".db", ".xlsx", ".xls", ".csv", ".gymlogshare"}
+                           or path.name in {"sample_seed.json", "gymlog_seed.json"}):
+        raise SystemExit(f"Release privacy check failed: unexpected data file {path.name}.")
+seed_path = app / "exercise_library_seed.json"
+if seed_path.exists():
+    seed = json.loads(seed_path.read_bytes())
+    if seed.get("clients") or any(e.get("occurrenceCount", 0) != 0 for e in seed.get("exercises", [])):
+        raise SystemExit("Release privacy check failed: exercise seed contains athlete data or usage counts.")
 
 bundles = [app] + list(app.rglob("*.framework")) + list(app.rglob("*.appex"))
 for bundle in bundles:
