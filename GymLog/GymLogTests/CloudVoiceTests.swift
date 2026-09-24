@@ -27,6 +27,22 @@ import SwiftData
     func start() throws {
         _ = try run([.init(kind: .startSession, evidence: "安排"), .init(kind: .addExercise, evidence: "安排", exerciseID: "squat", ref: "a")])
     }
+    func testResizingAndComposingPreserveExistingSetProvenance() throws {
+        try start()
+        let entry = draft.allEntries[0]
+        entry.rounds = [RoundDraft(setsCount: 2, load: .absolute(kg: 1.25, raw: "1.25kg"),
+            target: .fixed(value: 10, raw: "10 reps"), actual: .unknown(raw: "stopped"),
+            actualRecorded: false, isInferred: true, unrecordedActualRaw: "stopped")]
+        _ = try run([.init(kind: .updatePlan, evidence: "安排", target: entry.id.uuidString, sets: 3)])
+        XCTAssertEqual(draft.allEntries[0].rounds.map(\.isInferred), [true, true, false])
+        XCTAssertEqual(draft.allEntries[0].resolvedSets().map(\.actual), [.unknown(raw: "stopped"), .unknown(raw: "stopped"), .unknown(raw: "")])
+        _ = try run([.init(kind: .addExercise, evidence: "安排", exerciseID: "plank")])
+        let targets = draft.allEntries.map { $0.id.uuidString }
+        _ = try run([.init(kind: .composeSuperset, evidence: "安排", targets: targets)])
+        XCTAssertEqual(draft.allEntries[0].rounds.map(\.isInferred), [true, true, false])
+        XCTAssertEqual(draft.allEntries[0].resolvedSets()[0].actual, .unknown(raw: "stopped"))
+    }
+
     func testWholeDayPlanDefaultsAndUndoToInactive() throws {
         _ = try run([.init(kind: .startSession, evidence: "安排"),
             .init(kind: .addExercise, evidence: "安排", exerciseID: "squat", sets: 4, quantity: 8, unit: "reps", load: .init(kind: "absolute", value: 60, unit: "kg")),

@@ -3,39 +3,21 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import worker, { type Env } from "../src/index";
 import { createHash } from "node:crypto";
-import { budgetTransition, transition, type BudgetState, type State } from "../src/quota";
+import { makeQuotaNamespace } from "./quotaHarness";
 
 function setup(overrides: Partial<Env> = {}) {
-  const states = new Map<string, State>();
-  const budgets = new Map<string, BudgetState>();
   const env = {
     RELAY_TOKEN_SIGNING_SECRET: "local-test-secret-only", MOCK_UPSTREAM: "1",
     ALLOWED_CLEANUP_MODELS: "deepseek-flash", MAX_OUTPUT_TOKENS: "4096",
     ...overrides,
-    QUOTA: {
-      idFromName: (name: string) => name,
-      get: (id: string) => ({
-        fetch: async (url: string, init: RequestInit) => {
-          const body = JSON.parse(init.body as string);
-          const action = new URL(url).pathname.slice(1);
-          if (action === "budget") {
-            const result = budgetTransition(budgets.get(id), body.stage, body.limit, Date.now());
-            budgets.set(id, result.state);
-            return new Response(JSON.stringify(result.body), { status: result.status });
-          }
-          const result = transition(states.get(id), action, body.id, Date.now());
-          states.set(id, result.state);
-          return new Response(JSON.stringify(result.body), { status: result.status });
-        }
-      })
-    }
+    QUOTA: makeQuotaNamespace(),
   } as unknown as Env;
   const tasks: Promise<unknown>[] = [];
   const ctx = { waitUntil: (task: Promise<unknown>) => tasks.push(task) } as unknown as ExecutionContext;
   const identity = "trial_" + "a".repeat(64);
-  async function call(path: string, token = identity, method = "GET", body?: unknown) {
+  async function call(path: string, token = identity, method = "GET", body?: unknown, headers: Record<string, string> = {}) {
     return worker.fetch(new Request("https://unit.test" + path, { method, headers: {
-      Authorization: "Bearer " + token, "X-Operation-ID": randomUUID(), "content-type": "application/json"
+      Authorization: "Bearer " + token, "X-Operation-ID": randomUUID(), "content-type": "application/json", ...headers
     }, body: body === undefined ? undefined : JSON.stringify(body) }), env, ctx);
   }
   return { call };
@@ -53,7 +35,7 @@ test("cleanup counted once, replay rejected; access token cannot mint grants", a
   const body = { model: "deepseek-flash", stream: true, messages: [{ role: "user", content: "Plan" }], max_tokens: 100 };
   const first = await call("/v1/cleanup/chat/completions", token, "POST", body);
   assert.equal(first.status, 200); await first.text();
-  assert.equal((await call("/v1/cleanup/chat/completions", token, "POST", body)).status, 429);
+  assert.equal((await call("/v1/cleanup/chat/completions", token, "POST", body)).status, 409);
   assert.equal((await call("/v1/trial/session", token, "POST")).status, 401);
   assert.equal((await (await call("/v1/usage")).json() as any).used, 1);
 });
@@ -95,7 +77,12 @@ test("global daily budget stops cleanup before the provider is called", async ()
   assert.equal(ok.status, 200); await ok.text();
   const other = "trial_" + "b".repeat(64);
   const second = await (await call("/v1/trial/session", other, "POST")).json() as any;
-  assert.equal((await call("/v1/cleanup/chat/completions", second.token, "POST", body)).status, 503);
+  const denied = await call("/v1/cleanup/chat/completions", second.token, "POST", body);
+  assert.equal(denied.status, 503);
+  assert.ok(Number(denied.headers.get("retry-after")) > 0);
+  assert.equal((await denied.json() as any).error, "service_daily_budget_exhausted");
+  assert.equal((await (await call("/v1/usage", other)).json() as any).used, 0);
+  assert.equal((await call("/v1/cleanup/chat/completions", second.token, "POST", body)).status, 503, "global denial must not consume the stage");
 });
 test("cleanup accepts only the app request shape and pinned system prompts", async () => {
   const prompt = "GymLog system prompt";
@@ -116,7 +103,42 @@ test("cleanup accepts only the app request shape and pinned system prompts", asy
 test("trial grants are throttled per client IP when the limiter is bound", async () => {
   const keys: string[] = [];
   const { call } = setup({ TRIAL_RATE_LIMITER: { limit: async ({ key }: { key: string }) => { keys.push(key); return { success: false }; } } as unknown as RateLimit });
-  assert.equal((await call("/v1/trial/session", undefined, "POST")).status, 429);
+  const denied = await call("/v1/trial/session", undefined, "POST");
+  assert.equal(denied.status, 429);
+  assert.equal(denied.headers.get("retry-after"), "60");
+  assert.equal((await denied.json() as any).error.code, "ip_rate_limit");
   assert.equal((await call("/v1/usage")).status, 200, "usage reads are not throttled");
   assert.deepEqual(keys, ["unknown"]);
+});
+
+test("conflicting or invalid output limits are rejected before charging", async () => {
+  const { call } = setup();
+  const { token } = await (await call("/v1/trial/session", undefined, "POST")).json() as any;
+  const base = { model: "deepseek-flash", stream: true, messages: [{ role: "user", content: "Plan" }] };
+  for (const limits of [
+    { max_tokens: 1, max_completion_tokens: 999999 },
+    { max_tokens: 999999, max_completion_tokens: 1 },
+    { max_tokens: 1, max_completion_tokens: 1 },
+    { max_tokens: null }, { max_completion_tokens: null },
+    { max_completion_tokens: 999999 }, { max_tokens: -1 },
+  ]) {
+    assert.equal((await call("/v1/cleanup/chat/completions", token, "POST", { ...base, ...limits })).status, 400);
+  }
+  for (const malformed of [null, [], "text", 1]) {
+    assert.equal((await call("/v1/cleanup/chat/completions", token, "POST", malformed)).status, 400);
+  }
+  assert.equal((await (await call("/v1/usage")).json() as any).used, 0);
+  const accepted = await call("/v1/cleanup/chat/completions", token, "POST", { ...base, max_completion_tokens: 100 });
+  assert.equal(accepted.status, 200); await accepted.text();
+});
+test("ASR global denial preserves personal usage and operation eligibility", async () => {
+  const { call } = setup({ GLOBAL_DAILY_ASR_LIMIT: "1" });
+  const first = await (await call("/v1/trial/session", undefined, "POST")).json() as any;
+  assert.equal((await call("/v1/asr/bigmodel_nostream", first.token, "GET", undefined, { Upgrade: "websocket" })).status, 501);
+  const other = "trial_" + "b".repeat(64);
+  const second = await (await call("/v1/trial/session", other, "POST")).json() as any;
+  for (let i = 0; i < 2; i++) {
+    assert.equal((await call("/v1/asr/bigmodel_nostream", second.token, "GET", undefined, { Upgrade: "websocket" })).status, 503);
+  }
+  assert.equal((await (await call("/v1/usage", other)).json() as any).used, 0);
 });

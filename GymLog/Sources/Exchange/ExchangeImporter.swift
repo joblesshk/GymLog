@@ -107,6 +107,12 @@ public enum ExchangeImporter {
         checkLength(package.client.displayName, label: "client display name")
 
         let exerciseIDs = Set(package.exercises.map(\.id))
+        if exerciseIDs.count != package.exercises.count {
+            issues.append("duplicate exercise ID in package")
+        }
+        if exerciseIDs.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+            issues.append("empty exercise ID in package")
+        }
         var recordIDs = Set<String>()
         for session in package.sessions {
             if !isValidLocalDate(session.trainingLocalDate) {
@@ -219,6 +225,13 @@ public enum ExchangeImporter {
 
     @discardableResult
     public static func commit(_ package: ExchangePackage, targetClientID: String, in context: ModelContext) throws -> ImportResult {
+        // Callers can supply a DTO directly, bypassing parse. Validate before
+        // any mutation or rollback of the caller's existing context changes.
+        guard (1...ExchangePackage.currentFormatVersion).contains(package.formatVersion) else {
+            throw ImportError.unsupportedFormatVersion(package.formatVersion)
+        }
+        let issues = validateStructure(package)
+        guard issues.isEmpty else { throw ImportError.invalidData(issues.joined(separator: "; ")) }
         let wasAutosaveEnabled = context.autosaveEnabled
         context.autosaveEnabled = false
         defer { context.autosaveEnabled = wasAutosaveEnabled }

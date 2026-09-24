@@ -123,6 +123,21 @@ final class ImportedSessionEditRoundTripTests: XCTestCase {
         XCTAssertEqual(block.entries.first?.resolvedInferredFlags(), [true, true, true])
     }
 
+    func testUnknownActualSurvivesFullEditButIsNotCopiedIntoANewSession() throws {
+        let context = ModelContext(try TestSupport.makeInMemoryContainer())
+        let exercise = makeExercise(id: "ex-squat", name: "Back Squat")
+        let (client, session) = makeImportedSession(in: context, exercise: exercise)
+        let set = try XCTUnwrap(session.orderedBlocks.first?.orderedEntries.first?.orderedSets.first)
+        set.actual = .unknown(raw: "stopped early")
+        try context.save()
+        let loaded = SessionDraftLoader.load(from: session, exercises: [exercise])
+        try resave(session, client: client, blocks: loaded.blocks, duration: nil, in: context)
+        XCTAssertEqual(session.orderedBlocks[0].orderedEntries[0].orderedSets[0].actual, .unknown(raw: "stopped early"))
+        let copied = SessionDraftLoader.copy(from: session, exercises: [exercise])
+        XCTAssertEqual(copied.blocks[0].entries[0].resolvedSets()[0].actual, .unknown(raw: ""))
+        XCTAssertFalse(copied.blocks[0].entries[0].rounds[0].actualRecorded)
+    }
+
     func testUnsupportedWODPayloadIsReportedSoFullEditCanRefuse() throws {
         let context = ModelContext(try TestSupport.makeInMemoryContainer())
         let exercise = makeExercise(id: "ex-squat", name: "Back Squat")

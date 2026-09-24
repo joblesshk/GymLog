@@ -4,6 +4,46 @@ import SwiftData
 
 @MainActor
 final class TrainingInsightsTests: XCTestCase {
+    func testNotesAreEvidenceAndHistoryChangesRejectInFlightReview() async throws {
+        let context = ModelContext(try TestSupport.makeInMemoryContainer())
+        let client = Client(id: "review-client", name: "Private name", phone: "Private phone")
+        context.insert(client)
+        let session = WorkoutSession(id: "current", date: Date(), dateOrigin: .asRecorded,
+            dateRaw: "", weekNumber: 1, sourceSheet: "App", sourceRow: 0)
+        session.client = client; context.insert(session)
+        let block = SessionBlock(order: 0, blockType: .single, note: "Synthetic discomfort note", sourceRow: 0)
+        block.session = session; context.insert(block)
+        let entry = ExerciseEntry(order: 0, exerciseIdRef: "e", exerciseRaw: "Squat", plannedSets: 1)
+        entry.block = block; context.insert(entry)
+        let earlier = WorkoutSession(id: "earlier", date: Date().addingTimeInterval(-86400), dateOrigin: .asRecorded,
+            dateRaw: "", weekNumber: 1, sourceSheet: "App", sourceRow: 0)
+        earlier.client = client; context.insert(earlier)
+        try context.save()
+        let originalKey = TrainingInsights.reviewKey(session)
+        let input = TrainingInsights.reviewContext(session)
+        XCTAssertTrue(input.contains("Synthetic discomfort note"))
+        XCTAssertTrue(input.contains("untrustedNotes"))
+        XCTAssertFalse(input.contains("Private name"))
+        XCTAssertFalse(input.contains("Private phone"))
+        block.note = "Updated synthetic note"
+        XCTAssertNotEqual(originalKey, TrainingInsights.reviewKey(session))
+        let key = TrainingInsights.reviewKey(session)
+        do {
+            try await TrainingReviewCoordinator.generate(session: session, context: context) { _, ids in
+                earlier.warmupNote = "Historical context changed during request"
+                return TrainingReview(summary: "Stale response", findings: ["test"], suggestions: ["test"], limitations: [], evidenceIDs: Array(ids))
+            }
+            XCTFail("A response generated against changed history must not be saved")
+        } catch {
+            XCTAssertEqual(TrainingInsights.reviewKey(session), key, "saved-review policy is independent of history")
+            XCTAssertNil(session.insightJSON)
+        }
+        try await TrainingReviewCoordinator.generate(session: session, context: context) { _, ids in
+            TrainingReview(summary: "Current response", findings: ["test"], suggestions: ["test"], limitations: [], evidenceIDs: Array(ids))
+        }
+        XCTAssertEqual(TrainingInsights.decode(session)?.review?.summary, "Current response")
+    }
+
     func testActiveEnergyFormulaAndInvalidInputs() {
         XCTAssertEqual(TrainingInsights.kcal(met: 5, weight: 70, seconds: 600)!, 49, accuracy: 0.001)
         XCTAssertNil(TrainingInsights.kcal(met: 5, weight: nil, seconds: 600))

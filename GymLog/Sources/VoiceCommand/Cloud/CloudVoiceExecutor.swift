@@ -116,7 +116,7 @@ public final class CloudVoiceExecutor {
                     // re-quantizing via `RepTargetToRoundQuantity`, so
                     // resizing set count never collapses an untouched
                     // `.range`/`.perSide` Round to its midpoint.
-                    let expanded = e.rounds.flatMap { r in (0..<r.setsCount).map { _ in RoundDraft(setsCount: 1, load: r.load, target: r.target, actual: r.actual, actualRecorded: r.actualRecorded) } }
+                    let expanded = e.rounds.flatMap { r in (0..<r.setsCount).map { _ in r.copying(setsCount: 1) } }
                     var resized = Array(expanded.prefix(count))
                     while resized.count < count {
                         let r = expanded.last!
@@ -166,7 +166,7 @@ public final class CloudVoiceExecutor {
                 let blocks = work.blocks.filter { ids.contains($0.id) }
                 let entries = blocks.flatMap(\.entries)
                 for e in entries {
-                    e.rounds = e.rounds.flatMap { r in (0..<r.setsCount).map { _ in RoundDraft(setsCount: 1, load: r.load, target: r.target, actual: r.actual, actualRecorded: r.actualRecorded) } }
+                    e.rounds = e.rounds.flatMap { r in (0..<r.setsCount).map { _ in r.copying(setsCount: 1) } }
                 }
                 let index = work.blocks.firstIndex { ids.contains($0.id) }!
                 work.blocks.removeAll { ids.contains($0.id) }

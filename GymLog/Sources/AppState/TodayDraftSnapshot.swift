@@ -31,8 +31,9 @@ public struct RoundDraftSnapshot: Codable, Equatable {
     public var actualRecorded: Bool?
     /// `nil` for snapshots written before this field existed (= not inferred).
     public var isInferred: Bool?
+    public var unrecordedActualRaw: String?
 
-    public init(id: UUID, setsCount: Int, load: LoadValue, target: RepTarget, actual: RepTarget, actualRecorded: Bool? = nil, isInferred: Bool? = nil) {
+    public init(id: UUID, setsCount: Int, load: LoadValue, target: RepTarget, actual: RepTarget, actualRecorded: Bool? = nil, isInferred: Bool? = nil, unrecordedActualRaw: String? = nil) {
         self.id = id
         self.setsCount = setsCount
         self.load = load
@@ -40,6 +41,7 @@ public struct RoundDraftSnapshot: Codable, Equatable {
         self.actual = actual
         self.actualRecorded = actualRecorded
         self.isInferred = isInferred
+        self.unrecordedActualRaw = unrecordedActualRaw
     }
 }
 
@@ -243,7 +245,7 @@ public struct TodayDraftSnapshot: Codable, Equatable {
 
 extension RoundDraft {
     public func snapshot() -> RoundDraftSnapshot {
-        RoundDraftSnapshot(id: id, setsCount: setsCount, load: load, target: target, actual: actual, actualRecorded: actualRecorded, isInferred: isInferred)
+        RoundDraftSnapshot(id: id, setsCount: setsCount, load: load, target: target, actual: actual, actualRecorded: actualRecorded, isInferred: isInferred, unrecordedActualRaw: unrecordedActualRaw)
     }
 }
 
@@ -262,7 +264,7 @@ extension EntryDraft {
     public static func restore(from snapshot: EntryDraftSnapshot, exercises: [Exercise]) -> (entry: EntryDraft?, metricUncertain: Bool) {
         guard let exercise = exercises.first(where: { $0.id == snapshot.exerciseID }) else { return (nil, false) }
         let rounds = snapshot.rounds.map {
-            RoundDraft(id: $0.id, setsCount: $0.setsCount, load: $0.load, target: $0.target, actual: $0.actual, actualRecorded: $0.actualRecorded ?? true, isInferred: $0.isInferred ?? false)
+            RoundDraft(id: $0.id, setsCount: $0.setsCount, load: $0.load, target: $0.target, actual: $0.actual, actualRecorded: $0.actualRecorded ?? true, isInferred: $0.isInferred ?? false, unrecordedActualRaw: $0.unrecordedActualRaw)
         }
         let entry = EntryDraft(id: snapshot.id, exercise: exercise, rounds: rounds, restSeconds: snapshot.restSeconds, recordingMetric: snapshot.recordingMetric)
         entry.source = snapshot.source

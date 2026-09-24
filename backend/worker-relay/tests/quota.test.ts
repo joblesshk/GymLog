@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { transition, monthAt, resetAt, type State } from "../src/quota";
+import { transition, monthAt, resetAt, reserveQuota, quota, budgetTransition, type State } from "../src/quota";
 import { randomUUID } from "node:crypto";
 const now = Date.parse("2026-09-14T12:00:00Z");
 test("ASR plus cleanup charges once; each phase is one-use", () => {
@@ -51,4 +51,52 @@ test("grant retry idempotent; independent devices have independent state", () =>
   a = transition(a.state, "cleanup", id, now);
   assert.equal(a.state.used, 1);
   assert.equal(transition(undefined, "status", "", now).state.used, 0);
+});
+
+import { makeQuotaNamespace } from "./quotaHarness";
+test("DO admission serializes replay and admits only the final global slot", async () => {
+  const env = { QUOTA: makeQuotaNamespace() };
+  const id = randomUUID();
+  await quota(env, "a", "grant", id);
+  const responses = await Promise.all(Array.from({ length: 8 }, () => reserveQuota(env, "a", id, "cleanup", 2)));
+  assert.equal(responses.filter(r => r.status === 200).length, 1);
+  assert.equal(responses.filter(r => r.status === 409).length, 7);
+  const ids = [randomUUID(), randomUUID()];
+  await Promise.all(ids.map((id, i) => quota(env, `b${i}`, "grant", id)));
+  const last = await Promise.all(ids.map((id, i) => reserveQuota(env, `b${i}`, id, "cleanup", 2)));
+  assert.deepEqual(last.map(r => r.status).sort(), [200, 503]);
+  const usage = await Promise.all(ids.map(async (_, i) => (await (await quota(env, `b${i}`, "status")).json() as any).used));
+  assert.deepEqual(usage.sort(), [0, 1]);
+});
+test("cleanup budget rejection after ASR keeps its original one-operation charge", async () => {
+  const env = { QUOTA: makeQuotaNamespace() };
+  const other = randomUUID(); await quota(env, "other", "grant", other);
+  await reserveQuota(env, "other", other, "cleanup", 1);
+  const id = randomUUID(); await quota(env, "a", "grant", id);
+  assert.equal((await reserveQuota(env, "a", id, "asr", 2)).status, 200);
+  assert.equal((await reserveQuota(env, "a", id, "cleanup", 1)).status, 503);
+  assert.equal((await (await quota(env, "a", "status")).json() as any).used, 1);
+  assert.equal((await reserveQuota(env, "a", id, "cleanup", 2)).status, 200, "retry after capacity becomes available");
+  assert.equal((await (await quota(env, "a", "status")).json() as any).used, 1);
+});
+test("daily budget resets at Hong Kong midnight", () => {
+  const before = Date.parse("2026-09-30T15:59:59Z");
+  const first = budgetTransition(undefined, "cleanup", 1, before);
+  const denied = budgetTransition(first.state, "cleanup", 1, before);
+  assert.equal(denied.status, 503);
+  assert.equal(denied.body.resetsAt, (before + 1000) / 1000);
+  assert.equal(budgetTransition(first.state, "cleanup", 1, before + 1000).status, 200);
+});
+
+test("unavailable global budget never persists a personal charge and permits retry", async () => {
+  let unavailable = true;
+  const env = { QUOTA: makeQuotaNamespace(() => unavailable) };
+  const id = randomUUID(); await quota(env, "a", "grant", id);
+  const denied = await reserveQuota(env, "a", id, "cleanup", 1);
+  assert.equal(denied.status, 503);
+  assert.equal((await denied.json() as any).error, "quota_unavailable");
+  assert.equal((await (await quota(env, "a", "status")).json() as any).used, 0);
+  unavailable = false;
+  assert.equal((await reserveQuota(env, "a", id, "cleanup", 1)).status, 200);
+  assert.equal((await (await quota(env, "a", "status")).json() as any).used, 1);
 });

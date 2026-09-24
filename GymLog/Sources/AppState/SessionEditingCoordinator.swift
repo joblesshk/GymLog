@@ -1,5 +1,4 @@
-import SwiftUI
-import GymLogKit
+import Foundation
 
 /// 把歷史里的一节课载入「今天」继续编辑（2026-09-09 教练要求：暫存后能回来
 /// 接着录，且「所有生成的 section 都可以方便地进行修改」）。
@@ -10,11 +9,11 @@ import GymLogKit
 /// 在。走这条路，「能改什么」永远等于「能录什么」，不会出现两套编辑器各支持一
 /// 半的局面。`SessionEditSheet` 保留，用于「只想改一个数字」的快速修正。
 ///
-/// 放在 App target 而不是 GymLogKit：日期的 UTC/本地换算（`TrainingDayEncoding`）
-/// 在这一层。块与动作的还原是纯逻辑，在 `SessionDraftLoader`（GymLogKit，有单测）。
-enum SessionEditingCoordinator {
+/// Uses the shared TrainingDay conversion so the actual open/navigation
+/// behavior can be tested in GymLogKit without a separate UI implementation.
+public enum SessionEditingCoordinator {
 
-    enum Result {
+    public enum Result {
         case opened
         /// 「今天」里已经开着另一份还没暫存/結束的草稿。直接覆盖会把它冲掉，
         /// 所以这里什么都不做，由调用方提示教练先处理完手上那一堂。
@@ -27,14 +26,18 @@ enum SessionEditingCoordinator {
     /// 载入成功后把 tab 切到「今天」（`tabSelection` 为 nil 时只载入不切）。
     @MainActor
     @discardableResult
-    static func open(
+    public static func open(
         _ session: WorkoutSession,
         exercises: [Exercise],
         into draft: TodayDraftStore,
         tabSelection: TabSelectionStore?
     ) -> Result {
-        // 已经开着的就是这一节本身（教练从歷史点了两次）——放行，重载一次没有
-        // 副作用；开着的是别的课次才拦。
+        // Reopening the current session is navigation, not a reload. Preserve
+        // even an empty draft (the user may have just removed its last block).
+        if draft.isActive, draft.persistedSessionID == session.id {
+            tabSelection?.select(tab: 0)
+            return .opened
+        }
         if draft.hasUnsavedWork, draft.persistedSessionID != session.id {
             return .blockedByOpenDraft
         }
@@ -45,7 +48,7 @@ enum SessionEditingCoordinator {
 
         let loaded = SessionDraftLoader.load(from: session, exercises: exercises)
         draft.clientID = session.client?.id
-        draft.sessionDate = TrainingDayEncoding.localDisplayDate(from: session.date)
+        draft.sessionDate = TrainingDay.from(utcMidnight: session.date).localDate()
         draft.plannedDurationMinutes = session.plannedDurationMinutes
         draft.blocks = loaded.blocks
         draft.persistedSessionID = session.id

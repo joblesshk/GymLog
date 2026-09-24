@@ -32,7 +32,11 @@ public struct CloudVoiceInterpreter: CloudVoiceInterpreting {
         try Task.checkCancellation()
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            if status == 429 { throw CloudVoiceError.message("本月雲端額度已用完，或這條指令已提交。請查看用量或重新開始。") }
+            if configuration.usesLLMRelay, let http = response as? HTTPURLResponse,
+               let message = CloudRelayError.message(data: data, response: http) {
+                throw CloudVoiceError.message(message)
+            }
+            if status == 429 { throw CloudVoiceError.message(L("雲端服務暫時限制請求，請稍後重試。", "Cloud requests are temporarily limited. Please retry shortly.")) }
             throw CloudVoiceError.message("文字理解服務暫時不可用（\(status)）。原話已保留，可重試。")
         }
         if configuration.usesLLMRelay { return try Self.decodeEventStream(data) }

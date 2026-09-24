@@ -44,6 +44,12 @@ public struct SetEditDraft: Equatable {
     public var actualSecondaryText: String?
     public let kind: Kind
 
+    private let initialKgText: String?
+    private let initialTargetPrimaryText: String
+    private let initialTargetSecondaryText: String?
+    private let initialActualPrimaryText: String
+    private let initialActualSecondaryText: String?
+
     public init(set: SetLog) {
         if case .absolute(let kg, _) = set.load {
             kgText = Self.formatNumber(kg)
@@ -76,7 +82,16 @@ public struct SetEditDraft: Equatable {
             targetPrimaryText = ""; actualPrimaryText = ""
             targetSecondaryText = nil; actualSecondaryText = nil
         }
+        initialKgText = kgText
+        initialTargetPrimaryText = targetPrimaryText
+        initialTargetSecondaryText = targetSecondaryText
+        initialActualPrimaryText = actualPrimaryText
+        initialActualSecondaryText = actualSecondaryText
     }
+
+    private var loadChanged: Bool { kgText != initialKgText }
+    private var targetChanged: Bool { targetPrimaryText != initialTargetPrimaryText || targetSecondaryText != initialTargetSecondaryText }
+    private var actualChanged: Bool { actualPrimaryText != initialActualPrimaryText || actualSecondaryText != initialActualSecondaryText }
 
     public var isEditable: Bool { kind != .unsupported }
     public var isWeightEditable: Bool { kgText != nil }
@@ -117,41 +132,41 @@ public struct SetEditDraft: Equatable {
         return nil
     }
 
-    /// Only meant to be called after `validationError == nil` -- every
-    /// `Int`/`Double` parse below is then known to succeed. Left as
-    /// best-effort (skips a field silently) rather than throwing if called
-    /// with an invalid draft anyway, since the actual caller always guards
-    /// on `validationError` for every draft before applying any of them.
+    /// Write only edited fields. Unchanged fields retain their original
+    /// precision and source text, including when only the session date changes.
     public func apply(to set: SetLog) {
-        if isWeightEditable, let kg = Double(kgText ?? "") {
+        guard isEditable, validationError == nil else { return }
+        guard loadChanged || targetChanged || actualChanged else { return }
+        if loadChanged, isWeightEditable, let kg = Double(kgText ?? "") {
             set.load = .absolute(kg: kg, raw: kgText ?? "")
         }
         switch kind {
         case .fixed:
-            if let t = Int(targetPrimaryText) { set.target = .fixed(value: t, raw: targetPrimaryText) }
-            if let a = Int(actualPrimaryText) { set.actual = .fixed(value: a, raw: actualPrimaryText) }
+            if targetChanged, let t = Int(targetPrimaryText) { set.target = .fixed(value: t, raw: targetPrimaryText) }
+            if actualChanged, let a = Int(actualPrimaryText) { set.actual = .fixed(value: a, raw: actualPrimaryText) }
         case .time:
-            if let t = Int(targetPrimaryText) { set.target = .time(seconds: t, raw: targetPrimaryText) }
-            if let a = Int(actualPrimaryText) { set.actual = .time(seconds: a, raw: actualPrimaryText) }
+            if targetChanged, let t = Int(targetPrimaryText) { set.target = .time(seconds: t, raw: targetPrimaryText) }
+            if actualChanged, let a = Int(actualPrimaryText) { set.actual = .time(seconds: a, raw: actualPrimaryText) }
         case .distance:
-            if let t = Int(targetPrimaryText) { set.target = .distance(meters: t, raw: targetPrimaryText) }
-            if let a = Int(actualPrimaryText) { set.actual = .distance(meters: a, raw: actualPrimaryText) }
+            if targetChanged, let t = Int(targetPrimaryText) { set.target = .distance(meters: t, raw: targetPrimaryText) }
+            if actualChanged, let a = Int(actualPrimaryText) { set.actual = .distance(meters: a, raw: actualPrimaryText) }
         case .rounds:
-            if let t = Int(targetPrimaryText) { set.target = .rounds(count: t, raw: targetPrimaryText) }
-            if let a = Int(actualPrimaryText) { set.actual = .rounds(count: a, raw: actualPrimaryText) }
+            if targetChanged, let t = Int(targetPrimaryText) { set.target = .rounds(count: t, raw: targetPrimaryText) }
+            if actualChanged, let a = Int(actualPrimaryText) { set.actual = .rounds(count: a, raw: actualPrimaryText) }
         case .perSide:
-            if let tl = Int(targetPrimaryText), let tr = Int(targetSecondaryText ?? "") {
+            if targetChanged, let tl = Int(targetPrimaryText), let tr = Int(targetSecondaryText ?? "") {
                 set.target = .perSide(left: tl, right: tr, raw: "\(tl),\(tr)")
             }
-            if let al = Int(actualPrimaryText), let ar = Int(actualSecondaryText ?? "") {
+            if actualChanged, let al = Int(actualPrimaryText), let ar = Int(actualSecondaryText ?? "") {
                 set.actual = .perSide(left: al, right: ar, raw: "\(al),\(ar)")
             }
         case .unsupported:
             break
         }
+        set.isInferred = false
     }
 
     public static func formatNumber(_ value: Double) -> String {
-        value == value.rounded() ? String(format: "%.0f", value) : String(format: "%.1f", value)
+        value == value.rounded() ? String(format: "%.0f", value) : String(value)
     }
 }

@@ -34,13 +34,19 @@ public struct RoundDraft: Identifiable, Equatable {
     public var load: LoadValue { didSet { isInferred = false } }
     public var target: RepTarget { didSet { isInferred = false } }
     public var actual: RepTarget { didSet { actualRecorded = true; isInferred = false } }
-    public var actualRecorded: Bool
+    public var actualRecorded: Bool {
+        didSet { unrecordedActualRaw = nil; isInferred = false }
+    }
+    /// Historical text that could not be parsed as a result. It is not a
+    /// confirmed result, but must survive an untouched edit/save. Explicit
+    /// confirmation or clearing of the actual invalidates this source text.
+    public var unrecordedActualRaw: String?
     /// Mirrors `SetLog.isInferred` for Rounds loaded from history (sets the
     /// Excel importer expanded from shorthand like "3x10"). Carried through
     /// an untouched open → save; any edit to load/target/actual clears it.
     public var isInferred: Bool
 
-    public init(id: UUID = UUID(), setsCount: Int, load: LoadValue, target: RepTarget, actual: RepTarget, actualRecorded: Bool = true, isInferred: Bool = false) {
+    public init(id: UUID = UUID(), setsCount: Int, load: LoadValue, target: RepTarget, actual: RepTarget, actualRecorded: Bool = true, isInferred: Bool = false, unrecordedActualRaw: String? = nil) {
         self.id = id
         self.setsCount = setsCount
         self.load = load
@@ -48,6 +54,15 @@ public struct RoundDraft: Identifiable, Equatable {
         self.actual = actual
         self.actualRecorded = actualRecorded
         self.isInferred = isInferred
+        self.unrecordedActualRaw = unrecordedActualRaw
+    }
+
+    /// Split or resize existing sets without losing provenance. New planned
+    /// sets must use the initializer instead, with no historical result text.
+    public func copying(id: UUID = UUID(), setsCount: Int) -> RoundDraft {
+        RoundDraft(id: id, setsCount: setsCount, load: load, target: target,
+                   actual: actual, actualRecorded: actualRecorded, isInferred: isInferred,
+                   unrecordedActualRaw: unrecordedActualRaw)
     }
 
     /// Convenience for every call site that only has (or only needs) a
@@ -345,12 +360,12 @@ public final class EntryDraft: Identifiable {
             let offsetWithinRound = physicalSetIndex - consumed - 1
             var pieces: [RoundDraft] = []
             if offsetWithinRound > 0 {
-                pieces.append(RoundDraft(setsCount: offsetWithinRound, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded, isInferred: round.isInferred))
+                pieces.append(round.copying(setsCount: offsetWithinRound))
             }
-            pieces.append(RoundDraft(id: round.id, setsCount: 1, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded, isInferred: round.isInferred))
+            pieces.append(round.copying(id: round.id, setsCount: 1))
             let afterCount = round.setsCount - offsetWithinRound - 1
             if afterCount > 0 {
-                pieces.append(RoundDraft(setsCount: afterCount, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded, isInferred: round.isInferred))
+                pieces.append(round.copying(setsCount: afterCount))
             }
             rounds.replaceSubrange(index...index, with: pieces)
             return round.id
@@ -378,7 +393,7 @@ public final class EntryDraft: Identifiable {
     /// `SetLog`s.
     public func resolvedSets() -> [(load: LoadValue, target: RepTarget, actual: RepTarget)] {
         rounds.flatMap { round -> [(load: LoadValue, target: RepTarget, actual: RepTarget)] in
-            let actual: RepTarget = round.actualRecorded ? round.actual : .unknown(raw: "")
+            let actual: RepTarget = round.actualRecorded ? round.actual : .unknown(raw: round.unrecordedActualRaw ?? "")
             return (0..<round.setsCount).map { _ in (round.load, round.target, actual) }
         }
     }

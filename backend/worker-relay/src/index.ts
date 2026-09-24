@@ -1,5 +1,5 @@
 import { signRelayToken, verifyRelayToken, type RelayClaims, type RelayScope } from "./auth";
-import { finishQuota, reserveGlobalBudget, reserveQuota, quota, QuotaDO, type QuotaEnvironment } from "./quota";
+import { finishQuota, reserveQuota, quota, QuotaDO, type QuotaEnvironment } from "./quota";
 
 export { QuotaDO };
 
@@ -46,7 +46,7 @@ export default {
       // Identities are self-generated, so throttle grant issuance per client IP.
       if (env.TRIAL_RATE_LIMITER) {
         const { success } = await env.TRIAL_RATE_LIMITER.limit({ key: request.headers.get("CF-Connecting-IP") ?? "unknown" });
-        if (!success) return json({ error: { message: "Too many requests", type: "rate_limit_error" } }, 429);
+        if (!success) return json({ error: { message: "Too many requests", type: "rate_limit_error", code: "ip_rate_limit" } }, 429, { "retry-after": "60" });
       }
       const id = request.headers.get("X-Operation-ID") ?? "";
       const reservation = await quota(env, subject, "grant", id);
@@ -93,7 +93,11 @@ async function cleanup(request: Request, env: Env, ctx: ExecutionContext): Promi
   }
   const shapeError = await cleanupShapeError(payload.value, env);
   if (shapeError) return json({ error: { message: shapeError, type: "invalid_request_error" } }, 400);
-  const requestedMaxTokens = payload.value.max_tokens ?? payload.value.max_completion_tokens;
+  if (Object.hasOwn(payload.value, "max_tokens") && Object.hasOwn(payload.value, "max_completion_tokens")) {
+    return json({ error: { message: "Specify only one output token limit", type: "invalid_request_error" } }, 400);
+  }
+  const tokenField = Object.hasOwn(payload.value, "max_completion_tokens") ? "max_completion_tokens" : "max_tokens";
+  const requestedMaxTokens = payload.value[tokenField];
   if (requestedMaxTokens === undefined) payload.value.max_tokens = integerEnv(env.MAX_OUTPUT_TOKENS, 4096);
   if (requestedMaxTokens !== undefined) {
     const maxOutputTokens = integerEnv(env.MAX_OUTPUT_TOKENS, 4096);
@@ -104,9 +108,8 @@ async function cleanup(request: Request, env: Env, ctx: ExecutionContext): Promi
       return json({ error: { message: `max_tokens exceeds relay limit (${maxOutputTokens})`, type: "invalid_request_error" } }, 400);
     }
   }
-  const reserved = await reserveQuota(env, claims.sub, claims.jti ?? "", "cleanup");
-  if (!reserved) return quotaExceeded();
-  if (!await reserveGlobalBudget(env, "cleanup", integerEnv(env.GLOBAL_DAILY_CLEANUP_LIMIT, 3000))) return serviceBudgetExhausted();
+  const reserved = await reserveQuota(env, claims.sub, claims.jti ?? "", "cleanup", integerEnv(env.GLOBAL_DAILY_CLEANUP_LIMIT, 3000));
+  if (!reserved.ok) return reserved;
 
   let upstream: Response;
   try {
@@ -145,9 +148,8 @@ async function asrWebSocket(request: Request, env: Env): Promise<Response> {
   if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
     return json({ error: { message: "WebSocket upgrade required", type: "invalid_request_error" } }, 426);
   }
-  const reserved = await reserveQuota(env, claims.sub, claims.jti ?? "", "asr");
-  if (!reserved) return quotaExceeded();
-  if (!await reserveGlobalBudget(env, "asr", integerEnv(env.GLOBAL_DAILY_ASR_LIMIT, 2000))) return serviceBudgetExhausted();
+  const reserved = await reserveQuota(env, claims.sub, claims.jti ?? "", "asr", integerEnv(env.GLOBAL_DAILY_ASR_LIMIT, 2000));
+  if (!reserved.ok) return reserved;
   if (env.MOCK_UPSTREAM === "1") {
     // Mock mode intentionally does not fake a Cloudflare 101 response. The bridge is tested
     // independently with a fake upstream, while local HTTP protocol tests remain deterministic.
@@ -326,7 +328,8 @@ async function readJSON(request: Request, maxCharsValue: string | undefined): Pr
   const text = new TextDecoder().decode(body.bytes);
   if (text.length > maxChars) return { ok: false, response: json({ error: { message: "Input is too large", type: "invalid_request_error" } }, 413) };
   try {
-    const value = JSON.parse(text) as Record<string, any>;
+    const value = JSON.parse(text);
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("object_required");
     return { ok: true, value };
   } catch {
     return { ok: false, response: json({ error: { message: "Request body must be JSON", type: "invalid_request_error" } }, 400) };
@@ -428,14 +431,6 @@ function integerEnv(value: string | undefined, fallback: number): number {
 
 function unauthorized(): Response {
   return json({ error: { message: "Unauthorized", type: "authentication_error" } }, 401, { "www-authenticate": "Bearer" });
-}
-
-function quotaExceeded(): Response {
-  return json({ error: { message: "Installation quota or concurrency limit exceeded", type: "rate_limit_error" } }, 429);
-}
-
-function serviceBudgetExhausted(): Response {
-  return json({ error: { message: "Service daily budget exhausted", type: "service_unavailable" } }, 503);
 }
 
 function upstreamFailure(): Response {

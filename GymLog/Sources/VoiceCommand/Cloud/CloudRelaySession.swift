@@ -50,8 +50,9 @@ public actor CloudRelaySession {
         try Self.requireConfiguration()
         let request = try Self.request(credential: credential())
         let (data, response) = try await session.data(for: request)
-        if (response as? HTTPURLResponse)?.statusCode == 429 {
-            throw CloudVoiceError.message("本月 1,000 條雲端額度已用完，請下月再試。")
+        if let http = response as? HTTPURLResponse,
+           let message = CloudRelayError.message(data: data, response: http) {
+            throw CloudVoiceError.message(message)
         }
         guard (response as? HTTPURLResponse)?.statusCode == 200, data.count < 16_384,
               let grant = try? JSONDecoder().decode(Grant.self, from: data), grant.usable() else {

@@ -65,7 +65,7 @@ public enum SessionDraftLoader {
                 if block.blockType == .superset {
                     loadedRounds = loadedRounds.flatMap { round in
                         (0..<max(round.setsCount, 1)).map { _ in
-                            RoundDraft(setsCount: 1, load: round.load, target: round.target, actual: round.actual, actualRecorded: round.actualRecorded, isInferred: round.isInferred)
+                            round.copying(setsCount: 1)
                         }
                     }
                 }
@@ -214,7 +214,8 @@ public enum SessionDraftLoader {
                 target: set.target,
                 actual: set.actual,
                 actualRecorded: { if case .unknown = set.actual { return false }; return true }(),
-                isInferred: set.isInferred
+                isInferred: set.isInferred,
+                unrecordedActualRaw: { if case .unknown(let raw) = set.actual { return raw }; return nil }()
             ))
         }
         return result

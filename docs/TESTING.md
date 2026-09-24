@@ -23,3 +23,9 @@ gitleaks git . --redact=100
 No scanner proves that all personal information is absent. Review data provenance and staged file content, particularly new media, fixtures and logs. Gitignore does not remove an already tracked file or rewrite old history.
 
 Passing tests do not establish individualized energy accuracy, professional coaching quality, BLE device compatibility or sustained real-device behavior. These require separate acceptance evidence.
+
+## Review regressions
+
+`ReviewRegressionTests`, `ImportedSessionEditRoundTripTests` and `CloudVoiceTests` cover unchanged-field preservation across reopening, quick/full editing, snapshot restore, set splitting, voice resizing and copying a new session. Exchange validation tests reject duplicate IDs at both parse and direct commit boundaries without rolling back unrelated pending edits.
+
+Backend route tests use the production QuotaDO handler with serialized in-memory storage; concurrency, denied budgets, replay and unavailable-budget retries are tested without providers. `promptConfig.test.ts` links deployment hashes to `CloudPromptPinTests`, which separately verifies the actual Swift prompt bytes. Wrangler local runtime validation is separate from the mock-storage tests and does not prove production connectivity.

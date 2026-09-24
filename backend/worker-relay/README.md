@@ -40,7 +40,11 @@ No secrets are included in an example file. If you use `.dev.vars` for local dev
 - `POST /v1/cleanup/chat/completions`: streaming language-model request; also used by training reviews.
 - `GET /healthz`: liveness only, not proof that an upstream service works.
 
-The client generates its own installation identity and persists it in Keychain. A submitted operation is charged once even if the upstream fails or the request is cancelled; ASR and its following interpretation share the same operation. Training review requests use their own operation. The example quota is 1,000 operations per installation per calendar month in UTC+8, defined in `src/quota.ts`.
+The client generates its own installation identity and persists it in Keychain. An admitted operation is charged once even if the upstream fails or the request is cancelled; ASR and its following interpretation share the same operation. Training review requests use their own operation. The example quota is 1,000 operations per installation per calendar month in UTC+8, defined in `src/quota.ts`.
+
+A global-budget rejection occurs before personal usage or the operation stage is committed, so it does not consume a new personal allowance. The installation DO serializes admission while checking the global budget; replayed and locally rejected requests do not consume global slots. A storage failure after global admission can conservatively consume a global slot without an upstream call; it cannot exceed the global cap.
+
+Errors distinguish `monthly_limit` (429), `ip_rate_limit` (429), `operation_limit` (429), `operation_already_used_or_expired` (409), `service_daily_budget_exhausted` (503) and `quota_unavailable` (503). Time-based limits include `Retry-After`. Requests specifying both output-token limit fields are rejected before admission.
 
 ## Abuse and cost controls
 
@@ -48,7 +52,7 @@ Installation identities are self-generated, so per-installation quotas alone do 
 
 - `GLOBAL_DAILY_ASR_LIMIT` / `GLOBAL_DAILY_CLEANUP_LIMIT`: upstream calls allowed per day (UTC+8) across all installations; once reached, routes return 503 until the next day. Size them to your provider budget.
 - `TRIAL_RATE_LIMITER`: Workers rate-limit binding on grant issuance, keyed by client IP (20 per minute by default). Pick your own `namespace_id` if you run several Workers in one account.
-- `ALLOWED_SYSTEM_PROMPT_SHA256`: cleanup requests must use one of the app's system prompts, one user message and known fields, so the relay is not a general-purpose model proxy. When an app prompt changes, `CloudPromptPinTests` fails until this list and the test constant are updated; deploy the new hash alongside the old one until old app builds are retired.
+- `ALLOWED_SYSTEM_PROMPT_SHA256`: cleanup requests must use one of the app's system prompts, one user message and known fields, to restrict the accepted request shape. Public prompt hashes are not client authentication. `CloudPromptPinTests` validates actual Swift prompts, and the backend `promptConfig` test checks those same hashes against this deployment list; deploy the new hash alongside the old one until old app builds are retired.
 
 ## Deployment boundaries
 
