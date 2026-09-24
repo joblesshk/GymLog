@@ -1,5 +1,12 @@
 # 工程记录
 
+## 2026-09-24 — 1.0（33）Git 同步与 TestFlight 上传
+
+- 审阅修复、回归测试、构建号及 Worker 部署记录已提交为 `33fcae0`，并连同此前待推送的本地提交推送至 GitHub `main`。
+- 使用当前 Release 配置生成独立 Archive；App 与 GymLogKit 均为 1.0（33）。codesign 严格校验和发布隐私检查通过（2 个 bundle，含麦克风说明，无 Apple Speech 依赖）。此前同构建号的真机安装与数据保留验证见下文。
+- 香港时间 14:27:53，Apple 返回 `Uploaded package is processing`、`Upload succeeded` 与 `EXPORT SUCCEEDED`。上传包和日志位于仓库外，未纳入 Git。
+- 已完成 TestFlight 上传，Apple 后处理及可下载状态尚未核验；App Store Connect 网页无有效登录会话。GitHub 源码提交的 repository、worker 检查已通过，记录时 ios CI 仍在执行。
+
 ## 2026-09-24 — Worker 审阅修复上线
 
 - 已部署 `gymlog-cloud-relay`，新版本 `880368a4-ff9d-4da0-a391-8793eba51e2d`，替换 `1feab0dd-15c5-4bf2-87d4-b26b9dfcf52f`。本次上线个人额度与全局预算串行接纳、错误分类与 Retry-After、冲突 token 上限及非对象 JSON 拒绝等修复；沿用现有密钥、DO 存储、prompt 白名单及每日额度。
