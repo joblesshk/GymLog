@@ -125,7 +125,7 @@ public enum ExerciseHistoryAnalyzer {
                     volumeExcluded += 1
                 }
 
-                if let r = AnalyticsMath.setReps(actual: set.actual) {
+                if let r = AnalyticsMath.setReps(load: set.load, actual: set.actual) {
                     reps += r
                     repsCount += 1
                     if AnalyticsMath.isRepsEstimated(actual: set.actual) { repsEstimated = true }

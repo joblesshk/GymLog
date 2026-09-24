@@ -60,28 +60,12 @@ public enum AnalyticsMath {
     /// per-side load, so excluding this pair dropped their sets from volume.
     /// Rule ③ still applies to comparable/max load, which is never doubled.
     public static func setVolume(load: LoadValue, actual: RepTarget) -> Double? {
-        switch (load, actual) {
-        case (.absolute(let kg, _), .fixed(let reps, _)):
-            return kg * Double(reps)
-        case (.absolute(let kg, _), .range(let low, let high, _)):
-            // "用 actual；actual 也是区间则取中值并标为估算" — midpoint;
-            // `isVolumeEstimated` mirrors this so the UI can flag it.
-            let mid = Double(low + high) / 2
-            return kg * mid
-        case (.absolute(let kg, _), .perSide(let left, let right, _)):
-            return kg * Double(left + right)
-        case (.perSide(let kg, _), .perSide(let left, let right, _)):
-            return kg * Double(left + right)
-        case (.perSide(let kg, _), .fixed(let reps, _)):
-            return kg * Double(reps) * 2
-        case (.perSide(let kg, _), .range(let low, let high, _)):
-            return kg * (Double(low + high) / 2) * 2
-        default:
-            // Includes: bodyweight/band/machineStack/pinLoad/sled/unknown
-            // loads; time/distance/rounds/unknown actuals; and any other
-            // load×actual combination not explicitly whitelisted above.
-            return nil
+        let kg: Double
+        switch load {
+        case .absolute(let value, _), .perSide(let value, _): kg = value
+        default: return nil
         }
+        return setReps(load: load, actual: actual).map { kg * $0 }
     }
 
     /// True iff `setVolume` computed its result from a range-actual
@@ -157,11 +141,15 @@ public enum AnalyticsMath {
     /// branches only" discipline: `.fixed`/`.perSide` are exact, `.range`
     /// contributes its midpoint (flagged via `isRepsEstimated`), and
     /// time/distance/rounds/unknown are excluded (not zero).
-    public static func setReps(actual: RepTarget) -> Double? {
+    /// A plain rep count with a per-side load means reps on EACH side.
+    /// Explicit left/right counts already contain both sides; never double them.
+    public static func setReps(load: LoadValue? = nil, actual: RepTarget) -> Double? {
+        let multiplier: Double
+        if case .perSide = load { multiplier = 2 } else { multiplier = 1 }
         switch actual {
-        case .fixed(let value, _): return Double(value)
-        case .perSide(let left, let right, _): return Double(left + right)
-        case .range(let low, let high, _): return Double(low + high) / 2
+        case .fixed(let value, _): return Double(value) * multiplier
+        case .perSide(let left, let right, _): return Double(left) + Double(right)
+        case .range(let low, let high, _): return (Double(low) + Double(high)) / 2 * multiplier
         case .time, .distance, .rounds, .unknown:
             return nil
         }

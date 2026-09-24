@@ -4,6 +4,49 @@ import SwiftData
 
 @MainActor
 final class TrainingInsightsTests: XCTestCase {
+    func testPerSidePlainAndExplicitRepsHaveEqualVolumeDurationAndEnergy() throws {
+        let load = LoadValue.perSide(kg: 25, raw: "perSide: 25 kg")
+        let plain = RepTarget.fixed(value: 10, raw: "10")
+        let explicit = RepTarget.perSide(left: 10, right: 10, raw: "10,10")
+        let range = RepTarget.range(low: 8, high: 12, raw: "8-12")
+        func report(_ reps: RepTarget) -> EnergyLine {
+            TrainingInsights.strength(id: "test", name: "Row", pattern: .pull,
+                sets: [(load, reps, reps), (load, reps, reps)], rest: 60, weight: 80)
+        }
+        for quantity in [plain, explicit, range] {
+            XCTAssertEqual(AnalyticsMath.setReps(load: load, actual: quantity), 20)
+            XCTAssertEqual(AnalyticsMath.setVolume(load: load, actual: quantity), 500)
+            XCTAssertEqual(TrainingInsights.seconds(quantity, load: load), 60)
+            XCTAssertEqual(report(quantity).plannedSeconds, 180, "Rest must not be doubled")
+            XCTAssertEqual(report(quantity).actualSeconds, 180)
+            XCTAssertEqual(report(quantity).actual, report(explicit).actual)
+            XCTAssertEqual(report(quantity).planned, report(explicit).planned)
+        }
+        XCTAssertTrue(AnalyticsMath.isVolumeEstimated(load: load, actual: range))
+        XCTAssertEqual(TrainingInsights.seconds(.time(seconds: 30, raw: "30"), load: load), 30)
+        XCTAssertNil(TrainingInsights.seconds(.distance(meters: 100, raw: "100"), load: load))
+        XCTAssertNil(TrainingInsights.seconds(.unknown(raw: ""), load: load))
+        XCTAssertEqual(TrainingInsights.seconds(.fixed(value: 0, raw: "0"), load: load), 0)
+        XCTAssertNil(TrainingInsights.seconds(.fixed(value: -1, raw: "-1"), load: load))
+        XCTAssertEqual(TrainingInsights.seconds(plain, load: .absolute(kg: 25, raw: "25")), 30)
+        XCTAssertEqual(AnalyticsMath.comparableKg(load), 25, "Max load remains the single-side value")
+    }
+
+    func testPerSideHistoryUsesBothSidesForCompletedReps() throws {
+        let session = WorkoutSession(id: "reps-history", date: Date(), dateOrigin: .asRecorded,
+            dateRaw: "", weekNumber: 1, sourceSheet: "", sourceRow: 0)
+        let block = SessionBlock(order: 0, blockType: .single, sourceRow: 0)
+        block.session = session
+        let entry = ExerciseEntry(order: 0, exerciseIdRef: "row", exerciseRaw: "Row", plannedSets: 1)
+        entry.block = block
+        entry.sets = [SetLog(setIndex: 0, load: .perSide(kg: 25, raw: "25"),
+            target: .fixed(value: 10, raw: "10"), actual: .fixed(value: 10, raw: "10"), isInferred: false)]
+        let point = try XCTUnwrap(ExerciseHistoryAnalyzer.points(from: [entry], loadDirection: .higherIsStronger, includeInferred: true).first)
+        XCTAssertEqual(point.completedReps, 20)
+        XCTAssertEqual(point.volumeKg, 500)
+        XCTAssertEqual(point.maxLoadKg, 25)
+    }
+
     func testNotesAreEvidenceAndHistoryChangesRejectInFlightReview() async throws {
         let context = ModelContext(try TestSupport.makeInMemoryContainer())
         let client = Client(id: "review-client", name: "Private name", phone: "Private phone")

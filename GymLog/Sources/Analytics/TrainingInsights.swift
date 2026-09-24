@@ -15,7 +15,7 @@ public struct EnergyLine: Codable, Equatable, Identifiable {
     public var facts: [String]
 }
 public struct EnergyReport: Codable, Equatable {
-    public var version = "2026-09-15.1"
+    public var version = "2026-09-25.1"
     public var weightKg: Double?
     public var weightDate: Date?
     public var lines: [EnergyLine]
@@ -57,7 +57,7 @@ public struct InsightArchive: Codable {
 @MainActor
 public enum TrainingInsights {
     public static let sources = "Compendium 2024: https://pacompendium.com/conditioning-exercise/ ; limitations: https://pacompendium.com/corrected-mets/ ; ACSM 2026: https://acsm.org/resistance-training-guidelines-update-2026/"
-    public static let assumptions = L("活動熱量粗估，非實測。力量訓練預設每次 3 秒、未設定休息時 60 秒；組合訓練休息只計一次。自重動作按徒手訓練強度計算（波比跳、開合跳等連續爆發動作按高強度）。負重只用來判斷強度檔：最重一組達體重 1 倍（蹲、髖鉸鏈類）或 0.6 倍（其他動作）以上按高強度，此門檻是軟件假設。助力動作按扣除助力後的體重比例折算。WOD 用中等循環訓練作近似。缺少速度的距離、器械卡路里與未知輪次不換算；未填實際不當作零。未包含未記錄的熱身、放鬆及課後消耗。", "Rough active-energy estimate, not measured. Strength defaults: 3 sec/rep and 60 sec rest when unspecified; shared rest counted once. Bodyweight moves use calisthenics intensities (continuous explosive moves such as burpees and jumping jacks count as vigorous). Load only selects the intensity tier: a heaviest set of at least 1x body weight (squat/hinge) or 0.6x (other moves) counts as vigorous; these thresholds are software assumptions. Assisted moves are scaled by the share of body weight actually moved. WOD uses moderate circuit activity as a proxy. Distance without pace, machine calories and unknown rounds are not converted. Missing results are not zero. Unrecorded warm-up, cool-down and afterburn excluded.")
+    public static let assumptions = L("活動熱量粗估，非實測。力量訓練預設每次 3 秒，單側負重的普通次數按每側計算；未設定休息時 60 秒；組合訓練休息只計一次。自重動作按徒手訓練強度計算（波比跳、開合跳等連續爆發動作按高強度）。負重只用來判斷強度檔：最重一組達體重 1 倍（蹲、髖鉸鏈類）或 0.6 倍（其他動作）以上按高強度，此門檻是軟件假設。助力動作按扣除助力後的體重比例折算。WOD 用中等循環訓練作近似。缺少速度的距離、器械卡路里與未知輪次不換算；未填實際不當作零。未包含未記錄的熱身、放鬆及課後消耗。", "Rough active-energy estimate, not measured. Strength defaults: 3 sec/rep; plain reps with per-side loads count on each side; 60 sec rest when unspecified; shared rest counted once. Bodyweight moves use calisthenics intensities (continuous explosive moves such as burpees and jumping jacks count as vigorous). Load only selects the intensity tier: a heaviest set of at least 1x body weight (squat/hinge) or 0.6x (other moves) counts as vigorous; these thresholds are software assumptions. Assisted moves are scaled by the share of body weight actually moved. WOD uses moderate circuit activity as a proxy. Distance without pace, machine calories and unknown rounds are not converted. Missing results are not zero. Unrecorded warm-up, cool-down and afterburn excluded.")
     public static func weight(_ client: Client?, date: Date) -> (Double?, Date?) {
         let end = Calendar.current.startOfDay(for: date).addingTimeInterval(86400)
         if let metric = client?.bodyMetrics?.filter({ $0.date < end && validWeight($0.weightKg) }).sorted(by: { $0.date > $1.date }).first {
@@ -72,12 +72,12 @@ public enum TrainingInsights {
         guard validWeight(weight), let w = weight, let s = seconds, s.isFinite, (0...86400).contains(s), met.isFinite, (1...25).contains(met) else { return nil }
         return (met - 1) * 3.5 * w / 200 * s / 60
     }
-    public static func seconds(_ quantity: RepTarget) -> Double? {
+    public static func seconds(_ quantity: RepTarget, load: LoadValue? = nil) -> Double? {
         let result: Double
         switch quantity {
-        case .fixed(let n, _): result = Double(n) * 3
-        case .perSide(let l, let r, _): guard l >= 0, r >= 0 else { return nil }; result = (Double(l) + Double(r)) * 3
-        case .range(let l, let h, _): guard l >= 0, h >= l else { return nil }; result = (Double(l) + Double(h)) * 1.5
+        case .fixed: result = (AnalyticsMath.setReps(load: load, actual: quantity) ?? 0) * 3
+        case .perSide(let l, let r, _): guard l >= 0, r >= 0 else { return nil }; result = (AnalyticsMath.setReps(load: load, actual: quantity) ?? 0) * 3
+        case .range(let l, let h, _): guard l >= 0, h >= l else { return nil }; result = (AnalyticsMath.setReps(load: load, actual: quantity) ?? 0) * 3
         case .time(let n, _): result = Double(n)
         default: return nil
         }
@@ -151,13 +151,15 @@ public enum TrainingInsights {
     public static func strength(id: String, name: String, pattern: MovementPattern?, sets: [(load: LoadValue, target: RepTarget, actual: RepTarget)], rest: Double, weight: Double?, loadIsAssistance: Bool = false) -> EnergyLine {
         let tier = intensity(name: name, pattern: pattern, loads: sets.map(\.load), weight: weight, loadIsAssistance: loadIsAssistance)
         let (code, met) = (tier.code, tier.met)
-        func duration(_ values: [RepTarget]) -> Double? {
-            let known = values.compactMap(seconds)
+        func duration(_ values: [Double?]) -> Double? {
+            let known = values.compactMap { $0 }
             guard !known.isEmpty else { return nil }
             let positive = known.filter { $0 > 0 }.count
             return known.reduce(0,+) + Double(max(0, positive - 1)) * rest
         }
-        let ps = sets.allSatisfy { seconds($0.target) != nil } ? duration(sets.map(\.target)) : nil; let ac = duration(sets.map(\.actual))
+        let plannedDurations = sets.map { seconds($0.target, load: $0.load) }
+        let ps = plannedDurations.allSatisfy { $0 != nil } ? duration(plannedDurations) : nil
+        let ac = duration(sets.map { seconds($0.actual, load: $0.load) })
         var facts = sets.enumerated().map { index, s in "set \(index + 1): target=\(stableJSON(s.target) ?? "unknown"), actual=\(stableJSON(s.actual) ?? "unknown"), load=\(stableJSON(s.load) ?? "unknown")" }
         if let note = tier.note { facts.append("intensity: \(note)") }
         return EnergyLine(id: id, name: name, rule: code, planned: kcal(met: met, weight: weight, seconds: ps).map { $0 * tier.bodyShare }, actual: kcal(met: met, weight: weight, seconds: ac).map { $0 * tier.bodyShare }, plannedSeconds: ps, actualSeconds: ac, recordedSets: sets.filter { if case .unknown = $0.actual { return false }; return true }.count, totalSets: sets.count, facts: facts)

@@ -53,7 +53,10 @@ public struct CloudVoiceLoad: Codable, Equatable {
         }
         let kg = unit == "lb" ? value * 0.45359237 : value
         guard kg <= 1000 else { throw CloudVoiceError.message("重量超出可記錄範圍。") }
-        let raw = "\(value) \(unit)"
+        guard ["absolute", "perSide", "assisted"].contains(kind), let weightUnit = LoadWeightUnit(rawValue: unit) else {
+            throw CloudVoiceError.message("不支援這種重量設定，請用手動編輯。")
+        }
+        let raw = LoadValue.explicitRaw(mode: kind, number: String(value), unit: weightUnit)
         switch kind {
         case "absolute": return .absolute(kg: kg, raw: raw)
         case "perSide": return .perSide(kg: kg, raw: raw)

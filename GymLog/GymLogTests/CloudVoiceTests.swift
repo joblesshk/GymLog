@@ -27,6 +27,40 @@ import SwiftData
     func start() throws {
         _ = try run([.init(kind: .startSession, evidence: "安排"), .init(kind: .addExercise, evidence: "安排", exerciseID: "squat", ref: "a")])
     }
+    func testVoiceNumericLoadsRetainExplicitSemanticsAfterCodingAndReopening() throws {
+        for kind in ["absolute", "perSide", "assisted"] {
+            for unit in LoadWeightUnit.allCases {
+                let load = try CloudVoiceLoad(kind: kind, value: 20.125, unit: unit.rawValue).resolved()
+                let restored = try JSONDecoder().decode(LoadValue.self, from: JSONEncoder().encode(load))
+                XCTAssertTrue(restored.hasExplicitLoadMode)
+                XCTAssertEqual(restored.weightUnit, unit)
+                XCTAssertEqual(restored.numericKilograms!, 20.125 * unit.kilogramsPerUnit, accuracy: 0.000001)
+                XCTAssertEqual(LoadSelectionDraft(load: restored, suggested: .assisted).mode.rawValue, kind)
+                XCTAssertEqual(AnalyticsMath.comparableKg(restored, direction: .lowerIsStronger), kind == "assisted" ? restored.numericKilograms : nil)
+            }
+        }
+        XCTAssertThrowsError(try CloudVoiceLoad(kind: "invalid", value: 20, unit: "kg").resolved())
+        XCTAssertEqual(try CloudVoiceLoad(kind: "bodyweight").resolved(), .bodyweight(raw: "BW"))
+    }
+
+    func testVoiceAddedWeightMatchesManualEnergyAndLegacyAssistanceIsPreserved() throws {
+        let reps = RepTarget.fixed(value: 10, raw: "10")
+        let voice = try CloudVoiceLoad(kind: "absolute", value: 20, unit: "kg").resolved()
+        var picker = LoadSelectionDraft(load: .assisted(kg: 30, raw: "30"), suggested: .assisted)
+        picker.mode = .absolute; picker.number = "20"
+        let manual = try XCTUnwrap(picker.resolved())
+        func line(_ load: LoadValue) -> EnergyLine {
+            TrainingInsights.strength(id: "test", name: "Chin up", pattern: .pull,
+                sets: [(load, reps, reps)], rest: 0, weight: 80, loadIsAssistance: true)
+        }
+        XCTAssertEqual(line(voice).rule, line(manual).rule)
+        XCTAssertEqual(line(voice).actual, line(manual).actual)
+        XCTAssertFalse(line(voice).rule.contains("assisted"))
+        let legacy = LoadValue.absolute(kg: 20, raw: "20")
+        XCTAssertTrue(line(legacy).rule.contains("assisted"))
+        XCTAssertEqual(LoadSelectionDraft(load: legacy, suggested: .assisted).resolved(), legacy)
+    }
+
     func testResizingAndComposingPreserveExistingSetProvenance() throws {
         try start()
         let entry = draft.allEntries[0]
