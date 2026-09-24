@@ -1,4 +1,5 @@
 import XCTest
+import SwiftData
 @testable import GymLogKit
 
 @MainActor
@@ -83,6 +84,69 @@ final class LoadSelectionDraftTests: XCTestCase {
         XCTAssertEqual(set.actual, .unknown(raw: "not reported"))
         XCTAssertEqual(set.target, .range(low: 8, high: 12, raw: "8-12"))
         XCTAssertFalse(set.isInferred)
+    }
+
+    func testNewUnilateralEntryKeepsPerSideLoadThroughEditingAndCoding() throws {
+        let context = ModelContext(try TestSupport.makeInMemoryContainer())
+        let exercise = Exercise(id: "unilateral-default", canonicalName: "Synthetic row", aliases: [],
+            movementPattern: .pull, equipment: .dumbbell, loadDirection: .higherIsStronger,
+            isUnilateral: true, occurrenceCount: 0, needsReview: false, reviewReason: nil)
+        context.insert(exercise)
+        let today = TodayDraftStore()
+        today.startNew(clientID: "synthetic-client")
+        TodayDraftMutationService.addEntry(exercise, clientID: "synthetic-client", placement: .newBlock, draft: today, context: context)
+        let entry = try XCTUnwrap(today.allEntries.first)
+        XCTAssertEqual(entry.rounds[0].load, .perSide(kg: 20, raw: "20"))
+        var picker = LoadSelectionDraft(load: entry.rounds[0].load, suggested: .perSide)
+        picker.number = "25"
+        let load = try XCTUnwrap(picker.resolved())
+        guard case .perSide(let kg, _) = load else { return XCTFail("New unilateral loads must remain per-side") }
+        XCTAssertEqual(kg, 25)
+        XCTAssertNil(AnalyticsMath.estimatedOneRepMax(load: load, actual: .fixed(value: 10, raw: "10")))
+        let restored = try JSONDecoder().decode(LoadValue.self, from: JSONEncoder().encode(load))
+        XCTAssertEqual(LoadSelectionDraft(load: restored, suggested: .perSide).resolved(), load)
+        XCTAssertEqual(EntryDraft(exercise: exercise, rounds: []).rounds[0].load, .perSide(kg: 20, raw: "20"))
+    }
+
+    func testExerciseDefaultsDoNotRewriteHistoricalAbsoluteLoads() throws {
+        let context = ModelContext(try TestSupport.makeInMemoryContainer())
+        let client = Client(id: "prefill-preservation", name: "Synthetic")
+        let exercise = Exercise(id: "single-arm", canonicalName: "Synthetic", aliases: [],
+            movementPattern: .pull, equipment: .dumbbell, loadDirection: .higherIsStronger,
+            isUnilateral: true, occurrenceCount: 0, needsReview: false, reviewReason: nil)
+        let session = WorkoutSession(id: "prefill-history", date: Date(), dateOrigin: .asRecorded,
+            dateRaw: "", weekNumber: 1, sourceSheet: "", sourceRow: 0)
+        let block = SessionBlock(order: 0, blockType: .single, sourceRow: 0)
+        let entry = ExerciseEntry(order: 0, exerciseIdRef: exercise.id, exerciseRaw: "", plannedSets: 1, exercise: exercise)
+        let original = LoadValue.absolute(kg: 22.34567, raw: "original imported load")
+        let set = SetLog(setIndex: 0, load: original, target: .fixed(value: 10, raw: "10"), actual: .fixed(value: 10, raw: "10"), isInferred: false)
+        context.insert(client); context.insert(exercise); context.insert(session)
+        session.client = client; block.session = session; context.insert(block)
+        entry.block = block; context.insert(entry); set.entry = entry; context.insert(set)
+        try context.save()
+        let prefill = PrefillResolver.resolvedPrefill(clientID: client.id, exercise: exercise, in: context)
+        XCTAssertEqual(prefill.load, original)
+        XCTAssertEqual(LoadSelectionDraft(load: prefill.load, suggested: .perSide).resolved(), original)
+        exercise.loadDirection = .lowerIsStronger
+        XCTAssertEqual(PrefillResolver.defaultLoad(for: exercise), .assisted(kg: 20, raw: "20"))
+        XCTAssertEqual(PrefillResolver.resolvedPrefill(clientID: client.id, exercise: exercise, in: context).load, original)
+    }
+
+    func testBandHistoryKeepsSwitchAvailableAfterNumericSaveAndReopen() throws {
+        let history = ["custom blue", "green"]
+        for kind: LoadWheelKind in [.absolute, .perSide, .assisted, .bodyweightPlus] {
+            let original = LoadValue.band(color: "custom blue", count: 2, raw: "source")
+            XCTAssertTrue(LoadWheelResolver.supportsBand(kind: kind, load: original, historicalBandColors: []))
+            var edit = LoadSelectionDraft(load: original, suggested: kind)
+            edit.mode = .absolute; edit.number = "25"; edit.unit = .lb
+            let saved = try JSONDecoder().decode(LoadValue.self, from: JSONEncoder().encode(try XCTUnwrap(edit.resolved())))
+            XCTAssertTrue(LoadWheelResolver.supportsBand(kind: kind, load: saved, historicalBandColors: history))
+            var reopened = LoadSelectionDraft(load: saved, suggested: kind)
+            reopened.mode = .band; reopened.bandColor = history[0]; reopened.bandCount = "2"
+            guard case .band(let color, let count, _) = try XCTUnwrap(reopened.resolved()) else { return XCTFail() }
+            XCTAssertEqual(color, history[0]); XCTAssertEqual(count, 2)
+        }
+        XCTAssertFalse(LoadWheelResolver.supportsBand(kind: .absolute, load: .absolute(kg: 20, raw: "20"), historicalBandColors: []))
     }
 
 }

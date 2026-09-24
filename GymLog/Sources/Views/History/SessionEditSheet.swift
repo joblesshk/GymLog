@@ -86,12 +86,15 @@ struct SessionEditSheet: View {
                                 Text(entry.displayName)
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundStyle(DS.C.textHi)
+                                let colors = entry.exercise.map {
+                                    LoadWheelResolver.bandColorIndex(entries: $0.entries ?? [])[$0.id] ?? []
+                                } ?? []
+                                let kind = entry.exercise.map {
+                                    LoadWheelResolver.kind(for: $0, historicalBandColors: colors)
+                                } ?? .absolute
                                 ForEach(entry.orderedSets, id: \.persistentModelID) { set in
-                                    EditableSetRow(setIndex: set.setIndex, draft: draftBinding(for: set), loadKind: entry.exercise.map { exercise in
-                                        // Same observed colors the Today editor offers, from this exercise's own history.
-                                        let colors = LoadWheelResolver.bandColorIndex(entries: exercise.entries ?? [])[exercise.id] ?? []
-                                        return LoadWheelResolver.kind(for: exercise, historicalBandColors: colors)
-                                    } ?? .absolute)
+                                    EditableSetRow(setIndex: set.setIndex, draft: draftBinding(for: set),
+                                                   loadKind: kind, historicalBandColors: colors)
                                     if set.persistentModelID != entry.orderedSets.last?.persistentModelID {
                                         Divider().overlay(DS.C.hairlineSoft)
                                     }
@@ -182,6 +185,7 @@ private struct EditableSetRow: View {
     let setIndex: Int
     @Binding var draft: SetEditDraft
     let loadKind: LoadWheelKind
+    let historicalBandColors: [String]
     @State private var editingLoad = false
 
     var body: some View {
@@ -212,7 +216,7 @@ private struct EditableSetRow: View {
         }
         .padding(.vertical, 4)
         .sheet(isPresented: $editingLoad) {
-            LoadPickerSheet(load: $draft.selectedLoad, kind: loadKind)
+            LoadPickerSheet(load: $draft.selectedLoad, kind: loadKind, historicalBandColors: historicalBandColors)
         }
     }
 

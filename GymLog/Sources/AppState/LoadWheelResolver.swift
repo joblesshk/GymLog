@@ -50,6 +50,14 @@ public enum LoadWheelResolver {
         }
     }
 
+    /// Band availability is independent of the numeric wheel's semantics.
+    /// Keep it after a numeric override when this exercise has band history.
+    public static func supportsBand(kind: LoadWheelKind, load: LoadValue, historicalBandColors: [String]) -> Bool {
+        if case .band = kind { return true }
+        if case .band = load { return true }
+        return !historicalBandColors.isEmpty
+    }
+
     /// Distinct `LoadValue.band` colors ever recorded for this exercise
     /// (any client), most-frequent first. Ties fall back to first-seen
     /// order for determinism.

@@ -7,6 +7,7 @@ struct LoadPickerSheet: View {
     @Binding private var load: LoadValue
     @State private var draft: LoadSelectionDraft
     private let colors: [String]
+    private let supportsBand: Bool
     private let kind: LoadWheelKind
     private let originalMode: LoadSelectionDraft.Mode
     @State private var editingBand = false
@@ -15,13 +16,14 @@ struct LoadPickerSheet: View {
     @AppStorage("customLoadWeights.v1") private var savedKg = "[]"
     @AppStorage("customLoadWeights.lb.v1") private var savedLb = "[]"
 
-    init(load: Binding<LoadValue>, kind: LoadWheelKind) {
+    init(load: Binding<LoadValue>, kind: LoadWheelKind, historicalBandColors: [String] = []) {
         self.kind = kind
+        supportsBand = LoadWheelResolver.supportsBand(kind: kind, load: load.wrappedValue, historicalBandColors: historicalBandColors)
         originalMode = LoadSelectionDraft(load: load.wrappedValue, suggested: kind).mode
         _load = load
         _draft = State(initialValue: LoadSelectionDraft(load: load.wrappedValue, suggested: kind))
-        if case .band(let values) = kind { colors = values }
-        else { colors = LoadWheelResolver.fallbackBandColors }
+        if case .band(let values) = kind { colors = values + historicalBandColors }
+        else { colors = historicalBandColors + LoadWheelResolver.fallbackBandColors }
     }
 
     private var rows: [Double] {
@@ -38,11 +40,6 @@ struct LoadPickerSheet: View {
             if !key.isEmpty && !result.contains(key) { result.append(key) }
         }
         return result
-    }
-
-    private var supportsBand: Bool {
-        if case .band = kind { return true }
-        return originalMode == .band
     }
 
     private var specialMode: LoadSelectionDraft.Mode? {

@@ -51,7 +51,7 @@ public enum SessionDraftLoader {
                 }
                 let sets = entry.orderedSets
                 let metric = recordingMetric(for: sets, fallback: exercise.recordingMetric)
-                var loadedRounds = rounds(from: sets, metric: metric, equipment: exercise.equipment)
+                var loadedRounds = rounds(from: sets, metric: metric, equipment: exercise.equipment, defaultLoad: PrefillResolver.defaultLoad(for: exercise))
                 // P1 (2026-09-11): Superset 的「一輪」＝一個 setsCount=1 的
                 // RoundDraft；`rounds(from:...)` 把連續且三個值都相同的
                 // SetLog 合併成 setsCount>1 的一個 RoundDraft，這在一般動作
@@ -138,7 +138,7 @@ public enum SessionDraftLoader {
                 }
                 let sets = entry.orderedSets
                 let metric = recordingMetric(for: sets, fallback: exercise.recordingMetric)
-                var copiedRounds = rounds(from: sets, metric: metric, equipment: exercise.equipment).map {
+                var copiedRounds = rounds(from: sets, metric: metric, equipment: exercise.equipment, defaultLoad: PrefillResolver.defaultLoad(for: exercise)).map {
                     RoundDraft(setsCount: $0.setsCount, load: $0.load, target: $0.target, actual: $0.actual, actualRecorded: false)
                 }
                 // 跟 `load` 同一個 P1 (2026-09-11) 修正：Superset 的一輪固定
@@ -185,11 +185,11 @@ public enum SessionDraftLoader {
     /// `RepTarget`, so this function is a direct passthrough (still merging
     /// consecutive identical-triple `SetLog`s into one multi-set Round,
     /// unchanged).
-    static func rounds(from sets: [SetLog], metric: RecordingMetric, equipment: Equipment) -> [RoundDraft] {
+    static func rounds(from sets: [SetLog], metric: RecordingMetric, equipment: Equipment, defaultLoad: LoadValue? = nil) -> [RoundDraft] {
         guard !sets.isEmpty else {
             let fallback = RepTargetToRoundQuantity.repTarget(quantity: RepTargetToRoundQuantity.defaultQuantity(for: metric), metric: metric)
             return [RoundDraft(
-                setsCount: 1, load: PrefillResolver.defaultLoad(for: equipment),
+                setsCount: 1, load: defaultLoad ?? PrefillResolver.defaultLoad(for: equipment),
                 target: fallback, actual: fallback, actualRecorded: false
             )]
         }

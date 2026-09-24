@@ -77,6 +77,21 @@ struct GymLogApp: App {
             if ProcessInfo.processInfo.arguments.contains("-uiTestingReviewedSession") {
                 Self.seedReviewedSession(for: client, in: context)
             }
+            if ProcessInfo.processInfo.arguments.contains("-uiTestingBandHistory") {
+                let exercise = Exercise(id: "ui-band-history", canonicalName: "Synthetic band history", aliases: [],
+                    movementPattern: .pull, equipment: .machine, loadDirection: .higherIsStronger,
+                    isUnilateral: false, occurrenceCount: 1, needsReview: false, reviewReason: nil)
+                let session = WorkoutSession(id: "ui-band-session", date: Date(), dateOrigin: .asRecorded,
+                    dateRaw: "", weekNumber: 1, sourceSheet: "UI test", sourceRow: 0)
+                let block = SessionBlock(order: 0, blockType: .single, sourceRow: 0)
+                let entry = ExerciseEntry(order: 0, exerciseIdRef: exercise.id, exerciseRaw: exercise.canonicalName, plannedSets: 1, exercise: exercise)
+                let set = SetLog(setIndex: 0, load: .band(color: "orange", count: 1, raw: "orange"),
+                    target: .fixed(value: 10, raw: "10"), actual: .fixed(value: 10, raw: "10"), isInferred: false)
+                context.insert(exercise); context.insert(session); session.client = client
+                context.insert(block); block.session = session
+                context.insert(entry); entry.block = block
+                context.insert(set); set.entry = entry
+            }
             try? context.save()
         }
         // NOTE: HANDOFF.md §2 specifies page titles at 30/Heavy via a global

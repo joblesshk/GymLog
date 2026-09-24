@@ -55,7 +55,7 @@ public enum TemplateSessionBuilder {
                     unresolvedCount += 1
                     return nil
                 }
-                let prefill = PrefillResolver.resolvedPrefill(clientID: clientID, exerciseID: exercise.id, equipment: exercise.equipment, in: context)
+                let prefill = PrefillResolver.resolvedPrefill(clientID: clientID, exercise: exercise, in: context)
                 // CONTRACT-M5.md §3.3.2 / §3.4 (extended by CONTRACT-M8.md/
                 // CONTRACT-M9.md): EntryDraft now takes `rounds:` (single
                 // Round for a fresh template-started entry). The template

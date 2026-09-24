@@ -39,6 +39,21 @@ public enum PrefillResolver {
         equipment == .bodyweight ? .bodyweight(raw: "BW") : defaultLoad
     }
 
+    /// Only new defaults use the exercise classification. Historical and explicit
+    /// loads are returned verbatim by the prefill path below.
+    public static func defaultLoad(for exercise: Exercise) -> LoadValue {
+        if exercise.loadDirection == .lowerIsStronger { return .assisted(kg: 20, raw: "20") }
+        if exercise.equipment == .bodyweight { return .bodyweight(raw: "BW") }
+        if exercise.isUnilateral { return .perSide(kg: 20, raw: "20") }
+        return defaultLoad(for: exercise.equipment)
+    }
+
+    public static func resolvedPrefill(clientID: String, exercise: Exercise, in context: ModelContext) -> Prefill {
+        lastRecord(clientID: clientID, exerciseID: exercise.id, in: context)
+            ?? Prefill(sets: defaultSets, targetRepTarget: defaultRepTarget, actualRepTarget: defaultRepTarget,
+                       load: defaultLoad(for: exercise), sourceSessionDate: .distantPast)
+    }
+
     /// Finds the client's most recent recorded set of `exerciseID`, across
     /// all of their sessions (all block types), and returns the values to
     /// prefill the four wheels with. `nil` if the client has never recorded

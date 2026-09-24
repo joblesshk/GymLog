@@ -211,7 +211,7 @@ public final class EntryDraft: Identifiable {
         self.recordingMetric = metric
         self.rounds = rounds.isEmpty
             ? [RoundDraft(
-                setsCount: 3, load: PrefillResolver.defaultLoad(for: exercise.equipment),
+                setsCount: 3, load: PrefillResolver.defaultLoad(for: exercise),
                 targetQuantity: RepTargetToRoundQuantity.defaultQuantity(for: metric),
                 actualQuantity: RepTargetToRoundQuantity.defaultQuantity(for: metric), metric: metric, actualRecorded: false
             )]
@@ -275,7 +275,7 @@ public final class EntryDraft: Identifiable {
             RoundDraft(
                 id: $0.id,
                 setsCount: $0.setsCount,
-                load: PrefillResolver.defaultLoad(for: newExercise.equipment),
+                load: PrefillResolver.defaultLoad(for: newExercise),
                 targetQuantity: fallback,
                 actualQuantity: fallback,
                 metric: newMetric,
@@ -311,7 +311,7 @@ public final class EntryDraft: Identifiable {
         let fallback = RepTargetToRoundQuantity.repTarget(quantity: RepTargetToRoundQuantity.defaultQuantity(for: recordingMetric), metric: recordingMetric)
         rounds.append(RoundDraft(
             setsCount: seed?.setsCount ?? 3,
-            load: seed?.load ?? PrefillResolver.defaultLoad(for: exercise.equipment),
+            load: seed?.load ?? PrefillResolver.defaultLoad(for: exercise),
             target: seed?.target ?? fallback,
             actual: seed?.actual ?? fallback,
             actualRecorded: false

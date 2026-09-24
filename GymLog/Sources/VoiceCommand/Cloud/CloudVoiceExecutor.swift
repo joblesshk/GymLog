@@ -87,7 +87,7 @@ public final class CloudVoiceExecutor {
                 let target = try quantity(op, metric: ex.recordingMetric) ?? history.map {
                     RepTargetToRoundQuantity.quantity(from: $0.targetRepTarget, metric: ex.recordingMetric)
                 } ?? (ex.recordingMetric == .distance ? 100 : RepTargetToRoundQuantity.defaultQuantity(for: ex.recordingMetric))
-                let load = try op.load?.resolved() ?? history?.load ?? PrefillResolver.defaultLoad(for: ex.equipment)
+                let load = try op.load?.resolved() ?? history?.load ?? PrefillResolver.defaultLoad(for: ex)
                 let e = EntryDraft(exercise: ex, rounds: [RoundDraft(setsCount: op.sets ?? min(max(history?.sets ?? 3, 1), 50),
                     load: load, targetQuantity: target, actualQuantity: target, metric: ex.recordingMetric, actualRecorded: false)])
                 e.restSeconds = op.restSeconds

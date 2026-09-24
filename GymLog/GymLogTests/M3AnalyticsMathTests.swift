@@ -211,4 +211,37 @@ final class M3AnalyticsMathTests: XCTestCase {
         XCTAssertNil(AnalyticsMath.setRoundsCount(actual: .distance(meters: 500, raw: "500m")))
         XCTAssertNil(AnalyticsMath.setRoundsCount(actual: .fixed(value: 8, raw: "8")))
     }
+    @MainActor
+    func testSessionMaximumExcludesAssistanceAndDoesNotDependOnOrder() {
+        let session = WorkoutSession(id: "summary-order", date: Date(), dateOrigin: .asRecorded,
+            dateRaw: "", weekNumber: 1, sourceSheet: "", sourceRow: 0)
+        func makeBlock(_ load: LoadValue, direction: LoadDirection, reps: Int = 10) -> SessionBlock {
+            let exercise = Exercise(id: UUID().uuidString, canonicalName: "Synthetic", aliases: [],
+                movementPattern: .pull, equipment: .machine, loadDirection: direction,
+                isUnilateral: false, occurrenceCount: 0, needsReview: false, reviewReason: nil)
+            let entry = ExerciseEntry(order: 0, exerciseIdRef: exercise.id, exerciseRaw: "", plannedSets: 1, exercise: exercise)
+            entry.sets = [SetLog(setIndex: 0, load: load, target: .fixed(value: 10, raw: "10"),
+                actual: .fixed(value: reps, raw: "\(reps)"), isInferred: false)]
+            let block = SessionBlock(order: 0, blockType: .single, sourceRow: 0)
+            block.entries = [entry]
+            return block
+        }
+        let heavy = makeBlock(.absolute(kg: 100, raw: "100"), direction: .higherIsStronger)
+        let assist = makeBlock(.assisted(kg: 30, raw: "assisted: 30 kg"), direction: .lowerIsStronger)
+        let legacyAssist = makeBlock(.absolute(kg: 200, raw: "200"), direction: .lowerIsStronger)
+        let failed = makeBlock(.absolute(kg: 300, raw: "300"), direction: .higherIsStronger, reps: 0)
+        let explicitAdded = makeBlock(.absolute(kg: 120, raw: "absolute: 120 kg"), direction: .lowerIsStronger)
+        for ordered in [[heavy, assist, legacyAssist, failed], [failed, legacyAssist, assist, heavy]] {
+            for (index, block) in ordered.enumerated() { block.order = index }
+            session.blocks = ordered
+            XCTAssertEqual(SessionSummaryMetrics.compute(for: session).maxLoadKg, 100)
+        }
+        session.blocks = [assist, legacyAssist]
+        XCTAssertNil(SessionSummaryMetrics.compute(for: session).maxLoadKg)
+        session.blocks = [explicitAdded, assist]
+        XCTAssertEqual(SessionSummaryMetrics.compute(for: session).maxLoadKg, 120)
+        session.blocks = []
+        XCTAssertNil(SessionSummaryMetrics.compute(for: session).maxLoadKg)
+    }
+
 }

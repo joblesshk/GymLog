@@ -270,6 +270,7 @@ struct SupersetBlockDraftCard: View {
                         }
                     ),
                     loadKind: loadKind(for: entry),
+                    historicalBandColors: bandColorIndex[entry.exercise.id] ?? [],
                     metric: entry.recordingMetric
                 )
             }
@@ -392,6 +393,7 @@ private struct SupersetMemberRoundRow: View {
     let roundIndex: Int
     @Binding var round: RoundDraft
     let loadKind: LoadWheelKind
+    let historicalBandColors: [String]
     let metric: RecordingMetric
 
     private enum Field: Identifiable { case load, target, actual
@@ -457,7 +459,7 @@ private struct SupersetMemberRoundRow: View {
         .sheet(item: $editingField) { field in
             switch field {
             case .load:
-                LoadPickerSheet(load: $round.load, kind: loadKind)
+                LoadPickerSheet(load: $round.load, kind: loadKind, historicalBandColors: historicalBandColors)
             case .target:
                 PickerSheet(title: quantityFieldTitle(isTarget: true)) {
                     quantityWheel(targetQuantityBinding)

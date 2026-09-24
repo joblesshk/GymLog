@@ -38,7 +38,7 @@ public enum TodayDraftMutationService {
         _ exercise: Exercise, clientID: String, placement: EntryPlacement,
         draft: TodayDraftStore, context: ModelContext
     ) -> (blockID: UUID, entryID: UUID) {
-        let prefill = PrefillResolver.resolvedPrefill(clientID: clientID, exerciseID: exercise.id, equipment: exercise.equipment, in: context)
+        let prefill = PrefillResolver.resolvedPrefill(clientID: clientID, exercise: exercise, in: context)
         let entry = EntryDraft(
             exercise: exercise,
             setsCount: prefill.sets,
@@ -128,7 +128,7 @@ public enum TodayDraftMutationService {
         let roundCount = max(block.entries.map(\.rounds.count).max() ?? 0, 1)
         let fallback = RepTargetToRoundQuantity.defaultQuantity(for: exercise.recordingMetric)
         let rounds = (0..<roundCount).map { _ in
-            RoundDraft(setsCount: 1, load: PrefillResolver.defaultLoad(for: exercise.equipment), targetQuantity: fallback, actualQuantity: fallback, metric: exercise.recordingMetric, actualRecorded: false)
+            RoundDraft(setsCount: 1, load: PrefillResolver.defaultLoad(for: exercise), targetQuantity: fallback, actualQuantity: fallback, metric: exercise.recordingMetric, actualRecorded: false)
         }
         block.entries.append(EntryDraft(exercise: exercise, rounds: rounds))
     }

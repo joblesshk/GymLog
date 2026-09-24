@@ -60,7 +60,7 @@ struct EntryRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             header
-            RoundTableView(draft: draft, loadKind: loadKind)
+            RoundTableView(draft: draft, loadKind: loadKind, historicalBandColors: bandColorIndex[draft.exercise.id] ?? [])
         }
         .padding(.top, 12)
         .padding(.horizontal, 14)
@@ -172,6 +172,7 @@ struct EntryRowView: View {
 private struct RoundTableView: View {
     @Bindable var draft: EntryDraft
     let loadKind: LoadWheelKind
+    let historicalBandColors: [String]
     @AppStorage("appLanguage") private var language: AppLanguage = .zhHant
 
     // R02 (2026-09-16): must read the frozen `draft.recordingMetric`, not
@@ -234,6 +235,7 @@ private struct RoundTableView: View {
                         }
                     ),
                     loadKind: loadKind,
+                    historicalBandColors: historicalBandColors,
                     metric: metric,
                     canDelete: draft.canRemoveRound,
                     onDelete: { draft.removeRound(id: roundID) }
@@ -303,6 +305,7 @@ private struct RoundRow: View, Identifiable {
     let index: Int
     @Binding var round: RoundDraft
     let loadKind: LoadWheelKind
+    let historicalBandColors: [String]
     let metric: RecordingMetric
     let canDelete: Bool
     var onDelete: () -> Void
@@ -408,7 +411,7 @@ private struct RoundRow: View, Identifiable {
                     SetsCountWheel(sets: $round.setsCount)
                 }
             case .load:
-                LoadPickerSheet(load: $round.load, kind: loadKind)
+                LoadPickerSheet(load: $round.load, kind: loadKind, historicalBandColors: historicalBandColors)
             case .target:
                 PickerSheet(title: quantityFieldTitle(isTarget: true)) {
                     quantityWheel(targetQuantityBinding)

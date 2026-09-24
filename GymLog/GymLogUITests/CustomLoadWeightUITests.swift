@@ -1,6 +1,39 @@
 import XCTest
 
 final class CustomLoadWeightUITests: XCTestCase {
+    func testNonBandExerciseKeepsBandSwitchAfterSavingNumericLoad() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-uiTestingBandHistory"]
+        app.launch()
+        XCTAssertTrue(app.buttons["start-empty-session-button"].waitForExistence(timeout: 10))
+        app.buttons["start-empty-session-button"].tap()
+        app.buttons["add-exercise-button"].tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap(); search.typeText("Synthetic band history")
+        let row = app.buttons["exercise-row-ui-band-history"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5)); row.tap()
+        let load = app.buttons["entry-load-button"].firstMatch
+        XCTAssertTrue(load.waitForExistence(timeout: 5)); load.tap()
+        let modes = app.segmentedControls["load-kind-switch"]
+        XCTAssertTrue(modes.waitForExistence(timeout: 5))
+        modes.buttons.element(boundBy: 1).tap()
+        let input = app.textFields["custom-load-input"]
+        input.tap()
+        input.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (input.value as? String ?? "").count) + "25")
+        app.buttons["picker-sheet-done-button"].tap()
+        XCTAssertTrue(load.label.contains("25kg"), load.label)
+        load.tap()
+        XCTAssertTrue(modes.waitForExistence(timeout: 5), "Reopening a numeric override must retain the band switch")
+        modes.buttons.element(boundBy: 0).tap()
+        app.buttons["picker-sheet-done-button"].tap()
+        XCTAssertFalse(load.label.contains("25kg"), load.label)
+        load.tap()
+        XCTAssertTrue(modes.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.pickerWheels.count, 1)
+    }
+
     func testDoneRecordsUnchangedActualAndClearKeepsItUnrecorded() {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -60,6 +93,7 @@ final class CustomLoadWeightUITests: XCTestCase {
         input.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (input.value as? String ?? "").count) + "21")
         app.buttons["picker-sheet-done-button"].tap()
         XCTAssertTrue(load.label.contains("21"))
+        XCTAssertTrue(load.label.contains("單側") || load.label.contains("/side"), load.label)
         load.tap()
         let wheel = app.pickerWheels.firstMatch
         XCTAssertTrue(wheel.waitForExistence(timeout: 5))
