@@ -6,6 +6,7 @@
 - 移除只按器械判斷的舊預設負重與 prefill 介面，新動作預設負重只由 `PrefillResolver.defaultLoad(for: Exercise)` 產生；`SessionDraftLoader.rounds` 的預設負重改為必填。
 - UI 測試種子資料移至僅 Debug 編譯的 `UITestingSeeds.swift`；移除負重選擇器重複的顏色列表；ARCHITECTURE.md 更正負重上限為 1000 kg（約 2204.6 lb）並記錄單側訓練量規則。
 - 驗證：720 項單元測試（2 項略過）、36 項 UI 測試全部通過；Release 模擬器構建通過；倉庫隱私檢查通過。
+- 真機：Release 1.0（41）構建，App 與 GymLogKit 均為 41，codesign 嚴格校驗與發布隱私檢查通過，正式包不含 UI 測試種子；沿用本機 relay 配置。安裝前 App 正在運行且有一份進行中草稿（已暫存課次的續編），終止前後草稿逐位元組一致；備份 Application Support 與 Preferences。覆蓋安裝後、首次啟動前 11 張業務表逐行摘要及草稿均與安裝前一致（學員 4、課次 217、組記錄 4022、體測 12），完整性正常；已啟動，設備版本 41。證據位於倉庫外 release-build41。待使用者真機驗收；未推送 GitHub、未上傳 TestFlight。
 
 ## 2026-09-25 — 1.0（40）Git 提交與真機安裝
 
