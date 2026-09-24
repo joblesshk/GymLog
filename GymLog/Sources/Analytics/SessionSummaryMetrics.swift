@@ -26,7 +26,7 @@ public struct SessionSummaryMetrics {
                     if let volume = AnalyticsMath.setVolume(load: set.load, actual: set.actual) {
                         totalVolume = (totalVolume ?? 0) + volume
                     }
-                    if let kg = AnalyticsMath.comparableKg(set.load) {
+                    if let kg = AnalyticsMath.comparableKg(set.load, direction: direction) {
                         maxLoad = maxLoad.map { AnalyticsMath.betterValue($0, kg, direction: direction) } ?? kg
                     }
                 }

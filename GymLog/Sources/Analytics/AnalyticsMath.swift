@@ -89,7 +89,15 @@ public enum AnalyticsMath {
     /// as-is — rule ③: never doubled to a "total". Returns nil for
     /// bodyweight/band/machineStack/pinLoad/unknown, which carry no
     /// comparable numeric weight.
-    public static func comparableKg(_ load: LoadValue) -> Double? {
+    public static func comparableKg(_ load: LoadValue, direction: LoadDirection? = nil) -> Double? {
+        // Assistance and added weight have opposite meanings. Do not mix them
+        // into a single PR series when an entry overrides its exercise default.
+        if let direction {
+            if case .assisted = load, !direction.isInverted { return nil }
+            if load.hasExplicitLoadMode, direction.isInverted {
+                if case .assisted = load {} else { return nil }
+            }
+        }
         switch load {
         case .absolute(let kg, _): return kg
         case .perSide(let kg, _): return kg

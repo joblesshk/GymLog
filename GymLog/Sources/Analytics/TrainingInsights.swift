@@ -107,6 +107,7 @@ public enum TrainingInsights {
         // For "lower is stronger" exercises (assisted pull-ups, dips…) a plain number is the
         // assistance, as imported workbooks record it, not load on the bar.
         let loads = !loadIsAssistance ? rawLoads : rawLoads.map { load -> LoadValue in
+            if load.hasExplicitLoadMode { return load }
             switch load {
             case .absolute(let kg, let raw), .perSide(let kg, let raw): return .assisted(kg: kg, raw: raw)
             default: return load

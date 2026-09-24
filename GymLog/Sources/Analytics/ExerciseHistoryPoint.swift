@@ -102,7 +102,7 @@ public enum ExerciseHistoryAnalyzer {
                 // was attempted) is fully known — otherwise a missed 150kg
                 // lift registers as a 150kg PR.
                 if AnalyticsMath.isEffectiveCompletion(actual: set.actual),
-                   let kg = AnalyticsMath.comparableKg(set.load) {
+                   let kg = AnalyticsMath.comparableKg(set.load, direction: loadDirection) {
                     maxLoad = maxLoad.map { AnalyticsMath.betterValue($0, kg, direction: loadDirection) } ?? kg
                 }
 

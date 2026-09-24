@@ -21,14 +21,9 @@ import GymLogKit
 /// unconditionally a zero-write no-op -- there is no code path left that
 /// can persist an edit without going through `save()`.
 ///
-/// Editable set shapes: weight (`.absolute` load) plus `.fixed`/`.time`/
-/// `.distance`/`.rounds`/`.perSide` targets -- covering reps, seconds,
-/// meters, generic "rounds", and per-side rep pairs, not just the original
-/// plain-reps case. Every other `LoadValue`/`RepTarget` kind (bodyweight/
-/// band/machine-stack/pin-load/sled loads; `.range` targets) stays
-/// read-only -- a full editor for those needs the same per-metric wheel
-/// machinery `Sources/Views/Wheels/**` already has for NEW entries, which
-/// is a materially bigger lift than "fix a mistyped number".
+/// All load representations use the shared transactional load picker. Quantity
+/// fields retain their existing inline editors; unsupported quantity shapes
+/// remain unchanged when only the load is edited.
 ///
 /// No special integration with the Excel-import conflict guard is needed:
 /// `XLSXHistoryImporter.importDigest(forExisting:)` already recomputes its
@@ -92,7 +87,7 @@ struct SessionEditSheet: View {
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundStyle(DS.C.textHi)
                                 ForEach(entry.orderedSets, id: \.persistentModelID) { set in
-                                    EditableSetRow(setIndex: set.setIndex, draft: draftBinding(for: set))
+                                    EditableSetRow(setIndex: set.setIndex, draft: draftBinding(for: set), loadKind: entry.exercise.map { LoadWheelResolver.kind(for: $0, historicalBandColors: []) } ?? .absolute)
                                     if set.persistentModelID != entry.orderedSets.last?.persistentModelID {
                                         Divider().overlay(DS.C.hairlineSoft)
                                     }
@@ -162,7 +157,7 @@ struct SessionEditSheet: View {
         for block in session.orderedBlocks {
             for entry in block.orderedEntries {
                 for set in entry.orderedSets {
-                    guard let draft = drafts[set.persistentModelID], draft.isEditable else { continue }
+                    guard let draft = drafts[set.persistentModelID], draft.isEditable || draft.hasLoadEdit else { continue }
                     draft.apply(to: set)
                 }
             }
@@ -182,6 +177,8 @@ struct SessionEditSheet: View {
 private struct EditableSetRow: View {
     let setIndex: Int
     @Binding var draft: SetEditDraft
+    let loadKind: LoadWheelKind
+    @State private var editingLoad = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -191,6 +188,9 @@ private struct EditableSetRow: View {
                     .foregroundStyle(DS.C.textMid)
                     .frame(width: 46, alignment: .leading)
 
+                Button(draft.selectedLoad.displayText) { editingLoad = true }
+                    .font(.system(size: 13, weight: .medium))
+                    .accessibilityIdentifier("history-edit-load-button")
                 if draft.isEditable {
                     editableFields
                 } else {
@@ -207,17 +207,14 @@ private struct EditableSetRow: View {
             }
         }
         .padding(.vertical, 4)
+        .sheet(isPresented: $editingLoad) {
+            LoadPickerSheet(load: $draft.selectedLoad, kind: loadKind)
+        }
     }
 
     @ViewBuilder
     private var editableFields: some View {
         HStack(spacing: 10) {
-            if draft.isWeightEditable {
-                labeledField(L("重量(kg)", "Weight(kg)"), text: Binding(
-                    get: { draft.kgText ?? "" },
-                    set: { draft.kgText = $0 }
-                ), keyboard: .decimalPad)
-            }
             switch draft.kind {
             case .fixed:
                 labeledField(L("目標(次)", "Target(reps)"), text: $draft.targetPrimaryText, keyboard: .numberPad)

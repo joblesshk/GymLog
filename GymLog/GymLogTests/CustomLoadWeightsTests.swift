@@ -13,7 +13,7 @@ final class CustomLoadWeightsTests: XCTestCase {
     }
 
     func testInvalidStoredValuesAndCorruptStorageDoNotBreakPicker() {
-        XCTAssertEqual(CustomLoadWeights.rows(presets: [20], saved: "[-1,0,1000,21]", current: .nan), [20, 21])
+        XCTAssertEqual(CustomLoadWeights.rows(presets: [20], saved: "[-1,0,100001,21]", current: .nan), [20, 21])
         XCTAssertEqual(CustomLoadWeights.rows(presets: [20], saved: "broken", current: 21), [20, 21])
     }
 }

@@ -127,48 +127,34 @@ public enum LoadValue: Codable, Hashable {
 
 // MARK: - Human-readable display (Chinese UI)
 extension LoadValue {
-    private static let colorNames: [String: (zh: String, en: String)] = [
-        "purple": ("紫", "Purple"), "blue": ("藍", "Blue"), "green": ("綠", "Green"), "red": ("紅", "Red"),
-        "black": ("黑", "Black"), "yellow": ("黃", "Yellow"), "orange": ("橙", "Orange"), "grey": ("灰", "Grey"), "gray": ("灰", "Grey"),
-        "white": ("白", "White"), "pink": ("粉", "Pink")
-    ]
-
-    private static func formatKg(_ kg: Double) -> String {
-        if kg == kg.rounded() {
-            return String(format: "%.0f", kg)
-        }
-        return String(format: "%.1f", kg)
-    }
-
     /// e.g. `.assisted(30)` -> "辅助 30kg" / "Assisted 30kg"
     public var displayText: String {
         switch self {
-        case .absolute(let kg, _):
-            return "\(Self.formatKg(kg))kg"
-        case .perSide(let kg, _):
-            return L("單側 \(Self.formatKg(kg))kg", "\(Self.formatKg(kg))kg/side")
+        case .absolute:
+            return "\(formattedWeight)"
+        case .perSide:
+            return L("單側 \(formattedWeight)", "\(formattedWeight)/side")
         case .bodyweight:
             return L("自重", "Bodyweight")
-        case .assisted(let kg, _):
+        case .assisted:
             // Shown as a negative number (e.g. "-10kg") -- the coach's own
             // ask, so assistance can't read as weight actually lifted.
             // Storage/PR-trend direction (`LoadDirection.isInverted`) is
             // unaffected; only this display string carries the "-".
-            return L("輔助 -\(Self.formatKg(kg))kg", "Assisted -\(Self.formatKg(kg))kg")
+            return L("輔助 -\(formattedWeight)", "Assisted -\(formattedWeight)")
         case .band(let color, let count, _):
-            let names = Self.colorNames[color.lowercased()] ?? (color, color)
-            let name = LanguageContext.current.t(names.zh, names.en)
+            let name = BandColorName.display(color, language: LanguageContext.current)
             if LanguageContext.current == .zhHant {
-                return count > 1 ? "\(name)帶 x\(count)" : "\(name)帶"
+                return count > 1 ? "\(name)彈力帶 ×\(count)" : "\(name)彈力帶"
             } else {
                 return count > 1 ? "\(name) Band x\(count)" : "\(name) Band"
             }
         case .machineStack(let level, _):
             return L("器械配重 \(level)", "Machine stack \(level)")
         case .pinLoad(let desc, _):
-            return L("插銷配重 \(desc)", "Pin load \(desc)")
-        case .sled(let kg, _):
-            return L("雪橇 \(Self.formatKg(kg))kg", "Sled \(Self.formatKg(kg))kg")
+            return desc
+        case .sled:
+            return L("雪橇 \(formattedWeight)", "Sled \(formattedWeight)")
         case .unknown(let raw):
             return raw.isEmpty ? L("未記錄", "Not recorded") : L("未記錄（\(raw)）", "Not recorded (\(raw))")
         }

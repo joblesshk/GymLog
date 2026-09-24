@@ -31,7 +31,7 @@ public enum LoadWheelResolver {
     /// fallback when an exercise has `equipment == .band` but no prior
     /// recorded `LoadValue.band` to derive an observed color set from (e.g.
     /// a brand-new exercise).
-    public static let fallbackBandColors = ["black", "blue", "green", "red", "purple", "yellow"]
+    public static let fallbackBandColors = ["black", "blue", "green", "red", "purple", "yellow", "orange"]
 
     /// CONTRACT-UI.md §3.3's dispatch table. `loadDirection == .lowerIsStronger`
     /// is checked first since it's the highest-stakes classification (辅助类

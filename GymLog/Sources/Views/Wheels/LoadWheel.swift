@@ -1,302 +1,229 @@
 import SwiftUI
 import GymLogKit
 
-/// CONTRACT-UI.md §3.1 / §3.3: 重量 wheel. Content switches by
-/// `LoadWheelResolver.kind(for:historicalBandColors:)` -- absolute kg,
-/// per-side kg, assisted kg (with the "数值越小越强" hint), band color, or
-/// hidden entirely for bodyweight exercises.
-struct LoadWheel: View {
-    @Binding var load: LoadValue
-    let kind: LoadWheelKind
+/// Compact, contextual load selection with numeric overrides and preservation
+/// of existing load semantics. Custom band details stay collapsed by default.
+struct LoadPickerSheet: View {
+    @Binding private var load: LoadValue
+    @State private var draft: LoadSelectionDraft
+    private let colors: [String]
+    private let kind: LoadWheelKind
+    private let originalMode: LoadSelectionDraft.Mode
+    @State private var editingBand = false
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage("customLoadWeights.v1") private var savedKg = "[]"
+    @AppStorage("customLoadWeights.lb.v1") private var savedLb = "[]"
 
-    var body: some View {
-        switch kind {
-        case .bodyweightPlus:
-            VStack(spacing: 2) {
-                Text(L("自重，可加配重", "Bodyweight, can add weight")).font(.caption2).foregroundStyle(DS.C.textMid)
-                BodyweightPlusWheel(load: $load)
-            }
-        case .absolute:
-            KgStepWheel(load: $load, mode: .absolute)
-        case .perSide:
-            VStack(spacing: 2) {
-                Text(L("單側", "Per Side")).font(.caption2).foregroundStyle(DS.C.textMid)
-                KgStepWheel(load: $load, mode: .perSide)
-            }
-        case .assisted:
-            VStack(spacing: 2) {
-                Text(L("數值越小越強", "Lower Is Stronger")).font(.caption2).foregroundStyle(DS.C.textMid)
-                KgStepWheel(load: $load, mode: .assisted)
-            }
-        case .band(let colors):
-            BandColorWheel(load: $load, colors: colors)
+    init(load: Binding<LoadValue>, kind: LoadWheelKind) {
+        self.kind = kind
+        originalMode = LoadSelectionDraft(load: load.wrappedValue, suggested: kind).mode
+        _load = load
+        _draft = State(initialValue: LoadSelectionDraft(load: load.wrappedValue, suggested: kind))
+        if case .band(let values) = kind { colors = values }
+        else { colors = LoadWheelResolver.fallbackBandColors }
+    }
+
+    private var rows: [Double] {
+        let presets = stride(from: 2.5, through: 300.0, by: 2.5).map { $0 }
+        return [0] + CustomLoadWeights.rows(presets: presets,
+            saved: draft.unit == .kg ? savedKg : savedLb,
+            current: LoadSelectionDraft.parseNumber(draft.number) ?? 20)
+    }
+
+    private var bandColors: [String] {
+        var result = [String]()
+        for color in [draft.bandColor] + colors + LoadWheelResolver.fallbackBandColors {
+            let key = BandColorName.canonical(color) ?? color
+            if !key.isEmpty && !result.contains(key) { result.append(key) }
+        }
+        return result
+    }
+
+    private var supportsBand: Bool {
+        if case .band = kind { return true }
+        return originalMode == .band
+    }
+
+    private var specialMode: LoadSelectionDraft.Mode? {
+        if supportsBand { return .band }
+        return [.custom, .machineStack].contains(originalMode) ? originalMode : nil
+    }
+
+    private var numericMode: LoadSelectionDraft.Mode {
+        originalMode.isNumeric ? originalMode : .absolute
+    }
+
+    private var showsNumber: Bool { draft.mode.isNumeric || draft.mode == .bodyweight }
+
+    private func selectNumber(_ text: String) {
+        draft.number = text
+        if kind == .bodyweightPlus && [.absolute, .bodyweight].contains(draft.mode) {
+            draft.mode = LoadSelectionDraft.parseNumber(text) == 0 ? .bodyweight : .absolute
+        } else if draft.mode == .bodyweight {
+            draft.mode = .absolute
         }
     }
-}
-
-/// Shared kg-step list and formatting for the two weight wheels below, so
-/// the wheel and inline input always agree on how a value is
-/// rounded and displayed.
-private enum KgFormat {
-    /// Widened from the original 2.5-200kg range (CONTRACT-UI.md §3.1) to
-    /// 2.5-300kg: strength-standard data (strengthlevel.com) puts an
-    /// "elite" raw deadlift at roughly 2x bodyweight, i.e. ~200kg for a
-    /// ~100kg lifter -- the old ceiling was already there. As the app
-    /// reaches lifters beyond the single original user, the wheel itself
-    /// needs headroom, not just an escape hatch. Genuine outliers past
-    /// 300kg still go through "自定義…" below rather than bloating the
-    /// wheel further.
-    static let maxKg: Double = 300
-    static let steps: [Double] = stride(from: 2.5, through: maxKg, by: 2.5).map { $0 }
-
-    /// Whole numbers show with no decimal; anything else shows the fewest
-    /// decimal digits that round-trip (so a 2.5-stepped value reads "22.5"
-    /// but a manually typed "21.25" isn't truncated to "21.3").
-    static func format(_ kg: Double) -> String {
-        if kg == kg.rounded() { return String(format: "%.0f", kg) }
-        let rounded2 = (kg * 100).rounded() / 100
-        if (rounded2 * 10).truncatingRemainder(dividingBy: 1) == 0 {
-            return String(format: "%.1f", rounded2)
-        }
-        return String(format: "%.2f", rounded2)
-    }
-}
-
-/// Numeric wheels retain custom options and provide a compact inline input.
-private struct KgStepWheel: View {
-    enum Mode { case absolute, perSide, assisted }
-
-    @Binding var load: LoadValue
-    let mode: Mode
-    @AppStorage("customLoadWeights.v1") private var savedWeights = "[]"
-
-
-    private var rawKg: Double {
-        switch load {
-        case .absolute(let kg, _), .perSide(let kg, _), .assisted(let kg, _), .sled(let kg, _):
-            return kg
-        default:
-            return 20 // CONTRACT-UI.md §3.2 default weight
-        }
-    }
-
-    private var kgRows: [Double] {
-        CustomLoadWeights.rows(presets: KgFormat.steps, saved: savedWeights, current: rawKg)
-    }
-
-    private func label(for kg: Double) -> String {
-        // `.assisted` is stored as a positive kg (the assistance amount) but
-        // shown with a leading "-" -- the coach's own ask: assistance reads
-        // as negative load (e.g. "-10kg") so it can't be mistaken for weight
-        // actually lifted, even though `LoadValue.assisted`'s underlying
-        // number and its "lower is stronger" PR/trend direction are unchanged.
-        mode == .assisted ? "-\(KgFormat.format(kg))kg" : "\(KgFormat.format(kg))kg"
-    }
-
-    private func apply(kg: Double) {
-        let raw = KgFormat.format(kg)
-        switch mode {
-        case .absolute: load = .absolute(kg: kg, raw: raw)
-        case .perSide: load = .perSide(kg: kg, raw: raw)
-        case .assisted: load = .assisted(kg: kg, raw: raw)
-        }
-    }
-
-    private var selection: Binding<String> {
-        Binding(
-            get: {
-                if let match = kgRows.first(where: { abs($0 - rawKg) < 0.001 }) {
-                    return KgFormat.format(match)
-                }
-                return KgFormat.format(rawKg)
-            },
-            set: { newID in
-                if let kg = kgRows.first(where: { KgFormat.format($0) == newID }) {
-                    apply(kg: kg)
-                }
-            }
-        )
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Picker(L("重量", "Load"), selection: selection) {
-                ForEach(kgRows, id: \.self) { kg in
-                    Text(label(for: kg)).tag(KgFormat.format(kg))
-                }
-            }
-            .pickerStyle(.wheel)
-            .labelsHidden()
-            .frame(maxHeight: .infinity)
-            .clipped()
-            InlineLoadInput(currentKg: rawKg, allowsZero: false) {
-                apply(kg: $0)
-            }
-        }
-    }
-}
-
-/// `.bodyweightPlus` wheel: step 0 is "自重" (writes back `LoadValue
-/// .bodyweight`), the rest are 2.5kg-stepped added weight on top of
-/// bodyweight (writes back `.absolute`, same encoding an actual loaded plate
-/// would use elsewhere in the app -- there's no separate "added weight"
-/// `LoadValue` case, nor does one need to exist). Also offers manual entry,
-/// same rationale as `KgStepWheel` above.
-private struct BodyweightPlusWheel: View {
-    @Binding var load: LoadValue
-    @AppStorage("customLoadWeights.v1") private var savedWeights = "[]"
-
-    private static let bodyweightTag = "bw"
-
-    private var currentAdded: Double {
-        switch load {
-        case .absolute(let kg, _), .sled(let kg, _):
-            return kg
-        default:
-            return 0
-        }
-    }
-
-    private var addedRows: [Double] {
-        CustomLoadWeights.rows(presets: KgFormat.steps, saved: savedWeights, current: currentAdded)
-    }
-
-    private func apply(added: Double) {
-        load = added == 0
-            ? .bodyweight(raw: "BW")
-            : .absolute(kg: added, raw: KgFormat.format(added))
-    }
-
-    private var selection: Binding<String> {
-        Binding(
-            get: {
-                if currentAdded == 0 { return Self.bodyweightTag }
-                if let match = addedRows.first(where: { abs($0 - currentAdded) < 0.001 }) {
-                    return KgFormat.format(match)
-                }
-                return KgFormat.format(currentAdded)
-            },
-            set: { newID in
-                if newID == Self.bodyweightTag {
-                    apply(added: 0)
-                } else if let kg = addedRows.first(where: { KgFormat.format($0) == newID }) {
-                    apply(added: kg)
-                }
-            }
-        )
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Picker(L("重量", "Load"), selection: selection) {
-                Text(L("自重", "Bodyweight")).tag(Self.bodyweightTag)
-                ForEach(addedRows, id: \.self) { kg in
-                    Text("+\(KgFormat.format(kg))kg").tag(KgFormat.format(kg))
-                }
-            }
-            .pickerStyle(.wheel)
-            .labelsHidden()
-            .frame(maxHeight: .infinity)
-            .clipped()
-            InlineLoadInput(currentKg: currentAdded, allowsZero: true) {
-                apply(added: $0)
-            }
-        }
-    }
-}
-
-/// Commit a valid entry on keyboard submission, focus loss, or closing the picker.
-/// Persist only the completed value, never intermediate keystrokes such as "2" in "21".
-private struct InlineLoadInput: View {
-    let currentKg: Double
-    let allowsZero: Bool
-    let onApply: (Double) -> Void
-
-    @AppStorage("customLoadWeights.v1") private var savedWeights = "[]"
-    @State private var text = ""
-    @FocusState private var inputFocused: Bool
 
     private func commit() {
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: ",", with: ".")
-        guard let value = Double(normalized), value.isFinite, value <= 999,
-              allowsZero ? value >= 0 : value > 0 else { return }
-        savedWeights = CustomLoadWeights.adding(value, to: savedWeights)
-        text = ""
-        onApply(value)
+        guard let value = draft.resolved() else { return }
+        load = value
+        if draft.mode.isNumeric, let number = LoadSelectionDraft.parseNumber(draft.number) {
+            if draft.unit == .kg { savedKg = CustomLoadWeights.adding(number, to: savedKg) }
+            else { savedLb = CustomLoadWeights.adding(number, to: savedLb) }
+        }
+        dismiss()
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            TextField("", text: $text,
-                      prompt: Text(L("可以手動輸入重量", "Enter a custom weight"))
-                        .foregroundStyle(DS.C.textLow))
-                .keyboardType(.decimalPad)
-                .focused($inputFocused)
-                .accessibilityLabel(L("可以手動輸入重量", "Enter a custom weight"))
-                .accessibilityIdentifier("custom-load-input")
-                .onSubmit { commit(); inputFocused = false }
-            Text("kg").foregroundStyle(DS.C.textLow)
+        NavigationStack {
+            VStack(spacing: 4) {
+                    if let special = specialMode {
+                        Picker(L("負重", "Load"), selection: Binding(
+                            get: { draft.mode == special },
+                            set: { draft.mode = $0 ? special : numericMode; editingBand = false }
+                        )) {
+                            Text(special == .band ? L("彈力帶", "Band") : L("原有設定", "Original")).tag(true)
+                            Text(L("重量", "Weight")).tag(false)
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 230)
+                        .accessibilityIdentifier("load-kind-switch")
+                    }
+                    if showsNumber {
+                        HStack(spacing: 0) {
+                            Picker(L("重量數字", "Weight value"), selection: Binding(
+                                get: { draft.mode == .bodyweight ? "0" : SetEditDraft.formatNumber(LoadSelectionDraft.parseNumber(draft.number) ?? 20) },
+                                set: selectNumber
+                            )) {
+                                ForEach(rows, id: \.self) { value in
+                                    Text(value == 0 && kind == .bodyweightPlus ? L("自重", "Bodyweight") : SetEditDraft.formatNumber(value)).tag(SetEditDraft.formatNumber(value))
+                                }
+                            }
+                            .accessibilityIdentifier("load-number-wheel")
+                            Picker(L("重量單位", "Weight unit"), selection: $draft.unit) {
+                                ForEach(LoadWeightUnit.allCases, id: \.self) { unit in
+                                    Text(unit.rawValue).tag(unit)
+                                }
+                            }
+                            .frame(width: 80)
+                            .accessibilityIdentifier("load-unit-wheel")
+                        }
+                        .pickerStyle(.wheel)
+                        .labelsHidden()
+                        .frame(width: 260, height: 140)
+                        .modifier(PrecisionLoadWheelStyle())
+                        HStack {
+                            TextField(L("手動輸入重量", "Enter a custom weight"), text: Binding(
+                                get: { draft.mode == .bodyweight ? "0" : draft.number },
+                                set: selectNumber
+                            ))
+                                .keyboardType(.decimalPad)
+                                .accessibilityIdentifier("custom-load-input")
+                            Text(draft.unit.rawValue)
+                        }
+                        .font(.system(size: 13))
+                        .padding(.horizontal, 10)
+                        .frame(width: 230, height: 34)
+                        .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 9))
+                        if draft.mode == .assisted || draft.mode == .perSide {
+                            Text(draft.mode == .assisted ? L("輔助重量", "Assistance") : L("單側重量", "Per side"))
+                                .font(.caption2).foregroundStyle(DS.C.textLow)
+                        }
+                    } else if draft.mode == .band {
+                        Picker(L("彈力帶", "Band"), selection: Binding(
+                            get: { BandColorName.canonical(draft.bandColor) ?? draft.bandColor },
+                            set: { draft.bandColor = $0 }
+                        )) {
+                            ForEach(bandColors, id: \.self) { color in
+                                Text(LoadValue.band(color: color, count: 1, raw: color).displayText).tag(color)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                        .frame(width: 260, height: 130)
+                        .modifier(PrecisionLoadWheelStyle())
+                        if editingBand {
+                            HStack(spacing: 6) {
+                                TextField(L("顏色／型號", "Color / model"), text: Binding(
+                                    get: { BandColorName.display(draft.bandColor, language: LanguageContext.current) },
+                                    set: { draft.bandColor = BandColorName.canonical($0) ?? $0 }
+                                ))
+                                .accessibilityIdentifier("custom-band-color")
+                                Text("×")
+                                TextField("1", text: $draft.bandCount).keyboardType(.numberPad)
+                                    .frame(width: 35)
+                                    .accessibilityIdentifier("custom-band-count")
+                            }
+                            .font(.system(size: 13))
+                            .frame(width: 230, height: 34)
+                        } else {
+                            Button(L("自訂", "Custom")) { editingBand = true }
+                                .font(.system(size: 13))
+                                .accessibilityIdentifier("custom-band-button")
+                                .frame(height: 34)
+                        }
+                    } else {
+                        TextField(L("負重描述", "Load description"), text: $draft.detail)
+                            .accessibilityIdentifier("custom-load-description")
+                            .frame(width: 260, height: 140)
+                    }
+                    if let error = draft.validationError {
+                        Text(error).font(.caption).foregroundStyle(DS.C.danger)
+                            .accessibilityIdentifier("load-validation-error")
+                    }
+            }
+            .padding(.horizontal, 24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(DS.C.canvas)
+            .navigationTitle(L("重量", "Load"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L("取消", "Cancel")) { dismiss() }
+                        .accessibilityIdentifier("load-picker-cancel")
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L("完成", "Done"), action: commit)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(DS.C.accent)
+                    .disabled(draft.validationError != nil)
+                    .accessibilityIdentifier("picker-sheet-done-button")
+                }
+            }
         }
-        .font(.system(size: 13))
-        .foregroundStyle(DS.C.textHi)
-        .padding(.horizontal, 12)
-        .frame(width: 230, height: 34)
-        .background(DS.C.inset, in: RoundedRectangle(cornerRadius: 9))
-        .padding(.vertical, 5)
-        .onChange(of: inputFocused) { _, focused in
-            if !focused { commit() }
-        }
-        .onChange(of: currentKg) { _, _ in
-            // A wheel selection supersedes any unfinished manual entry.
-            text = ""
-            inputFocused = false
-        }
-        .onDisappear { commit() }
+        .presentationDetents([.height(specialMode == nil ? 310 : 350)])
     }
 }
 
-private struct BandColorWheel: View {
-    @Binding var load: LoadValue
-    let colors: [String]
-
-    private static let colorNames: [String: (zh: String, en: String)] = [
-        "purple": ("紫", "Purple"), "blue": ("藍", "Blue"), "green": ("綠", "Green"), "red": ("紅", "Red"),
-        "black": ("黑", "Black"), "yellow": ("黃", "Yellow"), "orange": ("橙", "Orange"), "grey": ("灰", "Grey"), "gray": ("灰", "Grey"),
-        "white": ("白", "White"), "pink": ("粉", "Pink"),
-    ]
-
-    private static func colorLabel(_ color: String) -> String {
-        guard let names = colorNames[color] else { return color }
-        return L(names.zh, names.en)
-    }
-
-    private var currentColor: String {
-        if case .band(let color, _, _) = load, colors.contains(color.lowercased()) {
-            return color.lowercased()
-        }
-        return colors.first ?? "black"
-    }
-
-    var body: some View {
-        Picker(L("彈力帶", "Band"), selection: Binding<String>(
-            get: { currentColor },
-            set: { newColor in
-                let count: Int
-                if case .band(_, let existingCount, _) = load { count = max(existingCount, 1) } else { count = 1 }
-                load = .band(color: newColor, count: count, raw: Self.colorLabel(newColor))
+/// Decorative layers never intercept the native wheel's gestures or accessibility.
+/// Uses the sheet palette, without a separate colored panel or rim.
+private struct PrecisionLoadWheelStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .background(DS.C.canvas)
+            .overlay {
+                Canvas { context, size in
+                    let middle = size.height / 2
+                    // Major/minor ticks remain legible without a separate background panel.
+                    for step in -6...6 where step != 0 {
+                        let y = middle + CGFloat(step) * 9
+                        var tick = Path()
+                        tick.move(to: CGPoint(x: 8, y: y))
+                        tick.addLine(to: CGPoint(x: step.isMultiple(of: 3) ? 19 : 14, y: y))
+                        context.stroke(tick, with: .color(DS.C.textMid.opacity(step.isMultiple(of: 3) ? 0.85 : 0.65)), lineWidth: step.isMultiple(of: 3) ? 1.5 : 1)
+                    }
+                    for y in [middle - 17, middle + 17] {
+                        var rule = Path()
+                        rule.move(to: CGPoint(x: 21, y: y))
+                        rule.addLine(to: CGPoint(x: size.width - 14, y: y))
+                        context.stroke(rule, with: .color(DS.C.textMid.opacity(0.45)), lineWidth: 1)
+                    }
+                    let marker = Path(roundedRect: CGRect(x: 6, y: middle - 3, width: 12, height: 6), cornerRadius: 1)
+                    context.fill(marker, with: .color(DS.C.accent))
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
             }
-        )) {
-            ForEach(colors, id: \.self) { color in
-                Text(Self.colorLabel(color)).tag(color)
-            }
-        }
-        .pickerStyle(.wheel)
-        .labelsHidden()
+            .clipShape(RoundedRectangle(cornerRadius: 9))
+            .padding(.vertical, 6)
     }
-}
-
-#Preview {
-    LoadWheel(load: .constant(.absolute(kg: 35, raw: "35")), kind: .absolute)
-        .frame(height: 120)
 }

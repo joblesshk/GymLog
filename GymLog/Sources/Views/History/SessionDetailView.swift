@@ -575,7 +575,7 @@ private struct EntryView: View {
         var bestValue: Double?
         for (index, set) in entry.orderedSets.enumerated() {
             guard AnalyticsMath.isEffectiveCompletion(actual: set.actual),
-                  let kg = AnalyticsMath.comparableKg(set.load) else { continue }
+                  let kg = AnalyticsMath.comparableKg(set.load, direction: direction) else { continue }
             if let currentBest = bestValue {
                 if AnalyticsMath.isImprovement(candidate: kg, overBest: currentBest, direction: direction) {
                     bestValue = kg

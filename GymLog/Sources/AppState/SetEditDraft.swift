@@ -34,9 +34,16 @@ public struct SetEditDraft: Equatable {
         case unsupported
     }
 
-    /// `nil` when the set's load isn't `.absolute` -- weight isn't editable
-    /// for that set, but its target/actual quantity still might be.
+    /// Legacy numeric editing API, in canonical kg. The shared load picker
+    /// uses selectedLoad for all representations, including bands and pounds.
     public var kgText: String?
+    private let originalLoad: LoadValue
+    private var loadOverride: LoadValue?
+    public var selectedLoad: LoadValue {
+        get { loadOverride ?? originalLoad }
+        set { loadOverride = newValue == originalLoad ? nil : newValue }
+    }
+    public var hasLoadEdit: Bool { loadOverride != nil }
     public var targetPrimaryText: String
     /// Only used by `.perSide` (the right-side rep count).
     public var targetSecondaryText: String?
@@ -51,6 +58,8 @@ public struct SetEditDraft: Equatable {
     private let initialActualSecondaryText: String?
 
     public init(set: SetLog) {
+        originalLoad = set.load
+        loadOverride = nil
         if case .absolute(let kg, _) = set.load {
             kgText = Self.formatNumber(kg)
         } else {
@@ -89,7 +98,7 @@ public struct SetEditDraft: Equatable {
         initialActualSecondaryText = actualSecondaryText
     }
 
-    private var loadChanged: Bool { kgText != initialKgText }
+    private var loadChanged: Bool { hasLoadEdit || kgText != initialKgText }
     private var targetChanged: Bool { targetPrimaryText != initialTargetPrimaryText || targetSecondaryText != initialTargetSecondaryText }
     private var actualChanged: Bool { actualPrimaryText != initialActualPrimaryText || actualSecondaryText != initialActualSecondaryText }
 
@@ -107,7 +116,7 @@ public struct SetEditDraft: Equatable {
     /// short, user-facing reason. Checked before Save is enabled AND again
     /// right before anything is applied to the model.
     public var validationError: String? {
-        if isWeightEditable {
+        if isWeightEditable && !hasLoadEdit && kgText != initialKgText {
             guard let kg = Double(kgText ?? ""), kg.isFinite, kg >= 0, kg <= Self.maxKg else {
                 return L("重量需為 0～\(Int(Self.maxKg)) 之間的數字", "Weight must be a number between 0 and \(Int(Self.maxKg))")
             }
@@ -135,10 +144,12 @@ public struct SetEditDraft: Equatable {
     /// Write only edited fields. Unchanged fields retain their original
     /// precision and source text, including when only the session date changes.
     public func apply(to set: SetLog) {
-        guard isEditable, validationError == nil else { return }
+        guard (isEditable || hasLoadEdit), validationError == nil else { return }
         guard loadChanged || targetChanged || actualChanged else { return }
-        if loadChanged, isWeightEditable, let kg = Double(kgText ?? "") {
-            set.load = .absolute(kg: kg, raw: kgText ?? "")
+        if let loadOverride { set.load = loadOverride }
+        else if loadChanged, isWeightEditable, let kg = Double(kgText ?? "") {
+            let raw = originalLoad.hasExplicitLoadMode ? "absolute: \(kgText ?? "") kg" : kgText ?? ""
+            set.load = .absolute(kg: kg, raw: raw)
         }
         switch kind {
         case .fixed:
