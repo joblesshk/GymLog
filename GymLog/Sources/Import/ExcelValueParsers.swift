@@ -69,7 +69,7 @@ public enum ExcelValueParsers {
             return ParsedLoadValue(value: .perSide(kg: kg, raw: raw), needsReview: false, reviewReason: nil)
         }
 
-        if wholeMatch(#"^(?:\d+\s*(?:red|green|blue|yellow|orange|purple|pink|black)\s*){2,}$"#, text, caseInsensitive: true) != nil {
+        if wholeMatch(LoadValue.importedPinLoadPattern, text, caseInsensitive: true) != nil {
             return ParsedLoadValue(value: .pinLoad(desc: text, raw: raw), needsReview: false, reviewReason: nil)
         }
 

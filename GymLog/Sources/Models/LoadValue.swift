@@ -127,6 +127,11 @@ public enum LoadValue: Codable, Hashable {
 
 // MARK: - Human-readable display (Chinese UI)
 extension LoadValue {
+    /// Colored-plate pin loads such as "10 red 5 blue", the only text the Excel
+    /// importer stores as `.pinLoad`. Shared with `ExcelValueParsers` so the
+    /// display rule below cannot drift from what the importer produces.
+    static let importedPinLoadPattern = #"^(?:\d+\s*(?:red|green|blue|yellow|orange|purple|pink|black)\s*){2,}$"#
+
     /// e.g. `.assisted(30)` -> "辅助 30kg" / "Assisted 30kg"
     public var displayText: String {
         switch self {
@@ -152,6 +157,11 @@ extension LoadValue {
         case .machineStack(let level, _):
             return L("器械配重 \(level)", "Machine stack \(level)")
         case .pinLoad(let desc, _):
+            // Imported pin loads keep their label; free descriptions typed in
+            // the load editor (also stored as .pinLoad) are shown verbatim.
+            if desc.range(of: Self.importedPinLoadPattern, options: [.regularExpression, .caseInsensitive]) != nil {
+                return L("插銷配重 \(desc)", "Pin load \(desc)")
+            }
             return desc
         case .sled:
             return L("雪橇 \(formattedWeight)", "Sled \(formattedWeight)")

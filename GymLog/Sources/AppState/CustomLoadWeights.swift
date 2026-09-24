@@ -3,7 +3,7 @@ import Foundation
 /// Locally retained picker options, independent of the currently selected load.
 public enum CustomLoadWeights {
     private static func valid(_ values: [Double]) -> [Double] {
-        Array(Set(values.filter { $0.isFinite && $0 > 0 && $0 <= 100_000 })).sorted()
+        Array(Set(values.filter { $0.isFinite && $0 > 0 && $0 <= LoadSelectionDraft.maxNumberInAnyUnit })).sorted()
     }
 
     private static func decode(_ saved: String) -> [Double] {

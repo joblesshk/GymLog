@@ -47,10 +47,13 @@ final class LoadSelectionDraftTests: XCTestCase {
     func testInvalidInputCannotCommitAndCustomOptionsExceedOldRange() {
         var draft = LoadSelectionDraft(load: .bodyweight(raw: "BW"), suggested: .bodyweightPlus)
         draft.mode = .absolute
-        for text in ["", "-1", "nan", "inf", "100001", "hello"] {
+        for text in ["", "-1", "nan", "inf", "1000.5", "100001", "hello"] {
             draft.number = text; XCTAssertNotNil(draft.validationError); XCTAssertNil(draft.resolved())
         }
-        draft.number = "1500,25"; XCTAssertNotNil(draft.resolved())
+        draft.number = "999,5"; XCTAssertNotNil(draft.resolved())
+        draft.unit = .lb; draft.number = "2204"; XCTAssertNotNil(draft.resolved(), "2204 lb is under 1000 kg")
+        draft.number = "2205"; XCTAssertNil(draft.resolved())
+        draft.unit = .kg
         XCTAssertTrue(CustomLoadWeights.rows(presets: [20], saved: CustomLoadWeights.adding(1500.25, to: "[]"), current: 20).contains(1500.25))
         draft.mode = .band; draft.bandCount = "0"; XCTAssertNil(draft.resolved())
         draft.mode = .custom; draft.detail = " "; XCTAssertNil(draft.resolved())

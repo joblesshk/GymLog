@@ -10,6 +10,7 @@ struct LoadPickerSheet: View {
     private let kind: LoadWheelKind
     private let originalMode: LoadSelectionDraft.Mode
     @State private var editingBand = false
+    @State private var pendingOutlierConfirmation: String?
     @Environment(\.dismiss) private var dismiss
     @AppStorage("customLoadWeights.v1") private var savedKg = "[]"
     @AppStorage("customLoadWeights.lb.v1") private var savedLb = "[]"
@@ -64,9 +65,15 @@ struct LoadPickerSheet: View {
         }
     }
 
-    private func commit() {
+    private func commit(confirmed: Bool = false) {
         guard let value = draft.resolved() else { return }
-        load = value
+        if !confirmed, let warning = draft.outlierConfirmation {
+            pendingOutlierConfirmation = warning
+            return
+        }
+        // Re-assigning an equal value still fires the round's didSet, which
+        // would clear its inferred/unrecorded provenance without any edit.
+        if value != load { load = value }
         if draft.mode.isNumeric, let number = LoadSelectionDraft.parseNumber(draft.number) {
             if draft.unit == .kg { savedKg = CustomLoadWeights.adding(number, to: savedKg) }
             else { savedLb = CustomLoadWeights.adding(number, to: savedLb) }
@@ -182,7 +189,7 @@ struct LoadPickerSheet: View {
                         .accessibilityIdentifier("load-picker-cancel")
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(L("完成", "Done"), action: commit)
+                    Button(L("完成", "Done")) { commit() }
                         .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(DS.C.accent)
                     .disabled(draft.validationError != nil)
@@ -191,6 +198,16 @@ struct LoadPickerSheet: View {
             }
         }
         .presentationDetents([.height(specialMode == nil ? 310 : 350)])
+        .alert(L("確認重量", "Confirm Load"), isPresented: Binding(
+            get: { pendingOutlierConfirmation != nil },
+            set: { if !$0 { pendingOutlierConfirmation = nil } }
+        )) {
+            Button(L("返回修改", "Edit"), role: .cancel) {}
+            Button(L("確定", "Confirm")) { commit(confirmed: true) }
+                .accessibilityIdentifier("load-outlier-confirm")
+        } message: {
+            Text(pendingOutlierConfirmation ?? "")
+        }
     }
 }
 

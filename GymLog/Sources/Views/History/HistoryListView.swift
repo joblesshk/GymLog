@@ -254,8 +254,11 @@ struct HistoryListView: View {
                                                 }
                                             }
                                             Button(role: .destructive) { pendingDeleteSession = session } label: {
-                                                Label(language.t("刪除課次", "Delete Session"), systemImage: "trash")
+                                                Label(isOpenInToday(session)
+                                                      ? language.t("刪除課次（「今天」編輯中，不可用）", "Delete (unavailable while editing in Today)")
+                                                      : language.t("刪除課次", "Delete Session"), systemImage: "trash")
                                             }
+                                            .disabled(isOpenInToday(session))
                                         }
                                     }
                                 }
@@ -274,7 +277,7 @@ struct HistoryListView: View {
             .navigationTitle(language.t("歷史 (\(sessions.count))", "History (\(sessions.count))"))
             .navigationDestination(for: String.self) { sessionId in
                 if let session = sessions.first(where: { $0.id == sessionId }) {
-                    SessionDetailView(session: session, onEditInToday: draft == nil ? nil : { openInToday(session) })
+                    SessionDetailView(session: session, onEditInToday: draft == nil ? nil : { openInToday(session) }, draft: draft)
                 }
             }
             .toolbar {
@@ -316,7 +319,7 @@ struct HistoryListView: View {
                         } label: {
                             Label(language.t("清空全部歷史", "Clear All History"), systemImage: "trash")
                         }
-                        .disabled(currentClient == nil || sessions.isEmpty)
+                        .disabled(currentClient == nil || sessions.isEmpty || sessions.contains(where: isOpenInToday))
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -491,8 +494,13 @@ struct HistoryListView: View {
         )
     }
 
+    private func isOpenInToday(_ session: WorkoutSession) -> Bool {
+        draft?.isEditing(sessionID: session.id) == true
+    }
+
     private func deleteSession(_ session: WorkoutSession) {
         pendingDeleteSession = nil
+        guard !isOpenInToday(session) else { return }
         modelContext.delete(session)
         do {
             try modelContext.save()
@@ -513,6 +521,7 @@ struct HistoryListView: View {
     /// documented SwiftData predicate limitations (see the type's own
     /// `sessions` doc comment above).
     private func clearAllSessions() {
+        guard !sessions.contains(where: isOpenInToday) else { return }
         for session in sessions {
             modelContext.delete(session)
         }

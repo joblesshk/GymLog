@@ -87,7 +87,11 @@ struct SessionEditSheet: View {
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundStyle(DS.C.textHi)
                                 ForEach(entry.orderedSets, id: \.persistentModelID) { set in
-                                    EditableSetRow(setIndex: set.setIndex, draft: draftBinding(for: set), loadKind: entry.exercise.map { LoadWheelResolver.kind(for: $0, historicalBandColors: []) } ?? .absolute)
+                                    EditableSetRow(setIndex: set.setIndex, draft: draftBinding(for: set), loadKind: entry.exercise.map { exercise in
+                                        // Same observed colors the Today editor offers, from this exercise's own history.
+                                        let colors = LoadWheelResolver.bandColorIndex(entries: exercise.entries ?? [])[exercise.id] ?? []
+                                        return LoadWheelResolver.kind(for: exercise, historicalBandColors: colors)
+                                    } ?? .absolute)
                                     if set.persistentModelID != entry.orderedSets.last?.persistentModelID {
                                         Divider().overlay(DS.C.hairlineSoft)
                                     }

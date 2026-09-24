@@ -110,7 +110,7 @@ public struct SetEditDraft: Equatable {
     /// input (CONTRACT.md §11.4's "never crash on unrecognized data" spirit
     /// applied to hand-typed corrections too).
     public static let maxQuantity = 100_000
-    public static let maxKg = 2_000.0
+    public static let maxKg = LoadSelectionDraft.maxKilograms
 
     /// `nil` when every editable field on this set is valid; otherwise a
     /// short, user-facing reason. Checked before Save is enabled AND again
@@ -148,7 +148,7 @@ public struct SetEditDraft: Equatable {
         guard loadChanged || targetChanged || actualChanged else { return }
         if let loadOverride { set.load = loadOverride }
         else if loadChanged, isWeightEditable, let kg = Double(kgText ?? "") {
-            let raw = originalLoad.hasExplicitLoadMode ? "absolute: \(kgText ?? "") kg" : kgText ?? ""
+            let raw = originalLoad.hasExplicitLoadMode ? LoadValue.explicitRaw(mode: "absolute", number: kgText ?? "", unit: .kg) : kgText ?? ""
             set.load = .absolute(kg: kg, raw: raw)
         }
         switch kind {
@@ -177,7 +177,14 @@ public struct SetEditDraft: Equatable {
         set.isInferred = false
     }
 
+    /// At most three decimals, trailing zeros removed, always with ".". Full
+    /// precision is not needed for display: untouched fields are never
+    /// written back (see `apply(to:)`).
     public static func formatNumber(_ value: Double) -> String {
-        value == value.rounded() ? String(format: "%.0f", value) : String(value)
+        if value == value.rounded() { return String(format: "%.0f", value) }
+        var text = String(format: "%.3f", value)
+        while text.hasSuffix("0") { text.removeLast() }
+        if text.hasSuffix(".") { text.removeLast() }
+        return text
     }
 }

@@ -12,6 +12,10 @@ struct SessionDetailView: View {
     /// 2026-09-09：把这一节载回「今天」做完整编辑（加/删动作、改 WOD、调段落），
     /// 由 `HistoryListView` 注入。`nil` 时不显示这个入口。
     var onEditInToday: (() -> Void)? = nil
+    /// The Today draft, if any; used only to lock quick edits while this
+    /// session is open there (see `TodayDraftStore.isEditing(sessionID:)`).
+    var draft: TodayDraftStore? = nil
+    private var isOpenInToday: Bool { draft?.isEditing(sessionID: session.id) == true }
 
     // 历史课次编辑及补录日期（2026-09-06 审查报告"适合当前范围的功能"第二批）。
     @State private var showingEditSheet = false
@@ -143,16 +147,20 @@ struct SessionDetailView: View {
                             onEditInToday()
                         } label: {
                             Label(
-                                session.isInProgress ? L("繼續記錄", "Continue Session") : L("在「今天」中完整編輯", "Full Edit in Today"),
-                                systemImage: session.isInProgress ? "play.fill" : "square.and.pencil"
+                                isOpenInToday ? L("回到「今天」繼續編輯", "Return to Editing in Today")
+                                    : session.isInProgress ? L("繼續記錄", "Continue Session") : L("在「今天」中完整編輯", "Full Edit in Today"),
+                                systemImage: session.isInProgress || isOpenInToday ? "play.fill" : "square.and.pencil"
                             )
                         }
                     }
                     Button {
                         showingEditSheet = true
                     } label: {
-                        Label(L("快速修正數字／日期", "Quick Fix Numbers / Date"), systemImage: "pencil")
+                        Label(isOpenInToday ? L("快速修正（「今天」編輯中，不可用）", "Quick Fix (unavailable while editing in Today)")
+                                            : L("快速修正數字／日期", "Quick Fix Numbers / Date"), systemImage: "pencil")
                     }
+                    .disabled(isOpenInToday)
+                    .accessibilityIdentifier("session-detail-quick-fix")
                     Button {
                         shareSessionResult()
                     } label: {

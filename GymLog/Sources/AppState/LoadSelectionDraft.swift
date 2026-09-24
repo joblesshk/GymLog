@@ -20,8 +20,25 @@ extension LoadValue {
         return text.range(of: #"\d\s*lbs?$"#, options: .regularExpression) == nil ? .kg : .lb
     }
 
+    // MARK: Explicit-mode raw text contract
+    //
+    // A load chosen in the load editor is stored with raw text
+    // "<mode>: <number> <unit>", e.g. "absolute: 45 lb". The prefix marks the
+    // kind as the user's explicit choice rather than an import default, so an
+    // added weight on an assisted exercise is not reinterpreted as assistance
+    // (AnalyticsMath.comparableKg, TrainingInsights). Backup, exchange and
+    // draft snapshots carry `raw` verbatim; any new path that rewrites raw
+    // must build it with `explicitRaw` or the kind's meaning can change.
+    // Covered by `LoadExplicitModeContractTests`.
+    static let explicitModePrefixes = ["absolute", "perSide", "assisted", "sled"]
+
+    public static func explicitRaw(mode: String, number: String, unit: LoadWeightUnit) -> String {
+        assert(explicitModePrefixes.contains(mode), "not a numeric load mode: \(mode)")
+        return "\(mode): \(number) \(unit.rawValue)"
+    }
+
     public var hasExplicitLoadMode: Bool {
-        ["absolute:", "perSide:", "assisted:", "sled:"].contains { raw.hasPrefix($0) }
+        Self.explicitModePrefixes.contains { raw.hasPrefix($0 + ":") }
     }
 
     public var weightNumber: Double? {
@@ -44,6 +61,12 @@ extension LoadValue {
 /// to the session. Existing imported values remain byte-for-byte unchanged when
 /// the user confirms without edits.
 public struct LoadSelectionDraft {
+    /// One physical limit for every load editor (Today, Superset, history
+    /// quick fix): 1000 kg ≈ 2204.6 lb. Anything above is almost certainly a
+    /// typo, and it would otherwise become a permanent max-load/PR record.
+    public static let maxKilograms = 1000.0
+    public static let maxNumberInAnyUnit = maxKilograms / LoadWeightUnit.lb.kilogramsPerUnit
+
     public enum Mode: String, CaseIterable {
         case absolute, perSide, assisted, band, bodyweight, machineStack, sled, custom
         public var isNumeric: Bool { [.absolute, .perSide, .assisted, .sled].contains(self) }
@@ -77,7 +100,7 @@ public struct LoadSelectionDraft {
             if !raw.isEmpty { mode = .custom }
             else {
                 switch suggested {
-                case .absolute: mode = suggested == .assisted && !load.hasExplicitLoadMode ? .assisted : .absolute
+                case .absolute: mode = .absolute
                 case .perSide: mode = .perSide
                 case .assisted: mode = .assisted
                 case .bodyweightPlus: mode = .bodyweight
@@ -90,13 +113,17 @@ public struct LoadSelectionDraft {
 
     public static func parseNumber(_ text: String) -> Double? {
         let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: ",", with: ".")
-        guard let value = Double(normalized), value.isFinite, value >= 0, value <= 100_000 else { return nil }
+        guard let value = Double(normalized), value.isFinite, value >= 0, value <= maxNumberInAnyUnit else { return nil }
         return value
     }
 
     public var validationError: String? {
         if fields == initial { return nil }
-        if mode.isNumeric, Self.parseNumber(number) == nil { return L("請輸入 0～100000 的重量", "Enter a weight from 0 to 100000") }
+        if mode.isNumeric {
+            guard let value = Self.parseNumber(number), value * unit.kilogramsPerUnit <= Self.maxKilograms else {
+                return L("請輸入 0～1000 kg（約 2204.6 lb）之間的重量", "Enter a weight from 0 to 1000 kg (about 2204.6 lb)")
+            }
+        }
         if mode == .band {
             guard !bandColor.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   let count = Int(bandCount), (1...1000).contains(count) else {
@@ -113,9 +140,11 @@ public struct LoadSelectionDraft {
         if fields == initial { return original }
         guard validationError == nil else { return nil }
         if mode.isNumeric {
-            guard let value = Self.parseNumber(number) else { return nil }
+            // Stored text and kilograms use the same 3-decimal value.
+            guard let parsed = Self.parseNumber(number) else { return nil }
+            let value = (parsed * 1000).rounded() / 1000
             let kg = value * unit.kilogramsPerUnit
-            let raw = "\(mode.rawValue): \(SetEditDraft.formatNumber(value)) \(unit.rawValue)"
+            let raw = LoadValue.explicitRaw(mode: mode.rawValue, number: SetEditDraft.formatNumber(value), unit: unit)
             switch mode {
             case .absolute: return .absolute(kg: kg, raw: raw)
             case .perSide: return .perSide(kg: kg, raw: raw)
@@ -136,5 +165,23 @@ public struct LoadSelectionDraft {
         case .custom: return .pinLoad(desc: description, raw: description)
         default: return nil
         }
+    }
+}
+
+extension LoadSelectionDraft {
+    /// A confirmation prompt when a changed numeric load is far above the value
+    /// being replaced (at least double and 20 kg more), or above 300 kg when
+    /// there is no numeric reference. `nil` when no confirmation is needed.
+    public var outlierConfirmation: String? {
+        guard fields != initial, mode.isNumeric, let value = resolved()?.numericKilograms else { return nil }
+        if let reference = original.numericKilograms, reference > 0 {
+            guard value >= reference * 2, value - reference >= 20 else { return nil }
+            let ratio = SetEditDraft.formatNumber((value / reference * 10).rounded() / 10)
+            let previous = SetEditDraft.formatNumber(reference)
+            return L("新重量約為原來 \(previous) kg 的 \(ratio) 倍，確定沒有輸入錯誤嗎？",
+                     "The new load is about \(ratio)× the previous \(previous) kg. Is it correct?")
+        }
+        guard value > 300 else { return nil }
+        return L("重量超過 300 kg，確定沒有輸入錯誤嗎？", "The load is above 300 kg. Is it correct?")
     }
 }

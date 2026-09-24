@@ -60,6 +60,14 @@ public final class TodayDraftStore {
         isActive && !blocks.isEmpty
     }
 
+    /// The persisted session this open draft will overwrite on its next save.
+    /// History must not quick-edit or delete it meanwhile: a later save
+    /// rebuilds the session from the draft (losing quick fixes), and saving
+    /// after a delete would recreate it under a new id.
+    public func isEditing(sessionID: String) -> Bool {
+        isActive && persistedSessionID == sessionID
+    }
+
     public func startNew(clientID: String, date: Date = Date()) {
         self.clientID = clientID
         self.sessionDate = date
