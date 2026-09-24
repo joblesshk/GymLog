@@ -30,22 +30,15 @@ public enum PrefillResolver {
     public static let defaultRepTarget = RepTarget.fixed(value: 10, raw: "10")
     public static let defaultLoad = LoadValue.absolute(kg: 20, raw: "20")
 
-    /// Equipment-aware variant of `defaultLoad`: a never-before-recorded
-    /// `.bodyweight` exercise should prefill at "自重" (no added weight),
-    /// not the generic 20kg default -- that generic default predates the
-    /// `.bodyweightPlus` wheel (`LoadWheelResolver.swift`) and was only ever
-    /// meant for weighted equipment.
-    public static func defaultLoad(for equipment: Equipment) -> LoadValue {
-        equipment == .bodyweight ? .bodyweight(raw: "BW") : defaultLoad
-    }
-
-    /// Only new defaults use the exercise classification. Historical and explicit
-    /// loads are returned verbatim by the prefill path below.
+    /// The single source of new-entry default loads: assistance for
+    /// lower-is-stronger exercises, "自重" for bodyweight equipment, per-side
+    /// for unilateral exercises, otherwise the generic 20 kg. Historical and
+    /// explicit loads are returned verbatim by the prefill path below.
     public static func defaultLoad(for exercise: Exercise) -> LoadValue {
         if exercise.loadDirection == .lowerIsStronger { return .assisted(kg: 20, raw: "20") }
         if exercise.equipment == .bodyweight { return .bodyweight(raw: "BW") }
         if exercise.isUnilateral { return .perSide(kg: 20, raw: "20") }
-        return defaultLoad(for: exercise.equipment)
+        return defaultLoad
     }
 
     public static func resolvedPrefill(clientID: String, exercise: Exercise, in context: ModelContext) -> Prefill {
@@ -84,12 +77,5 @@ public enum PrefillResolver {
             }
         }
         return nil
-    }
-
-    /// Convenience wrapper returning always-usable prefill values (falls
-    /// back to the documented defaults instead of `nil`).
-    public static func resolvedPrefill(clientID: String, exerciseID: String, equipment: Equipment = .other, in context: ModelContext) -> Prefill {
-        lastRecord(clientID: clientID, exerciseID: exerciseID, in: context)
-            ?? Prefill(sets: defaultSets, targetRepTarget: defaultRepTarget, actualRepTarget: defaultRepTarget, load: defaultLoad(for: equipment), sourceSessionDate: .distantPast)
     }
 }

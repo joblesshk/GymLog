@@ -35,7 +35,7 @@ final class ReviewRegressionTests: XCTestCase {
         setIndex: 0, load: .absolute(kg: 60, raw: "60"), target: .fixed(value: 10, raw: "10"),
         actual: .unknown(raw: "pain stopped"), isInferred: false)
     ]
-    let rounds = SessionDraftLoader.rounds(from: sets, metric: .reps, equipment: .barbell)
+    let rounds = SessionDraftLoader.rounds(from: sets, metric: .reps, defaultLoad: PrefillResolver.defaultLoad)
     let draft = EntryDraft(exercise: e, rounds: rounds, recordingMetric: .reps)
     XCTAssertEqual(draft.resolvedSets()[0].actual, .unknown(raw: "pain stopped"))
     let data = try JSONEncoder().encode(draft.snapshot())

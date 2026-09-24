@@ -165,10 +165,22 @@ final class M3AnalyticsMathTests: XCTestCase {
         }
     }
 
-    func testVolume_ambiguousPerSideLoadFixedActual_isExcludedNotGuessed() {
-        // perSide LOAD with a plain fixed rep count is ambiguous (is the
-        // fixed count total or per-side?) -- must be excluded, not guessed.
-        XCTAssertNil(AnalyticsMath.setVolume(load: .perSide(kg: 12, raw: "12each"), actual: .fixed(value: 10, raw: "10")))
+    func testVolume_perSideLoadPlainReps_countsRepsOnEachSide() {
+        // 2026-09-25 decision: a plain rep count with a per-side load means
+        // that many reps on each side (12 kg × 10 × 2).
+        XCTAssertEqual(AnalyticsMath.setVolume(load: .perSide(kg: 12, raw: "12each"), actual: .fixed(value: 10, raw: "10")), 240)
+        XCTAssertFalse(AnalyticsMath.isVolumeEstimated(load: .perSide(kg: 12, raw: "12each"), actual: .fixed(value: 10, raw: "10")))
+        XCTAssertEqual(AnalyticsMath.setVolume(load: .perSide(kg: 12, raw: "12each"), actual: .range(low: 8, high: 12, raw: "8-12")), 240)
+        XCTAssertTrue(AnalyticsMath.isVolumeEstimated(load: .perSide(kg: 12, raw: "12each"), actual: .range(low: 8, high: 12, raw: "8-12")))
+        XCTAssertEqual(AnalyticsMath.comparableKg(.perSide(kg: 12, raw: "12each")), 12, "rule ③: max load is never doubled")
+    }
+
+    func testVolume_newUnilateralExerciseDefaultLoadCountsTowardVolume() {
+        let row = Exercise(id: "ex-row", canonicalName: "Dumbbell single arm row", aliases: [], movementPattern: .pull, equipment: .dumbbell,
+                           loadDirection: .higherIsStronger, isUnilateral: true, occurrenceCount: 0, needsReview: false, reviewReason: nil)
+        let load = PrefillResolver.defaultLoad(for: row)
+        XCTAssertEqual(load, .perSide(kg: 20, raw: "20"))
+        XCTAssertEqual(AnalyticsMath.setVolume(load: load, actual: .fixed(value: 10, raw: "10")), 400)
     }
 
     // MARK: - Completed-reps metric

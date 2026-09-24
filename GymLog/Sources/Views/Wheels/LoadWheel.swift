@@ -22,7 +22,8 @@ struct LoadPickerSheet: View {
         originalMode = LoadSelectionDraft(load: load.wrappedValue, suggested: kind).mode
         _load = load
         _draft = State(initialValue: LoadSelectionDraft(load: load.wrappedValue, suggested: kind))
-        if case .band(let values) = kind { colors = values + historicalBandColors }
+        // A `.band` kind is already built from the same historical colors.
+        if case .band(let values) = kind { colors = values }
         else { colors = historicalBandColors + LoadWheelResolver.fallbackBandColors }
     }
 

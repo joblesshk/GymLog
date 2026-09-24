@@ -160,7 +160,7 @@ final class M2PrefillResolverTests: XCTestCase {
         context.insert(bench)
         try context.save()
 
-        let prefill = PrefillResolver.resolvedPrefill(clientID: client.id, exerciseID: bench.id, in: context)
+        let prefill = PrefillResolver.resolvedPrefill(clientID: client.id, exercise: bench, in: context)
         XCTAssertEqual(prefill.sets, 3, "CONTRACT-UI.md §3.2 default: 3 组")
         guard case .fixed(let reps, _) = prefill.targetRepTarget else { return XCTFail("expected .fixed") }
         XCTAssertEqual(reps, 10, "CONTRACT-UI.md §3.2 default: 10")
@@ -186,7 +186,7 @@ final class M2PrefillResolverTests: XCTestCase {
         context.insert(plank)
         try context.save()
 
-        let prefill = PrefillResolver.resolvedPrefill(clientID: client.id, exerciseID: plank.id, equipment: .bodyweight, in: context)
+        let prefill = PrefillResolver.resolvedPrefill(clientID: client.id, exercise: plank, in: context)
         guard case .bodyweight = prefill.load else { return XCTFail("expected .bodyweight, got \(prefill.load)") }
     }
 

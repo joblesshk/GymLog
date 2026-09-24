@@ -52,6 +52,13 @@ public enum AnalyticsMath {
     /// ③ (which forbids doubling a `.perSide` LOAD) — here the load is a
     /// single absolute number and both legs' reps are genuine completed
     /// reps at that load, so summing them is correct, not a doubling error.
+    ///
+    /// Amendment (2026-09-25, user decision): `.perSide(kg)` load + a plain
+    /// `.fixed`/`.range` rep count means that many reps on EACH side, so it
+    /// counts as `kg × reps × 2`, consistent with `.perSide` + `.perSide`
+    /// (`kg × (left + right)`). New unilateral exercises default to a
+    /// per-side load, so excluding this pair dropped their sets from volume.
+    /// Rule ③ still applies to comparable/max load, which is never doubled.
     public static func setVolume(load: LoadValue, actual: RepTarget) -> Double? {
         switch (load, actual) {
         case (.absolute(let kg, _), .fixed(let reps, _)):
@@ -65,12 +72,14 @@ public enum AnalyticsMath {
             return kg * Double(left + right)
         case (.perSide(let kg, _), .perSide(let left, let right, _)):
             return kg * Double(left + right)
+        case (.perSide(let kg, _), .fixed(let reps, _)):
+            return kg * Double(reps) * 2
+        case (.perSide(let kg, _), .range(let low, let high, _)):
+            return kg * (Double(low + high) / 2) * 2
         default:
             // Includes: bodyweight/band/machineStack/pinLoad/sled/unknown
             // loads; time/distance/rounds/unknown actuals; and any other
-            // load×actual combination not explicitly whitelisted above
-            // (e.g. `.perSide` load + `.fixed` actual — ambiguous whether
-            // the fixed count is total or per-side, so "算不了就不算").
+            // load×actual combination not explicitly whitelisted above.
             return nil
         }
     }
@@ -78,8 +87,11 @@ public enum AnalyticsMath {
     /// True iff `setVolume` computed its result from a range-actual
     /// midpoint (the one case in the table that is an estimate, not exact).
     public static func isVolumeEstimated(load: LoadValue, actual: RepTarget) -> Bool {
-        if case .absolute = load, case .range = actual { return true }
-        return false
+        guard case .range = actual else { return false }
+        switch load {
+        case .absolute, .perSide: return true
+        default: return false
+        }
     }
 
     // MARK: - Rule ③ — comparable load, never doubling `.perSide`
