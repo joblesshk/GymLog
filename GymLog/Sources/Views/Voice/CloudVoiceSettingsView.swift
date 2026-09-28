@@ -5,11 +5,19 @@ struct CloudVoiceSettingsView: View {
     @State private var config = CloudVoiceConfiguration.load()
     @State private var message = ""
     @State private var checking = false
+    @State private var consented = CloudDataConsent.isGranted
+    @State private var showingConsent = false
+    private let configured = CloudRelaySession.isConfigured
     var body: some View {
         Form {
-            Section("自備雲端服務") {
-                Label(CloudRelaySession.isConfigured ? "已設定服務地址" : "尚未設定服務地址", systemImage: "network")
-                Text("此版本不附帶雲端服務。請依專案部署說明設定自己的服務地址，並將供應商密鑰保存在服務端。離線記錄和熱量估算不受影響。")
+            // Builds without a relay address are self-hosted checkouts; App Store builds ship one.
+            Section(configured ? L("雲端服務", "Cloud Service") : L("自備雲端服務", "Self-Hosted Service")) {
+                Label(configured ? L("已連接 GymLog 雲端服務", "GymLog cloud service available") : L("尚未設定服務地址", "No service address set"), systemImage: "network")
+                Text(configured
+                     ? L("語音安排和 AI 訓練評價需要網絡連接。離線記錄和熱量估算不受影響。",
+                         "Voice planning and AI training review need a network connection. Offline logging and energy estimates are unaffected.")
+                     : L("此版本不附帶雲端服務。請依專案部署說明設定自己的服務地址，並將供應商密鑰保存在服務端。離線記錄和熱量估算不受影響。",
+                         "This build has no cloud service. Follow the project's deployment guide to set your own service address and keep provider keys on the server. Offline logging and energy estimates are unaffected."))
                     .font(.footnote)
                 Button(checking ? "正在檢查…" : "檢查連接") {
                     checking = true
@@ -24,9 +32,18 @@ struct CloudVoiceSettingsView: View {
                 }.disabled(checking || !CloudRelaySession.isConfigured).accessibilityIdentifier("cloud-voice-check-connection")
                 if !message.isEmpty { Text(message).font(.footnote) }
             }
-            Section("資料處理") {
-                Text("錄音、轉寫文字及訓練上下文經 Cloudflare 中轉至語音識別和文字理解服務。錄音不在本機長期保存。供應商密鑰保存在服務端，不會下載至你的手機。")
+            Section(L("資料處理", "Data Handling")) {
+                Text(L("錄音、轉寫文字及訓練上下文經 Cloudflare 中轉，由火山引擎（字節跳動）識別語音、DeepSeek 理解指令和生成評價；這些服務可能在中國大陸處理資料。錄音不在本機長期保存。供應商密鑰保存在服務端，不會下載至你的手機。",
+                       "Recordings, transcripts and training context are relayed through Cloudflare; Volcengine (ByteDance) recognizes speech and DeepSeek interprets commands and writes reviews. These services may process data in mainland China. Recordings are not kept on this device, and provider keys stay on the server."))
                     .font(.footnote)
+                LabeledContent(L("同意狀態", "Consent"), value: consented ? L("已同意", "Agreed") : L("未同意", "Not agreed"))
+                if consented {
+                    Button(L("撤回同意", "Withdraw Consent"), role: .destructive) { CloudDataConsent.revoke(); consented = false }
+                        .accessibilityIdentifier("cloud-consent-withdraw")
+                } else {
+                    Button(L("查看說明並同意", "Review and Agree")) { showingConsent = true }
+                        .accessibilityIdentifier("cloud-consent-review")
+                }
             }
             Section {
                 Stepper("最多注入 \(config.hotwordLimit) 個熱詞", value: $config.hotwordLimit, in: 50...2000, step: 50)
@@ -39,5 +56,13 @@ struct CloudVoiceSettingsView: View {
             }
         }
         .navigationTitle("雲端連接")
+        .sheet(isPresented: $showingConsent) {
+            ScrollView {
+                CloudConsentView(onAgree: { CloudDataConsent.grant(); consented = true; showingConsent = false },
+                                 onDecline: { showingConsent = false })
+                    .padding(24)
+            }
+            .background(DS.C.canvas)
+        }
     }
 }

@@ -5,8 +5,11 @@ import os
 /// malformed LoadValue/RepTarget payloads, etc). Centralized here so every
 /// "degraded gracefully" event in the model layer goes through one place,
 /// per CONTRACT.md §11.4 ("未知枚举值降级为兜底分支... 记录日志，不得崩溃").
+/// The running app's bundle identifier, so logs file under the shipping ID in Console.
+let gymLogLogSubsystem = Bundle.main.bundleIdentifier ?? "org.example.gymlog"
+
 enum ImportLog {
-    static let logger = Logger(subsystem: "org.example.gymlog", category: "import")
+    static let logger = Logger(subsystem: gymLogLogSubsystem, category: "import")
 
     /// Ring buffer of human-readable fallback messages collected during the
     /// most recent import run, surfaced in the import summary UI so a coach

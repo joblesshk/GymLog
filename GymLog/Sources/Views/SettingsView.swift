@@ -172,8 +172,8 @@ struct SettingsView: View {
                         .sectionLabelStyle()
                 } footer: {
                     Text(language.t(
-                        "設定語音識別與指令理解服務。密鑰保存在本機鑰匙串。",
-                        "Configure cloud speech and command services. Credentials stay in the local Keychain."
+                        "查看雲端連接、本月用量和資料處理說明，或撤回同意。",
+                        "Check the cloud connection, this month's usage and data handling, or withdraw consent."
                     ))
                     .font(.caption)
                     .foregroundStyle(DS.C.textLow)

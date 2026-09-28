@@ -43,6 +43,9 @@ struct GymLogApp: App {
             // UI tests look up Traditional Chinese labels; a language chosen in an earlier run
             // must not leak into this one.
             UserDefaults.standard.removeObject(forKey: "appLanguage")
+            // Cloud UI tests use a local fixture transport; only the consent test asks first.
+            if ProcessInfo.processInfo.arguments.contains("-uiTestingRequireCloudConsent") { CloudDataConsent.revoke() }
+            else { CloudDataConsent.grant() }
         }
         let schema = Schema([
             Client.self,

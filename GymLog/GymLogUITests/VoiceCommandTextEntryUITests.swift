@@ -55,6 +55,22 @@ final class VoiceCommandTextEntryUITests: XCTestCase {
         app.buttons["今天"].tap(); open(app)
         XCTAssertTrue(app.buttons["voice-command-mic-button"].exists)
     }
+    func testConsentRequiredBeforeCloudPanelAndCanBeWithdrawn() {
+        let app = XCUIApplication(); app.launchArguments = ["-uiTesting", "-cloudVoiceUITesting", "-uiTestingRequireCloudConsent"]
+        app.launch(); XCTAssertTrue(app.buttons["start-empty-session-button"].waitForExistence(timeout: 15))
+        app.buttons["global-voice-button"].tap()
+        XCTAssertTrue(app.buttons["cloud-consent-agree"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["voice-command-mic-button"].exists)
+        let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = "Cloud consent"; attachment.lifetime = .keepAlways; add(attachment)
+        app.buttons["cloud-consent-agree"].tap()
+        XCTAssertTrue(app.buttons["voice-command-mic-button"].waitForExistence(timeout: 5))
+        let link = app.buttons["cloud-voice-settings-link"]
+        app.swipeUp(); XCTAssertTrue(link.waitForExistence(timeout: 5)); link.tap()
+        let withdraw = app.buttons["cloud-consent-withdraw"]
+        if !withdraw.waitForExistence(timeout: 3) { app.swipeUp() }
+        XCTAssertTrue(withdraw.waitForExistence(timeout: 5)); withdraw.tap()
+        XCTAssertTrue(app.buttons["cloud-consent-review"].waitForExistence(timeout: 5))
+    }
     func testSettingsNeedsNoProviderCredentials() {
         let app = launch(); open(app)
         let link = app.buttons["cloud-voice-settings-link"]

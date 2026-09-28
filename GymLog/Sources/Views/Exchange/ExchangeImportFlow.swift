@@ -212,5 +212,6 @@ struct ExchangeImportFlow: View {
 /// `.fileImporter` picker still works either way, just without the nicer
 /// registered type name.
 enum ExchangeUTType {
-    static let gymlogShare: UTType = UTType(exportedAs: "org.example.gymlog.share")
+    // Mirrors `$(PRODUCT_BUNDLE_IDENTIFIER).share` in project.yml.
+    static let gymlogShare: UTType = UTType(exportedAs: (Bundle.main.bundleIdentifier ?? "org.example.gymlog") + ".share")
 }

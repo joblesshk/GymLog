@@ -18,6 +18,16 @@ final class CloudRelayTests: XCTestCase {
         XCTAssertNil(a.value(forHTTPHeaderField: "X-Api-Access-Key"))
         XCTAssertThrowsError(try CloudRelaySession.request(credential: "invalid"))
     }
+    func testNoGrantIsRequestedBeforeCloudConsent() async {
+        let saved = UserDefaults.standard.object(forKey: CloudDataConsent.key)
+        defer { UserDefaults.standard.set(saved, forKey: CloudDataConsent.key) }
+        CloudDataConsent.revoke()
+        XCTAssertFalse(CloudDataConsent.isGranted)
+        let relay = CloudRelaySession(credential: { XCTFail("installation credential read before consent"); return "" })
+        do { _ = try await relay.token(); XCTFail("token issued without consent") } catch {}
+        CloudDataConsent.grant()
+        XCTAssertTrue(CloudDataConsent.isGranted)
+    }
     func testRelayErrorsDistinguishRateLimitBudgetAndReplay() throws {
         func message(_ body: String, status: Int = 429, retry: String? = nil) -> String? {
             let response = HTTPURLResponse(url: URL(string: "https://example.invalid")!, statusCode: status,

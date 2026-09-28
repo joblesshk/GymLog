@@ -14,11 +14,34 @@ struct VoiceCommandPanel: View {
     @State private var inputText = ""
     @State private var editingText = false
     @FocusState private var textFocused: Bool
+    @State private var consented = CloudDataConsent.isGranted
     private var recording: Bool { coordinator.recordingSession.status == .recording }
     private var processing: Bool { coordinator.busy || coordinator.recordingSession.status == .processing }
 
     var body: some View {
         NavigationStack {
+            Group { if consented { commandContent } else { consentContent } }
+                .background(DS.C.canvas)
+                .navigationTitle("語音安排").navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { coordinator.closePanel(); dismiss() } } }
+        }
+        .presentationDetents([.large])
+        .interactiveDismissDisabled(processing || recording)
+        .onChange(of: coordinator.recordingSession.finalTranscript) { _, value in
+            if value != nil { coordinator.acceptRecording(draft: draft, exercises: allExercises, clientID: clientID, context: context) }
+        }
+        .onDisappear { coordinator.cancel() }
+    }
+
+    private var consentContent: some View {
+        ScrollView {
+            CloudConsentView(onAgree: { CloudDataConsent.grant(); consented = true },
+                             onDecline: { coordinator.closePanel(); dismiss() })
+                .padding(24)
+        }
+    }
+
+    private var commandContent: some View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -111,15 +134,6 @@ struct VoiceCommandPanel: View {
                             .font(.caption2).foregroundStyle(DS.C.textLow)
                     }
                 }.padding(24)
-            }.background(DS.C.canvas)
-                .navigationTitle("語音安排").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { coordinator.closePanel(); dismiss() } } }
-        }
-        .presentationDetents([.large])
-        .interactiveDismissDisabled(processing || recording)
-        .onChange(of: coordinator.recordingSession.finalTranscript) { _, value in
-            if value != nil { coordinator.acceptRecording(draft: draft, exercises: allExercises, clientID: clientID, context: context) }
-        }
-        .onDisappear { coordinator.cancel() }
+            }
     }
 }

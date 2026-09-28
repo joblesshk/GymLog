@@ -270,6 +270,7 @@ struct TrainingInsightView: View {
     @State private var busy = false
     @State private var error: String?
     @State private var showLimitations = false
+    @State private var showingConsent = false
 
     private var report: EnergyReport { TrainingInsights.report(session) }
     private var cloudReady: Bool { CloudVoiceConfiguration.load().hasLLM }
@@ -279,6 +280,17 @@ struct TrainingInsightView: View {
     // 生成一律走 `footer` 裡「生成評價」按鈕，教練自己按。
     var body: some View {
         reviewCard
+            .sheet(isPresented: $showingConsent) {
+                ScrollView {
+                    CloudConsentView(onAgree: {
+                        CloudDataConsent.grant(); showingConsent = false
+                        Task { await generate() }
+                    }, onDecline: { showingConsent = false })
+                    .padding(24)
+                }
+                .background(DS.C.canvas)
+                .presentationDetents([.large])
+            }
     }
 
     private var reviewCard: some View {
@@ -380,7 +392,7 @@ struct TrainingInsightView: View {
                     }
                     Spacer()
                     Button {
-                        Task { await generate() }
+                        requestGenerate()
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "arrow.clockwise")
@@ -394,7 +406,7 @@ struct TrainingInsightView: View {
                 }
             } else if !busy {
                 Button {
-                    Task { await generate() }
+                    requestGenerate()
                 } label: {
                     Label(hasReview ? L("更新評價", "Update Review") : (error == nil ? L("生成評價", "Generate Review") : L("重試", "Try Again")),
                           systemImage: hasReview ? "arrow.triangle.2.circlepath" : "sparkles")
@@ -414,6 +426,10 @@ struct TrainingInsightView: View {
         if report.lines.isEmpty { return L("這節課沒有可評價的訓練記錄。", "This session has no records to review.") }
         if !cloudReady { return L("尚未設定雲端服務，無法生成 AI 評價。可在「設置」中查看雲端設定。", "The cloud service isn't configured, so a review can't be generated. See cloud settings in Settings.") }
         return L("根據這節課的計劃、實際完成、目標與近期訓練給出觀察和建議；資料不足的地方會明確說明。", "Observations and suggestions based on this plan, the recorded results, the goal and recent training, with gaps called out.")
+    }
+
+    private func requestGenerate() {
+        if CloudDataConsent.isGranted { Task { await generate() } } else { showingConsent = true }
     }
 
     @MainActor private func generate() async {

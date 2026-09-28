@@ -57,7 +57,7 @@ public struct DraftPersistence {
     @discardableResult
     public func save(_ snapshot: TodayDraftSnapshot) -> Bool {
         guard !isBlockedByUnquarantinedCorruption() else {
-            Logger(subsystem: "org.example.gymlog", category: "draft").warning("DraftPersistence.save refused: an unquarantined corrupted draft is still on disk")
+            Logger(subsystem: gymLogLogSubsystem, category: "draft").warning("DraftPersistence.save refused: an unquarantined corrupted draft is still on disk")
             return false
         }
         do {
@@ -66,7 +66,7 @@ public struct DraftPersistence {
             try data.write(to: fileURL, options: .atomic)
             return true
         } catch {
-            Logger(subsystem: "org.example.gymlog", category: "draft").warning("DraftPersistence.save failed: \(String(describing: error), privacy: .public)")
+            Logger(subsystem: gymLogLogSubsystem, category: "draft").warning("DraftPersistence.save failed: \(String(describing: error), privacy: .public)")
             return false
         }
     }
@@ -108,7 +108,7 @@ public struct DraftPersistence {
     public func load() -> LoadResult {
         guard let data = try? Data(contentsOf: fileURL) else {
             if FileManager.default.fileExists(atPath: fileURL.path) {
-                Logger(subsystem: "org.example.gymlog", category: "draft").warning("DraftPersistence.load: file exists but could not be read (permissions?) -- treating as no draft, not deleting it")
+                Logger(subsystem: gymLogLogSubsystem, category: "draft").warning("DraftPersistence.load: file exists but could not be read (permissions?) -- treating as no draft, not deleting it")
             }
             return .none
         }
@@ -126,7 +126,7 @@ public struct DraftPersistence {
             // (`isBlockedByUnquarantinedCorruption`) now refuses to write
             // over this file until it's cleared or a later `load()` finally
             // manages to move it aside.
-            Logger(subsystem: "org.example.gymlog", category: "draft").warning("DraftPersistence.load: quarantine move failed, leaving corrupted file in place: \(String(describing: error), privacy: .public)")
+            Logger(subsystem: gymLogLogSubsystem, category: "draft").warning("DraftPersistence.load: quarantine move failed, leaving corrupted file in place: \(String(describing: error), privacy: .public)")
             return .corrupted(quarantinedTo: nil)
         }
     }

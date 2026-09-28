@@ -15,7 +15,7 @@
 			<string>Owner</string>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>org.example.gymlog.share</string>
+				<string>$(PRODUCT_BUNDLE_IDENTIFIER).share</string>
 			</array>
 		</dict>
 		<dict>
@@ -60,7 +60,7 @@
 			<key>UTTypeDescription</key>
 			<string>GymLog Share Package</string>
 			<key>UTTypeIdentifier</key>
-			<string>org.example.gymlog.share</string>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER).share</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>

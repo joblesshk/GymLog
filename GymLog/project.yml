@@ -64,7 +64,7 @@ targets:
       properties:
         GymLogRelayBaseURL: "$(GYMLOG_RELAY_BASE_URL)"
         UTExportedTypeDeclarations:
-          - UTTypeIdentifier: org.example.gymlog.share
+          - UTTypeIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER).share"
             UTTypeDescription: "GymLog Share Package"
             UTTypeConformsTo:
               - public.json
@@ -74,7 +74,7 @@ targets:
         CFBundleDocumentTypes:
           - CFBundleTypeName: "GymLog Share Package"
             LSItemContentTypes:
-              - org.example.gymlog.share
+              - "$(PRODUCT_BUNDLE_IDENTIFIER).share"
             LSHandlerRank: Owner
             CFBundleTypeRole: Editor
           - CFBundleTypeName: "GymLog Share Text"
@@ -87,17 +87,17 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: "$(GYMLOG_APP_BUNDLE_IDENTIFIER)"
-        TARGETED_DEVICE_FAMILY: "1,2"
+        TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: "AppIcon"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_CFBundleDisplayName: "GymLog"
-        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait"
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: "訓練時連接你的心率手環（如 Garmin CIRQA），在課次進行中顯示即時心率。"
-        INFOPLIST_KEY_NSMicrophoneUsageDescription: "錄下訓練指令並傳送至你設定的雲端語音識別服務，用來安排與修改訓練。"
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "錄下你說的訓練指令，經雲端語音識別轉成文字，用來安排與修改訓練。錄音不會在本機長期保存。"
 
         CURRENT_PROJECT_VERSION: "$(inherited)"
 

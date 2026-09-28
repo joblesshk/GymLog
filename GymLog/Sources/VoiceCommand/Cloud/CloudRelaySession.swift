@@ -47,6 +47,7 @@ public actor CloudRelaySession {
     }
     /// One operation grant, shared explicitly between its ASR and understanding stages.
     public func token() async throws -> String {
+        try CloudDataConsent.require()
         try Self.requireConfiguration()
         let request = try Self.request(credential: credential())
         let (data, response) = try await session.data(for: request)
