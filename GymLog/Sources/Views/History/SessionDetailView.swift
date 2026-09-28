@@ -126,7 +126,9 @@ struct SessionDetailView: View {
             // 2026-09-16：AI 訓練評價移到整頁最下面，且不再自動生成
             // （`TrainingInsightView` 已經拿掉那個 `.task` 自動觸發）——教練
             // 翻歷史課次的第一眼要看到的是這節課本身的數據，不是等雲端評價。
+                #if CLOUD_AI
                 TrainingInsightView(session: session)
+                #endif
             }
             .padding(.horizontal, DS.Space.pageMargin)
             .padding(.top, 12)

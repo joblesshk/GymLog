@@ -6,7 +6,9 @@
 
 Excel 解析和体测 OCR 使用本机代码及 Apple 框架。云端语音会将音频、转写及必要训练上下文发往配置的 Worker 和 ASR/语言模型服务。AI 评价会发送动作、计划/实际记录、目标、近期训练摘要和估算假设，以及本节和近期课次的热身、放松与训练块备注（备注可能写有伤痛或身体状况，会作为未经核实的文字发送）；不主动加入姓名、电话或完整病史。两项云端功能都须先在应用内明确同意，可在设置中撤回。
 
-应用隐私清单（`GymLog/Resources/PrivacyInfo.xcprivacy`）据此申报音频、其他用户内容、健身、健康和设备标识，用途均为 App Functionality，未关联身份、不用于追踪；`scripts/check-release-privacy.py` 会检查这些申报仍在。修改数据流时须同步更新清单、App Store Connect 隐私问卷和对外隐私政策。
+云端语音和 AI 评价默认不编译进应用（`GYMLOG_CLOUD_AI = NO`）：入口、麦克风代码和麦克风用途说明都不在构建产物中，应用不向任何服务发送数据，隐私清单（`GymLog/Resources/PrivacyInfo.xcprivacy`）不申报收集数据。App Store 首个版本按此发布。
+
+开启时在 `Local.xcconfig` 中 `#include "CloudAI.xcconfig"`，并恢复隐私清单中的五项申报（音频、其他用户内容、健身、健康、设备标识，用途均为 App Functionality，未关联身份、不用于追踪；见提交 5fd5412）。`scripts/check-release-privacy.py` 按构建产物判断：含麦克风用途说明的构建必须有这五项申报；不含的构建不得申报收集数据，也不得带麦克风代码。修改数据流时须同步更新清单、App Store Connect 隐私问卷和对外隐私政策。
 
 供应商密钥只由部署者保存在服务端。客户端将随机安装身份保存在 Keychain，并从 Worker 获取临时操作令牌。安装身份及额度状态可能由 Worker 持久化；不是个人账户，也不是硬件身份认证。
 

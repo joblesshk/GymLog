@@ -3,3 +3,5 @@ GYMLOG_RELAY_BASE_URL = https:/$()/YOUR_WORKER_HOST
 GYMLOG_APP_BUNDLE_IDENTIFIER = org.example.gymlog
 GYMLOG_KIT_BUNDLE_IDENTIFIER = org.example.gymlog.kit
 DEVELOPMENT_TEAM =
+// Cloud voice and AI review stay out of the build unless included (restore the privacy declarations first; see PRIVACY.md).
+// #include "CloudAI.xcconfig"

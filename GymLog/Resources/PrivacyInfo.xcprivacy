@@ -6,76 +6,11 @@
     <false/>
     <key>NSPrivacyTrackingDomains</key>
     <array/>
-    <!-- Sent only after in-app consent (CloudDataConsent), for voice planning and AI review.
-         Keep in step with the App Store Connect privacy answers and PRIVACY.md. -->
+    <!-- Shipping builds leave cloud AI out (GYMLOG_CLOUD_AI = NO), so nothing leaves the device.
+         Building it in requires restoring the five cloud declarations (commit 5fd5412); the release
+         check enforces whichever set matches the archive. -->
     <key>NSPrivacyCollectedDataTypes</key>
-    <array>
-        <!-- Voice recordings, relayed to the speech-recognition provider. -->
-        <dict>
-            <key>NSPrivacyCollectedDataType</key>
-            <string>NSPrivacyCollectedDataTypeAudioData</string>
-            <key>NSPrivacyCollectedDataTypeLinked</key>
-            <false/>
-            <key>NSPrivacyCollectedDataTypeTracking</key>
-            <false/>
-            <key>NSPrivacyCollectedDataTypePurposes</key>
-            <array>
-                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
-            </array>
-        </dict>
-        <!-- Typed commands, transcripts and free-text session notes. -->
-        <dict>
-            <key>NSPrivacyCollectedDataType</key>
-            <string>NSPrivacyCollectedDataTypeOtherUserContent</string>
-            <key>NSPrivacyCollectedDataTypeLinked</key>
-            <false/>
-            <key>NSPrivacyCollectedDataTypeTracking</key>
-            <false/>
-            <key>NSPrivacyCollectedDataTypePurposes</key>
-            <array>
-                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
-            </array>
-        </dict>
-        <!-- Training plans, recorded sets and goals. -->
-        <dict>
-            <key>NSPrivacyCollectedDataType</key>
-            <string>NSPrivacyCollectedDataTypeFitness</string>
-            <key>NSPrivacyCollectedDataTypeLinked</key>
-            <false/>
-            <key>NSPrivacyCollectedDataTypeTracking</key>
-            <false/>
-            <key>NSPrivacyCollectedDataTypePurposes</key>
-            <array>
-                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
-            </array>
-        </dict>
-        <!-- Body weight for energy estimates; notes may describe pain or health conditions. -->
-        <dict>
-            <key>NSPrivacyCollectedDataType</key>
-            <string>NSPrivacyCollectedDataTypeHealth</string>
-            <key>NSPrivacyCollectedDataTypeLinked</key>
-            <false/>
-            <key>NSPrivacyCollectedDataTypeTracking</key>
-            <false/>
-            <key>NSPrivacyCollectedDataTypePurposes</key>
-            <array>
-                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
-            </array>
-        </dict>
-        <!-- Random installation identifier (Keychain); the relay keeps its hash for usage limits. -->
-        <dict>
-            <key>NSPrivacyCollectedDataType</key>
-            <string>NSPrivacyCollectedDataTypeDeviceID</string>
-            <key>NSPrivacyCollectedDataTypeLinked</key>
-            <false/>
-            <key>NSPrivacyCollectedDataTypeTracking</key>
-            <false/>
-            <key>NSPrivacyCollectedDataTypePurposes</key>
-            <array>
-                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
-            </array>
-        </dict>
-    </array>
+    <array/>
     <key>NSPrivacyAccessedAPITypes</key>
     <array>
         <dict>

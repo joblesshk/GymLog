@@ -1,0 +1,6 @@
+// Builds cloud voice planning and AI review in. Include from Local.xcconfig only after restoring the
+// five collected-data declarations in PrivacyInfo.xcprivacy (see PRIVACY.md); the release check
+// refuses an archive whose manifest does not match.
+// A purpose string defined empty would still be written to Info.plist, so it lives only here.
+GYMLOG_CLOUD_AI = YES
+INFOPLIST_KEY_NSMicrophoneUsageDescription = 錄下你說的訓練指令，經雲端語音識別轉成文字，用來安排與修改訓練。錄音不會在本機長期保存。

@@ -165,7 +165,11 @@ final class TrainingInsightsUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting"]
         app.launch()
+        #if CLOUD_AI
         XCTAssertTrue(app.buttons["global-voice-button"].waitForExistence(timeout: 15))
+        #else
+        XCTAssertFalse(app.buttons["global-voice-button"].waitForExistence(timeout: 3), "builds without cloud AI must not show the voice entry")
+        #endif
         let start = app.buttons["start-empty-session-button"]
         XCTAssertTrue(start.waitForExistence(timeout: 15)); start.tap()
 
@@ -267,9 +271,14 @@ final class TrainingInsightsUITests: XCTestCase {
         if row.waitForExistence(timeout: 5) { row.tap() } else { app.cells.firstMatch.tap() }
 
         XCTAssertTrue(app.otherElements["training-energy-report"].waitForExistence(timeout: 8) || app.staticTexts["運動消耗"].waitForExistence(timeout: 2))
+        #if CLOUD_AI
         XCTAssertTrue(app.staticTexts["AI 訓練評價"].exists)
         XCTAssertTrue(app.staticTexts["下次建議"].exists || app.staticTexts["下次建議".uppercased()].exists)
         XCTAssertFalse(app.staticTexts["需要更新"].exists, "a freshly stored review must not be flagged as outdated")
+        #else
+        XCTAssertFalse(app.otherElements["training-review-card"].exists, "builds without cloud AI must not show the AI review, even for a stored one")
+        XCTAssertFalse(app.staticTexts["AI 訓練評價"].exists)
+        #endif
         let top = XCTAttachment(screenshot: app.screenshot()); top.name = "History insight cards"; top.lifetime = .keepAlways; add(top)
 
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'kcal'")).firstMatch.exists, "energy headline should show kcal")

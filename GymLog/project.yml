@@ -21,6 +21,9 @@ settings:
   configs:
     Debug:
       ENABLE_TESTABILITY: "YES"
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: "DEBUG $(GYMLOG_CLOUD_AI_CONDITION)"
+    Release:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(GYMLOG_CLOUD_AI_CONDITION)"
 targets:
   GymLogKit:
     type: framework
@@ -97,7 +100,6 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait"
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: "訓練時連接你的心率手環（如 Garmin CIRQA），在課次進行中顯示即時心率。"
-        INFOPLIST_KEY_NSMicrophoneUsageDescription: "錄下你說的訓練指令，經雲端語音識別轉成文字，用來安排與修改訓練。錄音不會在本機長期保存。"
 
         CURRENT_PROJECT_VERSION: "$(inherited)"
 

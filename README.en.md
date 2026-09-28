@@ -16,7 +16,7 @@ xcodebuild -project GymLog/GymLog.xcodeproj -scheme GymLog \
 bash scripts/test-ios.sh
 ```
 
-Device builds require your own Apple team and unique bundle identifiers. Cloud voice and training reviews require a separately deployed relay with provider secrets stored server-side. See [setup](docs/SETUP.md) and [relay deployment](backend/worker-relay/README.md).
+Device builds require your own Apple team and unique bundle identifiers. Cloud voice and training reviews are left out of the build by default; they require including `CloudAI.xcconfig` and a separately deployed relay with provider secrets stored server-side. See [setup](docs/SETUP.md) and [relay deployment](backend/worker-relay/README.md).
 
 ## Features and limits
 

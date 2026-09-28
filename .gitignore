@@ -59,6 +59,7 @@ backups/
 
 # Keep real deployment settings locally; GitHub receives only safe defaults.
 !GymLog/Config/Build.xcconfig
+!GymLog/Config/CloudAI.xcconfig
 /GymLog/Config/Local.xcconfig
 # iCloud/Finder conflict copies ("name 2", "name 2.ext") and local tool config
 * [0-9]

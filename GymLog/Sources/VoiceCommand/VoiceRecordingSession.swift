@@ -10,7 +10,9 @@ public final class VoiceRecordingSession {
     public var finalTranscript: String?
     public var operationToken: String?
     public private(set) var elapsedSeconds = 0
+    #if CLOUD_AI
     private let engine = AVAudioEngine()
+    #endif
     private var stream: VolcStreamingSession?
     private var worker: Task<Void, Never>?
     private var timer: Task<Void, Never>?
@@ -25,6 +27,7 @@ public final class VoiceRecordingSession {
     }
     public func start(locale: Locale = Locale(identifier: "zh-CN"), contextualStrings: [String] = []) {
         guard status == .idle || { if case .unavailable = status { return true }; return false }() else { return }
+        #if CLOUD_AI
         let config = CloudVoiceConfiguration.load()
         guard config.hasASR else { status = .unavailable("請先在雲端設定填入語音識別服務。"); return }
         do { try config.validate() } catch { status = .unavailable("雲端設定的服務地址不正確。"); return }
@@ -82,6 +85,10 @@ public final class VoiceRecordingSession {
                 status = .unavailable((error as? CloudVoiceError)?.localizedDescription ?? "雲端語音連線失敗，請檢查網絡後重試。")
             }
         }
+        #else
+        // Built with GYMLOG_CLOUD_AI = NO: no microphone access is compiled in.
+        status = .unavailable(L("此版本未包含語音功能。", "This version does not include voice commands."))
+        #endif
     }
     public func stop() {
         guard status == .recording, let stream else { return }
@@ -106,8 +113,10 @@ public final class VoiceRecordingSession {
     }
     private func releaseAudio() {
         timer?.cancel(); timer = nil
+        #if CLOUD_AI
         engine.stop()
         if installedTap { engine.inputNode.removeTap(onBus: 0); installedTap = false }
+        #endif
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 }

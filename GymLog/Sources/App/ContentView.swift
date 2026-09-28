@@ -23,7 +23,9 @@ struct ContentView: View {
     // 語音協調器建在根層級（見 `VoiceCommandCoordinator` 的說明），不是某個
     // tab 私有的 `@State`；入口按鈕目前只在「今天」顯示（產品決定，
     // 2026-09-23 確認），面板與取消邏輯仍由這裡統一管理。
+    #if CLOUD_AI
     @State private var voiceCoordinator = CloudVoiceController.forApplication()
+    #endif
     @Query(sort: \Exercise.canonicalName) private var allExercises: [Exercise]
     @Query(sort: \Client.name) private var clients: [Client]
 
@@ -126,6 +128,7 @@ struct ContentView: View {
         }
         .onPreferenceChange(TabBarHeightKey.self) { tabBarHeight = $0 }
         .environment(\.floatingTabBarHeight, tabBarHeight)
+        #if CLOUD_AI
         // 2026-09-13 全局語音改造：疊在悬浮 Tab Bar 上方、左下角——執行
         // Prompt §4.1 的建議位置。跟 `FloatingTabBar` 用同一個
         // `tabBarHeight` 量到的實際高度定位，不是憑感覺寫死一個常數，
@@ -167,6 +170,7 @@ struct ContentView: View {
         .onChange(of: draftStore.isActive) { _, active in
             if !active { voiceCoordinator.cancel() }
         }
+        #endif
         .overlay(alignment: .top) {
             if let status = importStatus {
                 ImportStatusBanner(status: status)

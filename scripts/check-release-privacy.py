@@ -8,18 +8,24 @@ import sys
 
 app = pathlib.Path(sys.argv[1])
 info = plistlib.loads((app / "Info.plist").read_bytes())
-if not str(info.get("NSMicrophoneUsageDescription", "")).strip():
-    raise SystemExit("Release privacy check failed: microphone purpose string is missing.")
+# GYMLOG_CLOUD_AI = YES builds carry the microphone purpose string; NO builds carry neither it nor
+# microphone code, and the privacy manifest must match whichever was built.
+cloud_ai = bool(str(info.get("NSMicrophoneUsageDescription", "")).strip())
+if "NSMicrophoneUsageDescription" in info and not cloud_ai:
+    raise SystemExit("Release privacy check failed: microphone purpose string is present but empty.")
 
-# Cloud voice and AI review send these after consent; the manifest must keep declaring them.
 manifest = app / "PrivacyInfo.xcprivacy"
 declared = {entry.get("NSPrivacyCollectedDataType") for entry in
             plistlib.loads(manifest.read_bytes()).get("NSPrivacyCollectedDataTypes", [])} if manifest.exists() else set()
-missing = {"NSPrivacyCollectedDataTypeAudioData", "NSPrivacyCollectedDataTypeOtherUserContent",
-           "NSPrivacyCollectedDataTypeFitness", "NSPrivacyCollectedDataTypeHealth",
-           "NSPrivacyCollectedDataTypeDeviceID"} - declared
-if missing:
-    raise SystemExit(f"Release privacy check failed: privacy manifest does not declare {', '.join(sorted(missing))}.")
+cloud_types = {"NSPrivacyCollectedDataTypeAudioData", "NSPrivacyCollectedDataTypeOtherUserContent",
+               "NSPrivacyCollectedDataTypeFitness", "NSPrivacyCollectedDataTypeHealth",
+               "NSPrivacyCollectedDataTypeDeviceID"}
+if cloud_ai and cloud_types - declared:
+    raise SystemExit(f"Release privacy check failed: cloud AI build, but the privacy manifest does not declare "
+                     f"{', '.join(sorted(cloud_types - declared))}.")
+if not cloud_ai and declared:
+    raise SystemExit(f"Release privacy check failed: build without cloud AI still declares collected data "
+                     f"{', '.join(sorted(declared))}; App Store answers would be wrong.")
 
 # Inspect the actual shipping resources, not just the source target settings.
 for path in app.rglob("*"):
@@ -49,4 +55,7 @@ for bundle in bundles:
             "GymLog cloud-only releases must remove these references; if Apple Speech "
             "is intentionally restored, audit its usage and purpose string first."
         )
-print(f"Release privacy check passed: {len(bundles)} bundles, microphone purpose present, no Apple Speech dependency.")
+    if not cloud_ai and ("AVAudioApplication" in symbols or "AVAudioEngine" in symbols):
+        raise SystemExit(f"Release privacy check failed: {bundle.name} has microphone code but no purpose string.")
+mode = "cloud AI with its five data declarations" if cloud_ai else "no cloud AI, no microphone code, no collected data"
+print(f"Release privacy check passed: {len(bundles)} bundles, {mode}, no Apple Speech dependency.")

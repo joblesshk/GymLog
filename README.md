@@ -57,7 +57,7 @@ npm run check
 
 ## 云端功能
 
-默认服务地址是不可解析的示例占位地址。部署 `backend/worker-relay` 后，通过 `GYMLOG_RELAY_BASE_URL` 构建设置指定自己的 HTTPS 地址。供应商密钥只使用 Worker secrets 注入，不能写进项目文件、客户端配置或提交历史。
+云端语音和 AI 评价默认不编译进应用。默认服务地址是不可解析的示例占位地址。部署 `backend/worker-relay` 后，通过 `GYMLOG_RELAY_BASE_URL` 构建设置指定自己的 HTTPS 地址，并引入 `CloudAI.xcconfig`（见 [SETUP](docs/SETUP.md)）。供应商密钥只使用 Worker secrets 注入，不能写进项目文件、客户端配置或提交历史。
 
 示例 Worker 带有安装身份额度控制，但**安装身份不是账户或可信设备认证**。公开部署前须根据自己的使用范围补充准入、滥用防护与费用控制。[部署说明](backend/worker-relay/README.md)
 

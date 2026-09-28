@@ -21,11 +21,14 @@ xcodebuild -project GymLog/GymLog.xcodeproj -scheme GymLog \
 
 ## 自备云端服务
 
-按照 backend 的 README 部署 Worker，然后在 `GymLog/Config/Local.xcconfig` 设置无密钥的 HTTPS 服务根地址：
+云端语音和 AI 评价默认不编译进应用。按照 backend 的 README 部署 Worker，然后在 `GymLog/Config/Local.xcconfig` 设置无密钥的 HTTPS 服务根地址，并引入开关文件：
 
 ```text
 GYMLOG_RELAY_BASE_URL = https:/$()/YOUR_WORKER_HOST
+#include "CloudAI.xcconfig"
 ```
+
+开启前须按 PRIVACY.md 恢复隐私清单中的收集数据申报，否则发布检查会拒绝构建产物。
 
 xcconfig 中直接写 `https://` 会把双斜线当作注释，所以使用空变量 `$()` 分隔；构建后的地址仍为正常 `https://`。也可使用命令行 `GYMLOG_RELAY_BASE_URL` 临时覆盖。不要再把真实配置写入生成工程或共享 `project.yml`；既有 `project.local.yml` 可以作为包含主工程的兼容入口，避免维护两份工程定义。
 
@@ -35,4 +38,4 @@ xcconfig 中直接写 `https://` 会把双斜线当作注释，所以使用空�
 
 ## 权限
 
-麦克风用于主动发起的云端语音；蓝牙用于心率广播设备；系统照片选择器用于选择体测报告图片（无需相册权限）；通知用于计时提示。OCR、Excel 解析在本机执行。云端数据路径见 PRIVACY.md。
+麦克风仅在开启云端 AI 的构建中用于主动发起的云端语音；蓝牙用于心率广播设备；系统照片选择器用于选择体测报告图片（无需相册权限）；通知用于计时提示。OCR、Excel 解析在本机执行。云端数据路径见 PRIVACY.md。

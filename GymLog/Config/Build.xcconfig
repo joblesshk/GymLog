@@ -4,4 +4,11 @@ GYMLOG_RELAY_BASE_URL = https:/$()/relay.example.invalid
 GYMLOG_APP_BUNDLE_IDENTIFIER = org.example.gymlog
 GYMLOG_KIT_BUNDLE_IDENTIFIER = org.example.gymlog.kit
 DEVELOPMENT_TEAM =
+// Cloud voice planning and AI review (third-party speech and language models) are left out of the
+// build -- entry points, microphone code and purpose string -- unless Local.xcconfig includes
+// CloudAI.xcconfig. See PRIVACY.md before turning them on.
+GYMLOG_CLOUD_AI = NO
+GYMLOG_CLOUD_AI_CONDITION_YES = CLOUD_AI
+GYMLOG_CLOUD_AI_CONDITION_NO =
+GYMLOG_CLOUD_AI_CONDITION = $(GYMLOG_CLOUD_AI_CONDITION_$(GYMLOG_CLOUD_AI))
 #include? "Local.xcconfig"

@@ -1,5 +1,7 @@
 import XCTest
 
+#if CLOUD_AI
+
 /// Deterministic UI transport fixture; live providers are tested separately in the evidence report.
 final class VoiceCommandTextEntryUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
@@ -80,3 +82,4 @@ final class VoiceCommandTextEntryUITests: XCTestCase {
         XCTAssertFalse(app.secureTextFields["API Key"].exists)
     }
 }
+#endif

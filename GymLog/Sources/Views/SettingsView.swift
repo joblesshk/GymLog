@@ -165,6 +165,7 @@ struct SettingsView: View {
                 // List 首屏渲染範圍（SwiftUI List 在真機/模擬器上對超出首屏
                 // 的行有懶加載行為，XCUITest 的 `waitForExistence` 不會自動
                 // 先滾動）。
+                #if CLOUD_AI
                 Section {
                     NavigationLink("雲端語音設定", destination: CloudVoiceSettingsView())
                 } header: {
@@ -178,6 +179,7 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(DS.C.textLow)
                 }
+                #endif
             }
             .scrollContentBackground(.hidden)
             .background(DS.C.canvas)
