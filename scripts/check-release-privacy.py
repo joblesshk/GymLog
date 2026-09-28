@@ -11,6 +11,16 @@ info = plistlib.loads((app / "Info.plist").read_bytes())
 if not str(info.get("NSMicrophoneUsageDescription", "")).strip():
     raise SystemExit("Release privacy check failed: microphone purpose string is missing.")
 
+# Cloud voice and AI review send these after consent; the manifest must keep declaring them.
+manifest = app / "PrivacyInfo.xcprivacy"
+declared = {entry.get("NSPrivacyCollectedDataType") for entry in
+            plistlib.loads(manifest.read_bytes()).get("NSPrivacyCollectedDataTypes", [])} if manifest.exists() else set()
+missing = {"NSPrivacyCollectedDataTypeAudioData", "NSPrivacyCollectedDataTypeOtherUserContent",
+           "NSPrivacyCollectedDataTypeFitness", "NSPrivacyCollectedDataTypeHealth",
+           "NSPrivacyCollectedDataTypeDeviceID"} - declared
+if missing:
+    raise SystemExit(f"Release privacy check failed: privacy manifest does not declare {', '.join(sorted(missing))}.")
+
 # Inspect the actual shipping resources, not just the source target settings.
 for path in app.rglob("*"):
     if path.is_file() and (path.suffix.lower() in {".store", ".sqlite", ".db", ".xlsx", ".xls", ".csv", ".gymlogshare"}
