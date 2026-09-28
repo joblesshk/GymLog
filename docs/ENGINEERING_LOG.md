@@ -1,5 +1,14 @@
 # 工程记录
 
+## 2026-09-29 — 1.0（43）App Store 首版上傳（不含雲端 AI）
+
+- 使用者決定首個 App Store 版本不含雲端語音與 AI 評價，且所有構建（含 Debug）預設關閉：`ab45ee9` 以 `GYMLOG_CLOUD_AI` 編譯剔除入口與麥克風程式碼，隱私清單不申報收集資料；AI 版本的同意流程（`ec61ba2`）與五項收集資料申報（`5fd5412`）保留在歷史中，開啟時須引入 `CloudAI.xcconfig` 並恢復申報。
+- project.yml 更新為 43。Release Archive 的 App 與 GymLogKit 均為 1.0（43），僅 iPhone；codesign 嚴格校驗通過，發布隱私檢查確認無雲端 AI、無麥克風程式碼、無收集資料申報。
+- 2026-09-29 01:37 香港時間，Apple 返回 “Uploaded package is processing”、“Upload succeeded” 與 “EXPORT SUCCEEDED”；其後 App Store Connect 已可選取 43，並已綁定至 1.0 版本頁。Archive 與上傳日誌位於倉庫外 release-build43。
+- App Store Connect 已保存：類別 Health & Fitness、免費、174 個國家或地區（排除中國大陸）、僅 iPhone（取消 Mac 與 Vision Pro）、年齡分級 9+、App 隱私「不收集資料」（待隱私政策網址後發布）、審核備註及繁中文案。截圖、隱私政策與支援網址、版權、審核聯絡人、醫療器械與內容權利聲明待使用者補齊；尚未提交審核。
+- 新增僅 Debug 編譯的 `-screenshotShowcase` 合成示範資料與按需執行的 `AppStoreScreenshotTests`（`TEST_RUNNER_GYMLOG_SCREENSHOTS=1`），用於產生商店截圖；示範學員為虛構資料。截圖中發現課次摘要總訓練量含小數時換行（如 5817.5 kg），另案處理。
+- 驗證：725 項單元測試、31 項 UI 測試（無雲端 AI 構建）通過；開啟 AI 的構建可編譯，且發布檢查會因缺少申報而拒絕。未推送遠端 Git。
+
 ## 2026-09-25 — 1.0（42）Git 提交與真機安裝
 
 - 語音負重與單側統計修復、版本號及工程記錄已提交本地 Git：`2c25e22`；project.yml 為 42，已重新生成 Xcode 工程。Release App 與 GymLogKit 均為 1.0（42），構建、codesign 嚴格校驗與發布隱私檢查通過，沿用既有應用身份及本機 relay 配置。
