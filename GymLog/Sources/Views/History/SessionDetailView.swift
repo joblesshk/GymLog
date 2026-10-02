@@ -379,11 +379,14 @@ struct SessionDetailView: View {
                 .tracking(0.6)
                 .foregroundStyle(DS.C.textLow)
                 .textCase(.uppercase)
+            // One line at any size: large volumes (5817.5, 12,345) shrink instead of wrapping.
             HStack(alignment: .lastTextBaseline, spacing: 3) {
                 if let value {
                     Text(isDuration ? Self.formatHours(value) : Self.formatNumber(value))
                         .font(.system(size: 24, weight: .semibold, design: .monospaced))
                         .foregroundStyle(DS.C.textHi)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
                 } else {
                     Text("—")
                         .font(.system(size: 24, weight: .semibold, design: .monospaced))
@@ -391,6 +394,7 @@ struct SessionDetailView: View {
                 }
                 if value != nil, !isDuration {
                     Text(unit).font(.system(size: 11)).foregroundStyle(DS.C.textLow)
+                        .fixedSize()
                 }
             }
         }
@@ -402,7 +406,9 @@ struct SessionDetailView: View {
 
     private static func formatNumber(_ value: Double) -> String {
         let rounded = value.rounded()
-        return abs(value - rounded) < 0.05 ? Int(rounded).formatted(.number.grouping(.automatic)) : String(format: "%.1f", value)
+        return abs(value - rounded) < 0.05
+            ? Int(rounded).formatted(.number.grouping(.automatic))
+            : value.formatted(.number.grouping(.automatic).precision(.fractionLength(1)))
     }
 
     private static func formatHours(_ hours: Double) -> String {
